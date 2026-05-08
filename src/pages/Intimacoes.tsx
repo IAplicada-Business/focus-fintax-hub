@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { format, differenceInDays, addDays, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AlertTriangle, Download, Plus, Pencil, Trash2 } from "lucide-react";
@@ -15,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { SkeletonKpi } from "@/components/dashboard/SkeletonKpi";
 import { SkeletonTable } from "@/components/dashboard/SkeletonTable";
 import { IntimacaoFormModal } from "@/components/intimacoes/IntimacaoFormModal";
+import { useIntimacoes, useDeleteIntimacao } from "@/hooks/data/useIntimacoes";
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
   pendente: { label: "Pendente", className: "bg-amber-100 text-amber-800 border-amber-200" },
@@ -51,14 +51,8 @@ export default function Intimacoes() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
 
-  const { data: intimacoes, isLoading } = useQuery({
-    queryKey: ["intimacoes"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("intimacoes").select("*").order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { data: intimacoes, isLoading } = useIntimacoes();
+  const deleteIntimacaoMutation = useDeleteIntimacao();
 
   const filtered = useMemo(() => {
     if (!intimacoes) return [];
@@ -85,11 +79,8 @@ export default function Intimacoes() {
     };
   }, [intimacoes]);
 
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("intimacoes").delete().eq("id", id);
-    if (error) { toast.error("Erro ao excluir"); return; }
-    toast.success("Intimação excluída");
-    queryClient.invalidateQueries({ queryKey: ["intimacoes"] });
+  const handleDelete = (id: string) => {
+    deleteIntimacaoMutation.mutate(id);
   };
 
   const exportExcel = () => {

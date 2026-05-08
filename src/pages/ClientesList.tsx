@@ -21,15 +21,23 @@ import { SEGMENTO_LABELS } from "@/lib/pipeline-constants";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useClientes, useProcessosTeses, useCompensacoesMensais, useDeleteCliente } from "@/hooks/data/useClientes";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function ClientesList() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
   const isComercial = userRole === "comercial";
-  const [clientes, setClientes] = useState<any[]>([]);
-  const [processos, setProcessos] = useState<any[]>([]);
-  const [compensacoes, setCompensacoes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  const { data: clientes = [], isLoading: loadingClientes } = useClientes();
+  const { data: processos = [], isLoading: loadingProcessos } = useProcessosTeses();
+  const { data: compensacoes = [], isLoading: loadingComp } = useCompensacoesMensais();
+  const deleteMutation = useDeleteCliente();
+  const loading = loadingClientes || loadingProcessos || loadingComp;
+
+  const fetchAll = () => queryClient.invalidateQueries({ queryKey: ["clientes"] });
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editCliente, setEditCliente] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
@@ -41,19 +49,6 @@ export default function ClientesList() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 25;
-  const fetchAll = async () => {
-    const [{ data: c }, { data: p }, { data: comp }] = await Promise.all([
-      supabase.from("clientes").select("*").order("criado_em", { ascending: false }).limit(5000),
-      supabase.from("processos_teses").select("id, cliente_id, valor_credito, status_contrato, status_processo, criado_em, atualizado_em, tese, nome_exibicao").limit(5000),
-      supabase.from("compensacoes_mensais").select("cliente_id, valor_compensado, processo_tese_id").limit(5000),
-    ]);
-    setClientes(c || []);
-    setProcessos(p || []);
-    setCompensacoes(comp || []);
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchAll(); }, []);
 
   const getClienteStats = (clienteId: string) => {
     const cp = processos.filter((p) => p.cliente_id === clienteId);
@@ -429,14 +424,9 @@ export default function ClientesList() {
             <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
               setDeleting(true);
-              await supabase.from("compensacoes_mensais").delete().eq("cliente_id", deleteTarget.id);
-              await supabase.from("processos_teses").delete().eq("cliente_id", deleteTarget.id);
-              const { error } = await supabase.from("clientes").delete().eq("id", deleteTarget.id);
-              setDeleting(false);
-              if (error) { toast.error("Erro ao excluir cliente."); return; }
-              toast.success("Cliente excluído com sucesso!");
-              setDeleteTarget(null);
-              fetchAll();
+              deleteMutation.mutate(deleteTarget.id, {
+                onSettled: () => { setDeleting(false); setDeleteTarget(null); },
+              });
             }}>{deleting ? "Excluindo..." : "Excluir"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

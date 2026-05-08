@@ -1,7 +1,7 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { Plus, LayoutGrid, List } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { ACTIVE_STAGES, daysSince, formatCurrency } from "@/lib/pipeline-constants";
@@ -12,6 +12,7 @@ import { LeadFormModal } from "@/components/pipeline/LeadFormModal";
 import { LeadSidePanel } from "@/components/pipeline/LeadSidePanel";
 import { SkeletonKpi } from "@/components/dashboard/SkeletonKpi";
 import { SkeletonTable } from "@/components/dashboard/SkeletonTable";
+import { useLeadsPipeline, useLeadExceptions } from "@/hooks/data/useLeads";
 
 export interface PipelineLead {
   id: string;
@@ -40,47 +41,27 @@ export interface PipelineLead {
 
 export default function Pipeline() {
   const { userRole } = useAuth();
-  const [leads, setLeads] = useState<PipelineLead[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: leadsData, isLoading: loading } = useLeadsPipeline();
+  const { data: exceptionLeadIds = new Set<string>() } = useLeadExceptions();
+  const leads = (leadsData ?? []) as PipelineLead[];
+
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [showForm, setShowForm] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
 
-  const [exceptionLeadIds, setExceptionLeadIds] = useState<Set<string>>(new Set());
-
-  const fetchLeads = useCallback(async () => {
-    const [leadsRes, histRes] = await Promise.all([
-      supabase
-        .from("leads")
-        .select("*, relatorios_leads(estimativa_total_minima, estimativa_total_maxima, teses_identificadas)")
-        .order("criado_em", { ascending: false }),
-      supabase
-        .from("lead_historico")
-        .select("lead_id")
-        .ilike("anotacao", "⚠ EXCEÇÃO:%"),
-    ]);
-
-    if (leadsRes.error) {
-      toast.error("Erro ao carregar leads");
-      return;
-    }
-    setLeads((leadsRes.data as any) || []);
-    setExceptionLeadIds(new Set(histRes.data?.map((h) => h.lead_id) || []));
-    setLoading(false);
-  }, []);
+  const fetchLeads = () => queryClient.invalidateQueries({ queryKey: ["leads"] });
 
   useEffect(() => {
-    fetchLeads();
-
     const channel = supabase
       .channel("leads-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => {
-        fetchLeads();
+        queryClient.invalidateQueries({ queryKey: ["leads"] });
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [fetchLeads]);
+  }, [queryClient]);
 
   const activeLeads = useMemo(
     () => leads.filter((l) => l.status_funil !== "perdido" && l.status_funil !== "nao_vai_fazer"),

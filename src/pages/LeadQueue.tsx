@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -10,63 +9,19 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Plus, Eye, RefreshCw, Search, Users } from "lucide-react";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_COLORS } from "@/lib/lead-constants";
-
-interface Lead {
-  id: string;
-  nome: string;
-  empresa: string;
-  cnpj: string;
-  score_lead: number | null;
-  status: string;
-  criado_em: string;
-  segmento: string;
-}
+import { useLeadsBasic, useAnalyzeLead } from "@/hooks/data/useLeads";
 
 export default function LeadQueue() {
   const navigate = useNavigate();
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
 
-  const fetchLeads = async () => {
-    setLoading(true);
-    let query = supabase
-      .from("leads")
-      .select("id, nome, empresa, cnpj, score_lead, status, criado_em, segmento")
-      .order("criado_em", { ascending: false });
+  const { data: leads = [], isLoading: loading } = useLeadsBasic(statusFilter === "all" ? undefined : statusFilter);
+  const analyzeMutation = useAnalyzeLead();
 
-    if (statusFilter !== "all") {
-      query = query.eq("status", statusFilter);
-    }
-
-    const { data, error } = await query;
-    if (error) {
-      toast.error("Erro ao carregar leads");
-    }
-    setLeads(data || []);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchLeads();
-  }, [statusFilter]);
-
-  const handleReprocess = async (leadId: string) => {
+  const handleReprocess = (leadId: string) => {
     toast.info("Reprocessando...");
-    try {
-      const { error } = await supabase.functions.invoke("analyze-lead", {
-        body: { lead_id: leadId },
-      });
-      if (error) {
-        toast.error("Erro ao reprocessar");
-      } else {
-        toast.success("Reprocessado com sucesso!");
-        fetchLeads();
-      }
-    } catch {
-      toast.error("Erro ao reprocessar");
-    }
+    analyzeMutation.mutate(leadId);
   };
 
   const filtered = leads.filter(
