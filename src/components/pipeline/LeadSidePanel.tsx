@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toastError } from "@/lib/handle-error";
 import { ExternalLink, MessageCircle, Pencil, UserCheck, XCircle, ArrowRight, AlertTriangle, Check } from "lucide-react";
 import { PIPELINE_STAGES, STAGE_COLORS, SEGMENTO_LABELS, formatCurrency, daysSince } from "@/lib/pipeline-constants";
 import { useAuth } from "@/hooks/useAuth";
@@ -101,7 +102,8 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
       return;
     }
     const oldStage = lead.status_funil;
-    await supabase.from("leads").update({ status_funil: newStage, status_funil_atualizado_em: new Date().toISOString() }).eq("id", lead.id);
+    const { error } = await supabase.from("leads").update({ status_funil: newStage, status_funil_atualizado_em: new Date().toISOString() }).eq("id", lead.id);
+    if (error) { toastError(error, "Erro ao atualizar etapa"); return; }
     await supabase.from("lead_historico").insert({ lead_id: lead.id, de_etapa: oldStage, para_etapa: newStage, criado_por: user?.id });
     toast.success("Etapa atualizada");
     onRefresh();
@@ -110,7 +112,8 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
   const handleMarkLost = async () => {
     if (!lead) return;
     const oldStage = lead.status_funil;
-    await supabase.from("leads").update({ status_funil: "perdido", status_funil_atualizado_em: new Date().toISOString() }).eq("id", lead.id);
+    const { error } = await supabase.from("leads").update({ status_funil: "perdido", status_funil_atualizado_em: new Date().toISOString() }).eq("id", lead.id);
+    if (error) { toastError(error, "Erro ao marcar como perdido"); return; }
     await supabase.from("lead_historico").insert({ lead_id: lead.id, de_etapa: oldStage, para_etapa: "perdido", criado_por: user?.id });
     toast.success("Lead marcado como perdido");
     setShowLostConfirm(false);

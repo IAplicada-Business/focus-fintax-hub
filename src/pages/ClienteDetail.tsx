@@ -11,6 +11,7 @@ import { ArrowLeft, ExternalLink, MessageCircle, Upload, Pencil, Trash2, Clock, 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { toastError } from "@/lib/handle-error";
 import { ProcessosTesesTab } from "@/components/clientes/ProcessosTesesTab";
 import { CompensacoesTab } from "@/components/clientes/CompensacoesTab";
 import { ResumoFinanceiroTab } from "@/components/clientes/ResumoFinanceiroTab";
@@ -106,7 +107,8 @@ export default function ClienteDetail() {
   const updateField = async (field: string, value: any) => {
     setCliente((prev: any) => ({ ...prev, [field]: value }));
     const updateData: Record<string, any> = { [field]: value, atualizado_em: new Date().toISOString() };
-    await supabase.from("clientes").update(updateData as any).eq("id", id!);
+    const { error } = await supabase.from("clientes").update(updateData as any).eq("id", id!);
+    if (error) toastError(error, "Erro ao atualizar campo");
   };
 
   const handleObsChange = (value: string) => {

@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { routeToScreenKey } from "@/lib/screen-permissions";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, permissions } = useAuth();
@@ -27,5 +28,5 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     }
   }
 
-  return <>{children}</>;
+  return <ErrorBoundary>{children}</ErrorBoundary>;
 }
