@@ -18,7 +18,7 @@ export function RankingTable({ fullRanking, numMonths, navigate }: Props) {
           <div className="text-[11px] text-ink-35 mt-0.5">economia bruta acumulada · {numMonths} meses · % do crédito identificado utilizado</div>
         </div>
       </div>
-      <table className="w-full border-collapse">
+      <table className="w-full border-collapse" aria-label="Ranking de compensações por cliente">
         <thead>
           <tr>
             {["#", "Empresa", "Total compensado", "Honorários", "Economia líquida", "% utilizado", "Progresso", "Saldo restante"].map((h, i) => (
