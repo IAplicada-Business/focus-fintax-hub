@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
+import { toastError } from "@/lib/handle-error";
 import { Plus, Pencil, Calculator, AlertTriangle, Clock, ShieldCheck, BarChart3 } from "lucide-react";
 
 interface TeseConfig {
@@ -119,10 +120,11 @@ export default function MotorConfig() {
   }, []);
 
   const fetchTeses = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("motor_teses_config")
       .select("*")
       .order("ordem_exibicao", { ascending: true });
+    if (error) { toastError(error, "Erro ao carregar teses"); setLoading(false); return; }
     setTeses((data as any[] || []).map((d) => ({
       ...d,
       percentual_min: Number(d.percentual_min),
@@ -182,11 +184,12 @@ export default function MotorConfig() {
   }, [teses]);
 
   const inlineSave = useCallback(async (id: string, fields: Record<string, any>) => {
-    await supabase.from("motor_teses_config").update({
+    const { error } = await supabase.from("motor_teses_config").update({
       ...fields,
       atualizado_em: new Date().toISOString(),
       atualizado_por: userId,
     }).eq("id", id);
+    if (error) { toastError(error, "Erro ao salvar configuração"); return; }
     fetchTeses();
   }, [userId]);
 
