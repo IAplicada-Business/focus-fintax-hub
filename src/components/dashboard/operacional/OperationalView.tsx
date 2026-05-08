@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Link, type NavigateFunction } from "react-router-dom";
 import { compactCurrency, type MonthBar, type ClientRank, MONTH_ABBR } from "../dashboard-utils";
 import { SkeletonKpi } from "../SkeletonKpi";
@@ -28,7 +29,7 @@ interface Props {
   intimacoesVencendo: number;
 }
 
-export function OperationalView({ kpiLoading, chartLoading, opClientes, opTotalAtivos, opCompensado, opHonorarios, opSaldo, opEconomia, monthlyBars, topCompensado, topSaldo, navigate, intimacoesPendentes, intimacoesVencendo }: Props) {
+export const OperationalView = memo(function OperationalView({ kpiLoading, chartLoading, opClientes, opTotalAtivos, opCompensado, opHonorarios, opSaldo, opEconomia, monthlyBars, topCompensado, topSaldo, navigate, intimacoesPendentes, intimacoesVencendo }: Props) {
   // Projections
   const numMonths = monthlyBars.length || 1;
   const avgMensal = opCompensado / numMonths;
@@ -148,4 +149,4 @@ export function OperationalView({ kpiLoading, chartLoading, opClientes, opTotalA
       )}
     </>
   );
-}
+});

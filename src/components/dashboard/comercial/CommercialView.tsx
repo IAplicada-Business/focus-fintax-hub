@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { NavigateFunction } from "react-router-dom";
 import type { FunnelRow, RecentLead } from "../dashboard-utils";
 import { SkeletonKpi } from "../SkeletonKpi";
@@ -36,7 +37,7 @@ interface Props {
   navigate: NavigateFunction;
 }
 
-export function CommercialView(props: Props) {
+export const CommercialView = memo(function CommercialView(props: Props) {
   return (
     <>
       {props.kpiLoading ? <SkeletonKpi /> : (
@@ -78,4 +79,4 @@ export function CommercialView(props: Props) {
       )}
     </>
   );
-}
+});

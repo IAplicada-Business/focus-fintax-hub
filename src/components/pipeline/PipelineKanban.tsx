@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toastError } from "@/lib/handle-error";
 import { AlertTriangle, ChevronRight, ChevronDown, Users } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { PIPELINE_STAGES, STAGE_MERGE_MAP, SEGMENTO_COLORS, SEGMENTO_LABELS, SCORE_CONFIG, getScoreLabel, formatCurrency, daysSince } from "@/lib/pipeline-constants";
@@ -22,6 +23,7 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
   const { user, userRole } = useAuth();
   const [convertLead, setConvertLead] = useState<PipelineLead | null>(null);
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
+  const [optimisticMoves, setOptimisticMoves] = useState<Record<string, string>>({});
   const dragEnabled = canDragInPipeline(userRole);
 
   const toggleCollapse = (stage: string) => {
@@ -33,17 +35,24 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
     });
   };
 
+  const effectiveLeads = useMemo(() => {
+    if (Object.keys(optimisticMoves).length === 0) return leads;
+    return leads.map((l) =>
+      optimisticMoves[l.id] ? { ...l, status_funil: optimisticMoves[l.id] } : l
+    );
+  }, [leads, optimisticMoves]);
+
   const grouped = useMemo(() => {
     const map: Record<string, PipelineLead[]> = {};
     PIPELINE_STAGES.forEach((s) => (map[s.value] = []));
-    leads.forEach((l) => {
+    effectiveLeads.forEach((l) => {
       const raw = l.status_funil || "novo";
       const stage = STAGE_MERGE_MAP[raw] || raw;
       if (map[stage]) map[stage].push(l);
       else map["novo"].push(l);
     });
     return map;
-  }, [leads]);
+  }, [effectiveLeads]);
 
   const handleDragEnd = async (result: DropResult) => {
     if (!dragEnabled) return;
@@ -63,8 +72,10 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
     await moveLeadToStage(lead, newStage);
   };
 
-  const moveLeadToStage = async (lead: PipelineLead, newStage: string) => {
+  const moveLeadToStage = useCallback(async (lead: PipelineLead, newStage: string) => {
     const oldStage = lead.status_funil;
+
+    setOptimisticMoves((prev) => ({ ...prev, [lead.id]: newStage }));
 
     const { error } = await supabase
       .from("leads")
@@ -72,7 +83,8 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
       .eq("id", lead.id);
 
     if (error) {
-      toast.error("Erro ao mover lead");
+      setOptimisticMoves((prev) => { const next = { ...prev }; delete next[lead.id]; return next; });
+      toastError(error, "Erro ao mover lead");
       return;
     }
 
@@ -83,13 +95,14 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
       criado_por: user?.id,
     });
 
+    setOptimisticMoves((prev) => { const next = { ...prev }; delete next[lead.id]; return next; });
     onRefresh();
-  };
+  }, [user?.id, onRefresh]);
 
   return (
     <>
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-3 overflow-x-auto pb-4" style={{ height: "calc(100vh - 280px)", minHeight: 400 }}>
+        <div role="region" aria-label="Pipeline de leads" className="flex gap-3 overflow-x-auto pb-4" style={{ height: "calc(100vh - 280px)", minHeight: 400 }}>
           {PIPELINE_STAGES.map((stage) => {
             const stageLeads = grouped[stage.value] || [];
             const totalPotencial = stageLeads.reduce((s, l) => s + (l.relatorios_leads?.[0]?.estimativa_total_maxima || 0), 0);
@@ -117,6 +130,8 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
+                    role="list"
+                    aria-label={`${stage.label} — ${stageLeads.length} leads`}
                     className={`flex-shrink-0 w-[240px] rounded-lg border p-2 flex flex-col gap-2 transition-colors ${
                       snapshot.isDraggingOver ? "bg-primary/5 border-primary/30" : "bg-muted/30"
                     }`}
@@ -182,6 +197,9 @@ function LeadCard({ lead, index, onClick, isException, userRole, isDragDisabled 
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
+          role="listitem"
+          aria-label={`${lead.empresa} — Score ${scoreLabel}, ${days} dias`}
+          aria-roledescription="card arrastável"
           onClick={onClick}
           className={`bg-card rounded-md border p-2 cursor-pointer hover:shadow-md transition-shadow ${borderClass} ${
             snapshot.isDragging ? "shadow-lg rotate-1" : ""
