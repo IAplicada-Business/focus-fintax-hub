@@ -32,9 +32,21 @@ cd <YOUR_PROJECT_NAME>
 # Step 3: Install the necessary dependencies.
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Step 4: Copy the example environment file and fill in Supabase credentials.
+cp .env.example .env
+# then edit .env with your VITE_SUPABASE_* values
+
+# Step 5: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
+
+### Environment variables
+
+Required variables (see `.env.example`):
+
+- `VITE_SUPABASE_PROJECT_ID` — Supabase project reference id
+- `VITE_SUPABASE_URL` — Supabase project URL
+- `VITE_SUPABASE_PUBLISHABLE_KEY` — Supabase `anon` (publishable) key. This key is public by design; access control lives in RLS policies.
 
 **Edit a file directly in GitHub**
 

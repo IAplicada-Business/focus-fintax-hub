@@ -46,7 +46,7 @@ function useSidebarPermissions() {
   const canAccess = (key?: string) => {
     if (!key) return true;
     const perm = permissions.find((p) => p.screen_key === key);
-    return perm ? perm.can_access : false;
+    return perm ? perm.can_access : true;
   };
   const isReadOnly = (key?: string) => {
     if (!key) return false;
