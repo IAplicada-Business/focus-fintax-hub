@@ -40,17 +40,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserRole(role);
     setProfile(prof ?? null);
 
-    // Load screen permissions
+    // Load screen permissions and merge with role defaults for completeness
     const { data: perms } = await supabase
       .from("user_permissions")
       .select("screen_key, can_access, read_only")
       .eq("user_id", userId);
 
+    const defaults = getDefaultPermissions(role ?? "cliente");
+
     if (perms && perms.length > 0) {
-      setPermissions(perms as ScreenPermission[]);
+      // Merge: use DB values where they exist, fill missing screens from role defaults
+      const dbMap = new Map(perms.map((p) => [p.screen_key, p as ScreenPermission]));
+      const merged = defaults.map((d) => dbMap.get(d.screen_key) ?? d);
+      setPermissions(merged);
     } else {
-      // Fallback to role defaults
-      setPermissions(getDefaultPermissions(role ?? "cliente"));
+      setPermissions(defaults);
     }
   };
 
