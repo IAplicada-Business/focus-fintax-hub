@@ -98,8 +98,16 @@ Deno.serve(async (req) => {
       });
 
       if (createErr) {
+        const msg = createErr.message || "";
+        const alreadyExists = /already.*registered|already exists|duplicate/i.test(msg);
+        if (alreadyExists) {
+          return new Response(
+            JSON.stringify({ error: "Já existe um usuário cadastrado com este e-mail." }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
         return new Response(
-          JSON.stringify({ error: createErr.message }),
+          JSON.stringify({ error: msg }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
