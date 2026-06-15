@@ -36,21 +36,37 @@
 
 .card-base {
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 1px 3px rgba(10,21,100,0.06), 0 4px 16px rgba(10,21,100,0.04);
+  border-radius: 20px;
+  box-shadow: 0 0 0 1px rgba(10,21,100,0.04), 0 1px 2px rgba(10,21,100,0.04), 0 8px 24px -12px rgba(10,21,100,0.10);
   border: none;
+  transition: box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .card-hover {
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition: box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .card-hover:hover {
-  box-shadow: 0 4px 12px rgba(10,21,100,0.10), 0 12px 32px rgba(10,21,100,0.07);
+  box-shadow: 0 0 0 1px rgba(10,21,100,0.06), 0 4px 12px rgba(10,21,100,0.08), 0 18px 40px -16px rgba(10,21,100,0.14);
   transform: translateY(-1px);
 }
 .card-flush {
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 1px 2px rgba(10,21,100,0.05);
+  border-radius: 20px;
+  box-shadow: 0 0 0 1px rgba(10,21,100,0.04);
+}
+
+/* Modern link/CTA with diagonal arrow micro-interaction (uses brand red as accent) */
+.link-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.link-arrow svg {
+  transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.link-arrow:hover svg {
+  transform: translate(2px, -2px);
 }
 
 @tailwind base;
@@ -124,7 +140,7 @@
     --input: 232 33% 90%;
     --ring: 233 97% 21%;
 
-    --radius: 0.75rem;
+    --radius: 0.875rem;
 
     --sidebar-background: 233 83% 24%;
     --sidebar-foreground: 230 33% 85%;
@@ -144,11 +160,32 @@
     @apply border-border;
   }
 
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     @apply text-foreground font-sans;
-    background: radial-gradient(ellipse at 20% 0%, rgba(10,21,100,0.04) 0%, transparent 60%),
-                radial-gradient(ellipse at 80% 100%, rgba(200,0,30,0.02) 0%, transparent 60%),
-                #f2f3f7;
+    background: radial-gradient(ellipse at 20% 0%, rgba(10,21,100,0.025) 0%, transparent 55%),
+                radial-gradient(ellipse at 80% 100%, rgba(200,0,30,0.015) 0%, transparent 55%),
+                #f5f6fa;
+    letter-spacing: -0.005em;
+  }
+
+  h1, h2, h3, h4, h5 {
+    letter-spacing: -0.022em;
+  }
+
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(200,0,30,0.22);
+    border-radius: 8px;
+  }
+
+  ::selection {
+    background: rgba(10,21,100,0.18);
   }
 }
 
