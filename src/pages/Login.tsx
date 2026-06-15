@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, LogIn, Mail, Lock, ShieldCheck, Sparkles, Lock as LockKey } from "lucide-react";
+import { Eye, EyeOff, LogIn, Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
 import logo from "@/assets/logo-focus-fintax.png";
 import logoWhite from "@/assets/logo-focus-fintax-white.png";
@@ -45,88 +45,44 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-[1.05fr_1fr] bg-background">
-      {/* ─── BRAND PANEL (left on desktop, top on mobile) ─── */}
+    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
+      {/* ─── BRAND PANEL ─── */}
       <aside
-        className="relative overflow-hidden flex flex-col justify-between p-8 sm:p-12 lg:p-16 text-white"
-        style={{
-          background:
-            "radial-gradient(ellipse at 20% 10%, rgba(200,0,30,0.18) 0%, transparent 55%), radial-gradient(ellipse at 80% 90%, rgba(26,45,138,0.45) 0%, transparent 60%), linear-gradient(180deg, #0a1564 0%, #071040 100%)",
-        }}
+        className="relative hidden lg:flex items-center justify-center overflow-hidden"
+        style={{ background: "#0a1564" }}
       >
-        {/* subtle grid pattern */}
-        <div
-          className="absolute inset-0 opacity-[0.06] pointer-events-none"
-          style={{
-            backgroundImage:
-              "radial-gradient(rgba(255,255,255,0.7) 1px, transparent 1px)",
-            backgroundSize: "32px 32px",
-          }}
+        <img
+          src={logoWhite}
+          alt="Focus FinTax"
+          className="relative z-10 w-[58%] max-w-[420px] h-auto select-none"
+          draggable={false}
         />
-
-        <div className="relative z-10 flex items-center gap-3">
-          <img
-            src={logoWhite}
-            alt="Focus FinTax"
-            className="h-12 sm:h-14 w-auto select-none"
-            draggable={false}
-          />
-        </div>
-
-        <div className="relative z-10 max-w-xl py-12 lg:py-0">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/8 border border-white/12 backdrop-blur-sm text-[11px] font-bold uppercase tracking-[0.14em] text-white/85 mb-6">
-            <Sparkles className="h-3.5 w-3.5 text-dash-red" />
-            Inteligência Tributária
-          </div>
-          <h2 className="font-display text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold leading-[1.05] tracking-[-0.028em] mb-5">
-            Bem-vindo ao{" "}
-            <span className="bg-gradient-to-r from-dash-red to-[#e06b6b] bg-clip-text text-transparent">
-              Focus FinTax
-            </span>
-          </h2>
-          <p className="text-base sm:text-lg text-white/72 leading-relaxed max-w-md">
-            A plataforma de inteligência tributária e financeira para o varejo
-            brasileiro. Diagnóstico, gestão de teses e operação em um único lugar.
-          </p>
-
-          <ul className="mt-10 space-y-3.5 text-sm text-white/75">
-            <li className="flex items-start gap-3">
-              <ShieldCheck className="h-5 w-5 text-dash-red shrink-0 mt-0.5" />
-              <span>Segurança e conformidade em primeiro lugar</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <LockKey className="h-5 w-5 text-dash-red shrink-0 mt-0.5" />
-              <span>Acesso baseado em papéis com auditoria completa</span>
-            </li>
-          </ul>
-        </div>
-
-        <div className="relative z-10 text-xs text-white/45">
-          © {new Date().getFullYear()} Focus FinTax · Grupo Focus
+        <div className="absolute bottom-8 left-0 right-0 text-center text-[11px] tracking-[0.14em] uppercase font-semibold text-white/40">
+          Grupo Focus · {new Date().getFullYear()}
         </div>
       </aside>
 
-      {/* ─── FORM PANEL (right on desktop) ─── */}
-      <main className="flex items-center justify-center p-6 sm:p-10 lg:p-14">
-        <div className="w-full max-w-md space-y-8">
-          {/* Mobile / fallback logo — appears only when brand panel is not visible */}
-          <div className="flex justify-center lg:hidden -mt-2">
+      {/* ─── FORM PANEL ─── */}
+      <main className="flex items-center justify-center px-6 py-12 sm:px-10 lg:px-14">
+        <div className="w-full max-w-sm space-y-10">
+          {/* Mobile logo */}
+          <div className="flex justify-center lg:hidden">
             <img
               src={logo}
               alt="Focus FinTax"
-              className="h-24 w-auto select-none"
+              className="h-28 w-auto select-none"
               draggable={false}
             />
           </div>
 
-          <div className="space-y-2 text-center lg:text-left">
-            <h1 className="font-display text-3xl sm:text-[2.25rem] font-extrabold text-foreground tracking-[-0.028em] leading-tight">
-              {mode === "login" && "Entrar na sua conta"}
-              {mode === "forgot" && "Recuperar senha"}
+          <div className="space-y-1.5">
+            <h1 className="text-xl sm:text-[1.375rem] font-semibold text-foreground tracking-[-0.018em] leading-tight">
+              {mode === "login" ? "Entrar" : "Recuperar senha"}
             </h1>
             <p className="text-muted-foreground text-sm">
-              {mode === "login" && "Informe seu e-mail e senha para acessar a plataforma."}
-              {mode === "forgot" && "Enviaremos um link para redefinir a sua senha."}
+              {mode === "login"
+                ? "Acesse a plataforma com seu e-mail e senha."
+                : "Enviaremos um link para redefinir sua senha."}
             </p>
           </div>
 
@@ -146,7 +102,7 @@ export default function Login() {
                   placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-11 h-12 rounded-xl border-border bg-muted/40 text-foreground placeholder:text-muted-foreground/60 transition-all duration-150 ease-out-modern focus:bg-background focus:shadow-[0_0_0_3px_hsl(var(--ring)/0.18)]"
+                  className="pl-11 h-12 rounded-xl border-border bg-muted/30 text-foreground placeholder:text-muted-foreground/60 transition-all duration-150 ease-out-modern focus:bg-background focus:shadow-[0_0_0_3px_hsl(var(--ring)/0.18)]"
                   required
                   autoComplete="email"
                 />
@@ -166,7 +122,7 @@ export default function Login() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-11 pr-11 h-12 rounded-xl border-border bg-muted/40 text-foreground placeholder:text-muted-foreground/60 transition-all duration-150 ease-out-modern focus:bg-background focus:shadow-[0_0_0_3px_hsl(var(--ring)/0.18)]"
+                    className="pl-11 pr-11 h-12 rounded-xl border-border bg-muted/30 text-foreground placeholder:text-muted-foreground/60 transition-all duration-150 ease-out-modern focus:bg-background focus:shadow-[0_0_0_3px_hsl(var(--ring)/0.18)]"
                     required
                     minLength={6}
                     autoComplete="current-password"
@@ -193,14 +149,13 @@ export default function Login() {
               ) : (
                 <>
                   <LogIn className="h-4 w-4 mr-2" />
-                  {mode === "login" && "Entrar"}
-                  {mode === "forgot" && "Enviar e-mail"}
+                  {mode === "login" ? "Entrar" : "Enviar e-mail"}
                 </>
               )}
             </Button>
           </form>
 
-          <div className="text-center lg:text-left text-sm">
+          <div className="text-sm">
             {mode === "login" ? (
               <button
                 type="button"
