@@ -345,7 +345,7 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        <img src={logoFocusWhite} alt="Focus FinTax" style={{ height: 56, width: "auto" }} />
+        <img src={logoFocusWhite} alt="Focus FinTax" style={{ height: 64, width: "auto" }} />
         <div style={{
           display: "flex", alignItems: "center", gap: 8,
           background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)",
@@ -659,7 +659,7 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
         letterSpacing: 0.5,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src={logoFocus} alt="Focus FinTax" style={{ height: 24, width: "auto", opacity: 0.7 }} />
+          <img src={logoFocus} alt="Focus FinTax" style={{ height: 36, width: "auto", opacity: 0.85 }} />
           <span>Focus FinTax LTDA · Grupo Focus · A Contabilidade do Supermercado</span>
         </div>
         <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{reportDate}</span>
