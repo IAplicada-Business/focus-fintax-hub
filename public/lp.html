@@ -50,7 +50,7 @@
 
   /* Type — escala reduzida e alinhada ao form */
   --font:'Inter',ui-sans-serif,system-ui,sans-serif;
-  --fs-display: clamp(1.75rem, 3.2vw, 2.625rem);  /* hero H1: 28–42px */
+  --fs-display: clamp(1.875rem, 3.6vw, 3rem);  /* hero H1: 30–48px */
   --fs-h2:      clamp(1.625rem, 3vw, 2.25rem);     /* sections H2: 26–36px */
   --fs-h3:      clamp(1.125rem, 1.6vw, 1.375rem);
   --fs-lead:    clamp(0.9375rem, .9vw, 1.0625rem);
@@ -396,6 +396,8 @@ section{position:relative}
 @media(max-width:1024px){
   .hero-inner{grid-template-columns:1fr;gap:40px}
   .hero h1{max-width:none}
+  .hero h1 .hl-line{white-space:normal;display:inline}
+  .hero h1 br{display:none}
   .opp-grid{grid-template-columns:1fr}
   .footer-grid{grid-template-columns:1fr 1fr;gap:48px}
   .plat-grid{grid-template-columns:1fr;border-radius:var(--radius)}
