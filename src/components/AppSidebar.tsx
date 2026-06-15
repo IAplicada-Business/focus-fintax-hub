@@ -206,7 +206,7 @@ export function AppSidebar() {
         <SheetContent side="left" className="p-0 w-[260px] border-r-0" style={sidebarStyle}>
           <div className="h-full flex flex-col">
             <div className="flex items-center h-20 px-3 shrink-0">
-              <img src={logoWhite} alt="Focus FinTax" className="h-12 object-contain ml-1" />
+              <img src={logoWhite} alt="Focus FinTax" className="h-16 w-auto object-contain ml-1 select-none" draggable={false} />
             </div>
             <SidebarNav
               visibleItems={visibleItems} canAccess={canAccess} isReadOnly={isReadOnly}
@@ -234,7 +234,7 @@ export function AppSidebar() {
       <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-white/10 via-white/5 to-transparent pointer-events-none" />
       <div className="flex items-center h-20 px-3 shrink-0">
         {open ? (
-          <img src={logoWhite} alt="Focus FinTax" className="h-12 object-contain ml-1" />
+          <img src={logoWhite} alt="Focus FinTax" className="h-16 w-auto object-contain ml-1 select-none" draggable={false} />
         ) : (
           <div className="h-8 w-8 rounded-md bg-sidebar-accent flex items-center justify-center mx-auto">
             <span className="text-sidebar-primary font-extrabold text-sm">F</span>
