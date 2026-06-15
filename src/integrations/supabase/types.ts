@@ -86,6 +86,13 @@ export type Database = {
             referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_cliente_historico_cliente"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["cliente_id"]
+          },
         ]
       }
       clientes: {
@@ -151,6 +158,13 @@ export type Database = {
             referencedRelation: "leads"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "clientes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["crm_lead_id"]
+          },
         ]
       }
       compensacoes_mensais: {
@@ -197,6 +211,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clientes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compensacoes_mensais_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["cliente_id"]
           },
           {
             foreignKeyName: "compensacoes_mensais_processo_tese_id_fkey"
@@ -251,6 +272,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnosticos_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["crm_lead_id"]
           },
         ]
       }
@@ -308,6 +336,13 @@ export type Database = {
             referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "intimacoes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["cliente_id"]
+          },
         ]
       }
       lead_historico: {
@@ -347,11 +382,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_lead_historico_lead"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["crm_lead_id"]
+          },
+          {
             foreignKeyName: "lead_historico_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_historico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["crm_lead_id"]
           },
         ]
       }
@@ -417,6 +466,477 @@ export type Database = {
           whatsapp?: string
         }
         Relationships: []
+      }
+      meta_ad_sets: {
+        Row: {
+          campaign_id: string | null
+          daily_budget: number | null
+          end_time: string | null
+          id: string
+          name: string | null
+          raw: Json | null
+          start_time: string | null
+          status: string | null
+          synced_at: string
+          targeting: Json | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          daily_budget?: number | null
+          end_time?: string | null
+          id: string
+          name?: string | null
+          raw?: Json | null
+          start_time?: string | null
+          status?: string | null
+          synced_at?: string
+          targeting?: Json | null
+        }
+        Update: {
+          campaign_id?: string | null
+          daily_budget?: number | null
+          end_time?: string | null
+          id?: string
+          name?: string | null
+          raw?: Json | null
+          start_time?: string | null
+          status?: string | null
+          synced_at?: string
+          targeting?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_ad_sets_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "meta_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_ad_sets_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["campaign_id"]
+          },
+        ]
+      }
+      meta_ads: {
+        Row: {
+          ad_set_id: string | null
+          campaign_id: string | null
+          creative_id: string | null
+          id: string
+          name: string | null
+          raw: Json | null
+          status: string | null
+          synced_at: string
+        }
+        Insert: {
+          ad_set_id?: string | null
+          campaign_id?: string | null
+          creative_id?: string | null
+          id: string
+          name?: string | null
+          raw?: Json | null
+          status?: string | null
+          synced_at?: string
+        }
+        Update: {
+          ad_set_id?: string | null
+          campaign_id?: string | null
+          creative_id?: string | null
+          id?: string
+          name?: string | null
+          raw?: Json | null
+          status?: string | null
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_ads_ad_set_id_fkey"
+            columns: ["ad_set_id"]
+            isOneToOne: false
+            referencedRelation: "meta_ad_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_ads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "meta_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_ads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "meta_ads_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "meta_creatives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_campaigns: {
+        Row: {
+          ad_account_id: string
+          created_time: string | null
+          daily_budget: number | null
+          id: string
+          lifetime_budget: number | null
+          name: string | null
+          objective: string | null
+          raw: Json | null
+          start_time: string | null
+          status: string | null
+          stop_time: string | null
+          synced_at: string
+        }
+        Insert: {
+          ad_account_id: string
+          created_time?: string | null
+          daily_budget?: number | null
+          id: string
+          lifetime_budget?: number | null
+          name?: string | null
+          objective?: string | null
+          raw?: Json | null
+          start_time?: string | null
+          status?: string | null
+          stop_time?: string | null
+          synced_at?: string
+        }
+        Update: {
+          ad_account_id?: string
+          created_time?: string | null
+          daily_budget?: number | null
+          id?: string
+          lifetime_budget?: number | null
+          name?: string | null
+          objective?: string | null
+          raw?: Json | null
+          start_time?: string | null
+          status?: string | null
+          stop_time?: string | null
+          synced_at?: string
+        }
+        Relationships: []
+      }
+      meta_creatives: {
+        Row: {
+          body: string | null
+          id: string
+          image_url: string | null
+          name: string | null
+          raw: Json | null
+          synced_at: string
+          thumbnail_url: string | null
+          title: string | null
+        }
+        Insert: {
+          body?: string | null
+          id: string
+          image_url?: string | null
+          name?: string | null
+          raw?: Json | null
+          synced_at?: string
+          thumbnail_url?: string | null
+          title?: string | null
+        }
+        Update: {
+          body?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string | null
+          raw?: Json | null
+          synced_at?: string
+          thumbnail_url?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
+      meta_credentials: {
+        Row: {
+          active: boolean
+          ad_account_id: string
+          app_id: string
+          business_id: string | null
+          created_at: string
+          id: number
+          ig_business_account_id: string | null
+          page_id: string
+          pixel_id: string | null
+          updated_at: string
+          waba_id: string | null
+          webhook_verify_token: string
+        }
+        Insert: {
+          active?: boolean
+          ad_account_id: string
+          app_id: string
+          business_id?: string | null
+          created_at?: string
+          id?: number
+          ig_business_account_id?: string | null
+          page_id: string
+          pixel_id?: string | null
+          updated_at?: string
+          waba_id?: string | null
+          webhook_verify_token: string
+        }
+        Update: {
+          active?: boolean
+          ad_account_id?: string
+          app_id?: string
+          business_id?: string | null
+          created_at?: string
+          id?: number
+          ig_business_account_id?: string | null
+          page_id?: string
+          pixel_id?: string | null
+          updated_at?: string
+          waba_id?: string | null
+          webhook_verify_token?: string
+        }
+        Relationships: []
+      }
+      meta_execution_log: {
+        Row: {
+          context: Json | null
+          error_text: string | null
+          finished_at: string | null
+          function_name: string
+          id: number
+          ok: boolean | null
+          rows_affected: number | null
+          started_at: string
+        }
+        Insert: {
+          context?: Json | null
+          error_text?: string | null
+          finished_at?: string | null
+          function_name: string
+          id?: number
+          ok?: boolean | null
+          rows_affected?: number | null
+          started_at?: string
+        }
+        Update: {
+          context?: Json | null
+          error_text?: string | null
+          finished_at?: string | null
+          function_name?: string
+          id?: number
+          ok?: boolean | null
+          rows_affected?: number | null
+          started_at?: string
+        }
+        Relationships: []
+      }
+      meta_insights_daily: {
+        Row: {
+          actions: Json | null
+          clicks: number | null
+          cost_per_action_type: Json | null
+          cost_per_lead: number | null
+          cpc: number | null
+          cpm: number | null
+          ctr: number | null
+          date: string
+          frequency: number | null
+          id: number
+          impressions: number | null
+          leads: number | null
+          level: string
+          link_clicks: number | null
+          object_id: string
+          raw: Json | null
+          reach: number | null
+          spend: number | null
+          synced_at: string
+        }
+        Insert: {
+          actions?: Json | null
+          clicks?: number | null
+          cost_per_action_type?: Json | null
+          cost_per_lead?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          ctr?: number | null
+          date: string
+          frequency?: number | null
+          id?: number
+          impressions?: number | null
+          leads?: number | null
+          level: string
+          link_clicks?: number | null
+          object_id: string
+          raw?: Json | null
+          reach?: number | null
+          spend?: number | null
+          synced_at?: string
+        }
+        Update: {
+          actions?: Json | null
+          clicks?: number | null
+          cost_per_action_type?: Json | null
+          cost_per_lead?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          ctr?: number | null
+          date?: string
+          frequency?: number | null
+          id?: number
+          impressions?: number | null
+          leads?: number | null
+          level?: string
+          link_clicks?: number | null
+          object_id?: string
+          raw?: Json | null
+          reach?: number | null
+          spend?: number | null
+          synced_at?: string
+        }
+        Relationships: []
+      }
+      meta_leadgen_forms: {
+        Row: {
+          created_time: string | null
+          id: string
+          leads_count: number | null
+          name: string | null
+          page_id: string
+          questions: Json | null
+          raw: Json | null
+          status: string | null
+          synced_at: string
+        }
+        Insert: {
+          created_time?: string | null
+          id: string
+          leads_count?: number | null
+          name?: string | null
+          page_id: string
+          questions?: Json | null
+          raw?: Json | null
+          status?: string | null
+          synced_at?: string
+        }
+        Update: {
+          created_time?: string | null
+          id?: string
+          leads_count?: number | null
+          name?: string | null
+          page_id?: string
+          questions?: Json | null
+          raw?: Json | null
+          status?: string | null
+          synced_at?: string
+        }
+        Relationships: []
+      }
+      meta_leads: {
+        Row: {
+          ad_id: string | null
+          campaign_id: string | null
+          cnpj: string | null
+          created_time: string | null
+          crm_lead_id: string | null
+          email: string | null
+          error_text: string | null
+          faturamento_estimado: number | null
+          faturamento_faixa: string | null
+          field_data: Json
+          form_id: string | null
+          id: string
+          inserted_at: string
+          ja_fez_compensacao: boolean | null
+          nome: string | null
+          page_id: string
+          phone: string | null
+          processed_at: string | null
+          raw: Json | null
+          razao_social: string | null
+          regime_tributacao: string | null
+          segmento: string | null
+        }
+        Insert: {
+          ad_id?: string | null
+          campaign_id?: string | null
+          cnpj?: string | null
+          created_time?: string | null
+          crm_lead_id?: string | null
+          email?: string | null
+          error_text?: string | null
+          faturamento_estimado?: number | null
+          faturamento_faixa?: string | null
+          field_data: Json
+          form_id?: string | null
+          id: string
+          inserted_at?: string
+          ja_fez_compensacao?: boolean | null
+          nome?: string | null
+          page_id: string
+          phone?: string | null
+          processed_at?: string | null
+          raw?: Json | null
+          razao_social?: string | null
+          regime_tributacao?: string | null
+          segmento?: string | null
+        }
+        Update: {
+          ad_id?: string | null
+          campaign_id?: string | null
+          cnpj?: string | null
+          created_time?: string | null
+          crm_lead_id?: string | null
+          email?: string | null
+          error_text?: string | null
+          faturamento_estimado?: number | null
+          faturamento_faixa?: string | null
+          field_data?: Json
+          form_id?: string | null
+          id?: string
+          inserted_at?: string
+          ja_fez_compensacao?: boolean | null
+          nome?: string | null
+          page_id?: string
+          phone?: string | null
+          processed_at?: string | null
+          raw?: Json | null
+          razao_social?: string | null
+          regime_tributacao?: string | null
+          segmento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_leads_crm_lead_id_fkey"
+            columns: ["crm_lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_leads_crm_lead_id_fkey"
+            columns: ["crm_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["crm_lead_id"]
+          },
+          {
+            foreignKeyName: "meta_leads_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "meta_leadgen_forms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       motor_teses_config: {
         Row: {
@@ -515,11 +1035,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_processos_cliente"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["cliente_id"]
+          },
+          {
             foreignKeyName: "processos_teses_cliente_id_fkey"
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_teses_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["cliente_id"]
           },
         ]
       }
@@ -601,6 +1135,13 @@ export type Database = {
             referencedRelation: "leads"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "relatorios_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["crm_lead_id"]
+          },
         ]
       }
       user_permissions: {
@@ -653,7 +1194,38 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_meta_lead_funnel: {
+        Row: {
+          ad_id: string | null
+          ad_name: string | null
+          campaign_id: string | null
+          campaign_name: string | null
+          cliente_id: string | null
+          cliente_status: string | null
+          cnpj: string | null
+          crm_lead_at: string | null
+          crm_lead_id: string | null
+          crm_status: string | null
+          email: string | null
+          faturamento_estimado: number | null
+          faturamento_faixa: string | null
+          form_name: string | null
+          ja_fez_compensacao: boolean | null
+          lead_at: string | null
+          meta_lead_id: string | null
+          nome: string | null
+          objective: string | null
+          phone: string | null
+          razao_social: string | null
+          regime_tributacao: string | null
+          relatorio_id: string | null
+          relatorio_score: number | null
+          segmento: string | null
+          valor_estimado_max: number | null
+          valor_estimado_min: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       calcular_diagnostico: {
