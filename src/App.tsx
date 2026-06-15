@@ -23,6 +23,13 @@ const ClienteDetail = lazy(() => import("@/pages/ClienteDetail"));
 const Diagnostico = lazy(() => import("@/pages/Diagnostico"));
 const MotorConfig = lazy(() => import("@/pages/MotorConfig"));
 const Intimacoes = lazy(() => import("@/pages/Intimacoes"));
+const MarketingLayout    = lazy(() => import("@/pages/marketing/MarketingLayout"));
+const MarketingOverview  = lazy(() => import("@/pages/marketing/MarketingOverview"));
+const MarketingCampanhas = lazy(() => import("@/pages/marketing/Campanhas"));
+const MarketingAnuncios  = lazy(() => import("@/pages/marketing/Anuncios"));
+const MarketingFormularios = lazy(() => import("@/pages/marketing/Formularios"));
+const MarketingLeads     = lazy(() => import("@/pages/marketing/Leads"));
+const MarketingLogs      = lazy(() => import("@/pages/marketing/Logs"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,6 +75,14 @@ const App = () => (
                         <Route path="/clientes" element={<ClientesList />} />
                         <Route path="/clientes/:id" element={<ClienteDetail />} />
                         <Route path="/intimacoes" element={<Intimacoes />} />
+                        <Route path="/marketing" element={<MarketingLayout />}>
+                          <Route index             element={<MarketingOverview />} />
+                          <Route path="campanhas"  element={<MarketingCampanhas />} />
+                          <Route path="anuncios"   element={<MarketingAnuncios />} />
+                          <Route path="formularios" element={<MarketingFormularios />} />
+                          <Route path="leads"      element={<MarketingLeads />} />
+                          <Route path="logs"       element={<MarketingLogs />} />
+                        </Route>
                         <Route path="/benchmarks" element={<Benchmarks />} />
                         <Route path="/configuracoes/motor" element={<MotorConfig />} />
                         <Route path="/usuarios" element={<UserManagement />} />
