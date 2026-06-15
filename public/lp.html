@@ -137,13 +137,17 @@ em{font-style:italic;color:var(--red-soft);font-weight:inherit}
 .badge.red::before{background:var(--red-soft);box-shadow:0 0 0 3px rgba(208,69,69,.3)}
 
 /* ────────────────────────────────── HERO */
-.hero{padding:clamp(72px,9vh,128px) 0 clamp(64px,8vh,96px);background:radial-gradient(ellipse 100% 60% at 50% 0%, var(--surface) 0%, var(--bg) 60%);position:relative;overflow:hidden}
-.hero-bg-image,.hero-grid-pattern{display:none}
-/* Animated red gradient orbit halo */
-.hero::before{content:'';position:absolute;top:-30%;left:50%;transform:translateX(-50%);width:min(1100px,110vw);aspect-ratio:1;background:radial-gradient(circle at 38% 42%,rgba(208,69,69,.18) 0%,rgba(208,69,69,.06) 30%,transparent 55%);pointer-events:none;filter:blur(40px);animation:haloOrbit 26s linear infinite;will-change:transform}
+.hero{padding:clamp(72px,9vh,128px) 0 clamp(64px,8vh,96px);background:var(--bg);position:relative;overflow:hidden;isolation:isolate}
+.hero-grid-pattern{display:none}
+/* Edwin-style: full-bleed cinematic photo background */
+.hero-bg-image{display:block;position:absolute;inset:-2% -2% -2% -2%;background:url('/images/hero-bg.png') center/cover no-repeat;opacity:.55;z-index:0;animation:heroBgDrift 28s ease-in-out infinite alternate;will-change:transform;filter:saturate(.7) contrast(1.05)}
+@keyframes heroBgDrift{from{transform:scale(1.02) translate3d(0,0,0)}to{transform:scale(1.06) translate3d(-1%,-1%,0)}}
+/* Vignette overlay — escurece bordas + base, mantém centro respirável (legibilidade) */
+.hero::before{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,8,31,.62) 0%,rgba(6,8,31,.32) 22%,rgba(6,8,31,.32) 55%,rgba(6,8,31,.82) 100%),radial-gradient(ellipse 90% 70% at 50% 50%,transparent 30%,rgba(6,8,31,.55) 100%);pointer-events:none;z-index:1}
+/* Animated red gradient orbit halo (accent da marca) */
+.hero::after{content:'';position:absolute;top:-25%;left:50%;width:min(1100px,110vw);aspect-ratio:1;background:radial-gradient(circle at 38% 42%,rgba(208,69,69,.20) 0%,rgba(208,69,69,.06) 30%,transparent 55%);pointer-events:none;filter:blur(40px);animation:haloOrbit 26s linear infinite;will-change:transform;z-index:2;mix-blend-mode:screen}
 @keyframes haloOrbit{from{transform:translateX(-50%) rotate(0deg)}to{transform:translateX(-50%) rotate(360deg)}}
-.hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 30% at 50% 100%,rgba(1,15,105,.4) 0%,transparent 70%);pointer-events:none;z-index:1}
-.hero-inner{display:grid;grid-template-columns:minmax(0,1fr) 460px;gap:clamp(36px,4.5vw,64px);align-items:center;position:relative;z-index:2}
+.hero-inner{display:grid;grid-template-columns:minmax(0,1fr) 460px;gap:clamp(36px,4.5vw,64px);align-items:center;position:relative;z-index:3}
 .hero-text-col{min-width:0}
 .hero-eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:var(--eyebrow);font-weight:700;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--text);background:rgba(255,255,255,.05);border:1px solid var(--line-2);padding:7px 14px;border-radius:var(--radius-pill);margin-bottom:20px}
 .hero-eyebrow-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;box-shadow:0 0 0 3px rgba(208,69,69,.25);animation:pulse 2.6s ease-in-out infinite}
