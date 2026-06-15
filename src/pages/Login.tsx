@@ -1,12 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, LogIn, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
-import logo from "@/assets/logo-focus-fintax.png";
 import logoWhite from "@/assets/logo-focus-fintax-white.png";
 
 export default function Login() {
@@ -44,138 +40,244 @@ export default function Login() {
     }
   };
 
+  const isForgot = mode === "forgot";
+
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
-      {/* ─── BRAND PANEL ─── */}
-      <aside
-        className="relative hidden lg:flex items-center justify-center overflow-hidden"
-        style={{ background: "#0a1564" }}
+    <div
+      className="min-h-screen w-full flex items-center justify-center relative overflow-hidden p-4"
+      style={{ background: "#06081f" }}
+    >
+      {/* Component-scoped keyframes */}
+      <style>{`
+        @keyframes halo-orbit {
+          from { transform: translate(-50%, -50%) rotate(0deg); }
+          to   { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        @keyframes halo-pulse {
+          0%, 100% { opacity: .85; }
+          50%      { opacity: 1; }
+        }
+        @keyframes brand-float {
+          0%, 100% { transform: scale(1); opacity: .07; }
+          50%      { transform: scale(1.03); opacity: .10; }
+        }
+        @keyframes fade-up-soft {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
+      {/* ─── Background layer: bottom radial navy depth ─── */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 50% at 50% 100%, rgba(1,15,105,0.55) 0%, transparent 70%), radial-gradient(ellipse 100% 60% at 50% 0%, rgba(14,18,53,1) 0%, transparent 60%)",
+        }}
+      />
+
+      {/* ─── Background layer: Focus logo as huge watermark ─── */}
+      <div
+        aria-hidden
+        className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
+        style={{ animation: "brand-float 8s ease-in-out infinite" }}
       >
         <img
           src={logoWhite}
-          alt="Focus FinTax"
-          className="relative z-10 w-[58%] max-w-[420px] h-auto select-none"
+          alt=""
+          className="w-[78vmin] max-w-[820px] h-auto"
           draggable={false}
+          style={{ filter: "blur(0.4px)" }}
         />
-        <div className="absolute bottom-8 left-0 right-0 text-center text-[11px] tracking-[0.14em] uppercase font-semibold text-white/40">
-          Grupo Focus · {new Date().getFullYear()}
-        </div>
-      </aside>
+      </div>
 
-      {/* ─── FORM PANEL ─── */}
-      <main className="flex items-center justify-center px-6 py-12 sm:px-10 lg:px-14">
-        <div className="w-full max-w-sm space-y-10">
-          {/* Mobile logo */}
-          <div className="flex justify-center lg:hidden">
-            <img
-              src={logo}
-              alt="Focus FinTax"
-              className="h-28 w-auto select-none"
-              draggable={false}
+      {/* ─── Background layer: animated red orbit halo ─── */}
+      <div
+        aria-hidden
+        className="absolute top-1/2 left-1/2 pointer-events-none"
+        style={{
+          width: "min(1200px, 130vw)",
+          aspectRatio: "1",
+          background:
+            "radial-gradient(circle at 38% 42%, rgba(208,69,69,0.22) 0%, rgba(208,69,69,0.06) 30%, transparent 55%)",
+          filter: "blur(40px)",
+          animation: "halo-orbit 32s linear infinite, halo-pulse 6s ease-in-out infinite",
+          willChange: "transform",
+          transform: "translate(-50%, -50%)",
+        }}
+      />
+
+      {/* ─── Background layer: grain noise overlay ─── */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none opacity-[0.06] mix-blend-overlay"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml;utf8,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' stitchTiles='stitch' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+          backgroundSize: "240px 240px",
+        }}
+      />
+
+      {/* ─── Center glass card ─── */}
+      <div
+        className="relative z-10 w-full max-w-md p-7 sm:p-9 rounded-2xl border border-white/10 shadow-[0_32px_80px_-24px_rgba(0,0,0,0.7),0_1px_0_0_rgba(255,255,255,0.06)_inset] backdrop-blur-xl"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(10,14,46,0.62) 0%, rgba(6,8,31,0.78) 100%)",
+          animation: "fade-up-soft .6s cubic-bezier(0.16, 1, 0.3, 1) both",
+        }}
+      >
+        {/* Subtle inner red accent stripe (mesmo do form da LP) */}
+        <div
+          aria-hidden
+          className="absolute left-0 top-5 bottom-5 w-[2px] rounded-r"
+          style={{
+            background:
+              "linear-gradient(180deg, transparent 0%, #d04545 22%, #e06b6b 78%, transparent 100%)",
+            opacity: 0.7,
+          }}
+        />
+
+        {/* Headline com glow gradient (red/red-soft/navy) — substitui o purple/pink/blue do NexusGate */}
+        <div className="mb-7 text-center">
+          <h1 className="text-2xl sm:text-[1.7rem] font-bold mb-2 relative group inline-block">
+            <span
+              aria-hidden
+              className="absolute -inset-2 blur-xl opacity-75 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"
+              style={{
+                background:
+                  "linear-gradient(90deg, rgba(208,69,69,0.45) 0%, rgba(224,107,107,0.35) 50%, rgba(1,15,105,0.45) 100%)",
+              }}
             />
+            <span className="relative inline-block tracking-[-0.022em] text-white">
+              {isForgot ? "Recuperar acesso" : "Entrar na Focus"}
+            </span>
+          </h1>
+          <p className="text-sm text-white/65 leading-relaxed mt-2">
+            {isForgot
+              ? "Enviaremos um link para redefinir sua senha."
+              : "Acesse a plataforma de inteligência tributária."}
+          </p>
+          <div className="mt-3 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/40 font-semibold">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#d04545] animate-pulse" />
+            Focus FinTax · Grupo Focus
+          </div>
+        </div>
+
+        <form
+          onSubmit={isForgot ? handleForgot : handleLogin}
+          className="space-y-5"
+        >
+          {/* Email */}
+          <div className="space-y-2">
+            <label htmlFor="email" className="block text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">
+              E-mail
+            </label>
+            <div className="relative group">
+              <Mail
+                size={18}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/55 transition-colors group-focus-within:text-[#e06b6b]"
+              />
+              <input
+                id="email"
+                type="email"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                className="w-full pl-11 pr-3 py-3 h-12 bg-white/5 border border-white/10 rounded-xl text-white text-[15px] placeholder-white/30 transition-all duration-200 focus:outline-none focus:border-[#d04545]/55 focus:bg-white/[0.07] focus:shadow-[0_0_0_3px_rgba(208,69,69,0.18)]"
+              />
+            </div>
           </div>
 
-          <div className="space-y-1.5">
-            <h1 className="text-xl sm:text-[1.375rem] font-semibold text-foreground tracking-[-0.018em] leading-tight">
-              {mode === "login" ? "Entrar" : "Recuperar senha"}
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              {mode === "login"
-                ? "Acesse a plataforma com seu e-mail e senha."
-                : "Enviaremos um link para redefinir sua senha."}
-            </p>
-          </div>
-
-          <form
-            onSubmit={mode === "login" ? handleLogin : handleForgot}
-            className="space-y-5"
-          >
+          {/* Password */}
+          {!isForgot && (
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-                E-mail
-              </Label>
+              <label htmlFor="password" className="block text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">
+                Senha
+              </label>
               <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-11 h-12 rounded-xl border-border bg-muted/30 text-foreground placeholder:text-muted-foreground/60 transition-all duration-150 ease-out-modern focus:bg-background focus:shadow-[0_0_0_3px_hsl(var(--ring)/0.18)]"
-                  required
-                  autoComplete="email"
+                <Lock
+                  size={18}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/55 transition-colors group-focus-within:text-[#e06b6b]"
                 />
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  autoComplete="current-password"
+                  className="w-full pl-11 pr-11 py-3 h-12 bg-white/5 border border-white/10 rounded-xl text-white text-[15px] placeholder-white/30 transition-all duration-200 focus:outline-none focus:border-[#d04545]/55 focus:bg-white/[0.07] focus:shadow-[0_0_0_3px_rgba(208,69,69,0.18)]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/55 hover:text-white transition-colors focus:outline-none"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
+          )}
 
-            {mode !== "forgot" && (
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-                  Senha
-                </Label>
-                <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-11 pr-11 h-12 rounded-xl border-border bg-muted/30 text-foreground placeholder:text-muted-foreground/60 transition-all duration-150 ease-out-modern focus:bg-background focus:shadow-[0_0_0_3px_hsl(var(--ring)/0.18)]"
-                    required
-                    minLength={6}
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <Button
-              type="submit"
-              className="w-full h-12 rounded-full font-semibold text-sm bg-primary hover:bg-primary/90 shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.45)] transition-all duration-150 ease-out-modern hover:shadow-[0_14px_36px_-10px_hsl(var(--primary)/0.55)] hover:-translate-y-0.5"
-              disabled={loading}
-            >
-              {loading ? (
-                <div className="animate-spin h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full" />
-              ) : (
-                <>
-                  <LogIn className="h-4 w-4 mr-2" />
-                  {mode === "login" ? "Entrar" : "Enviar e-mail"}
-                </>
-              )}
-            </Button>
-          </form>
-
-          <div className="text-sm">
-            {mode === "login" ? (
+          {/* Forgot link inline */}
+          {!isForgot && (
+            <div className="flex justify-end -mt-2">
               <button
                 type="button"
                 onClick={() => setMode("forgot")}
-                className="font-semibold text-primary hover:text-primary/80 transition-colors"
+                className="text-xs text-white/70 hover:text-white transition-colors font-medium"
               >
                 Esqueceu a senha?
               </button>
+            </div>
+          )}
+
+          {/* Submit button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full h-12 rounded-full text-white text-sm font-semibold tracking-[-0.005em] transition-all duration-200 ease-out hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#d04545]/55 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none shadow-[0_8px_24px_-8px_rgba(208,69,69,0.55)] hover:shadow-[0_14px_36px_-10px_rgba(208,69,69,0.65)] flex items-center justify-center gap-2"
+            style={{
+              background:
+                "linear-gradient(180deg, #d04545 0%, #b53939 100%)",
+            }}
+          >
+            {loading ? (
+              <div className="h-4 w-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
             ) : (
-              <button
-                type="button"
-                onClick={() => setMode("login")}
-                className="font-semibold text-primary hover:text-primary/80 transition-colors"
-              >
-                ← Voltar ao login
-              </button>
+              <>
+                {isForgot ? "Enviar e-mail" : "Entrar na plataforma"}
+                <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
+              </>
             )}
+          </button>
+        </form>
+
+        {/* Back to login (forgot mode) */}
+        {isForgot && (
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => setMode("login")}
+              className="text-sm text-white/65 hover:text-white transition-colors font-medium"
+            >
+              ← Voltar ao login
+            </button>
           </div>
-        </div>
-      </main>
+        )}
+
+        {/* Footer of card */}
+        <p className="mt-7 text-center text-[11px] text-white/35 tracking-[0.08em] uppercase">
+          © {new Date().getFullYear()} · Grupo Focus
+        </p>
+      </div>
     </div>
   );
 }
