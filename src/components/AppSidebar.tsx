@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Users, LogOut, UserPlus, Building2, Settings, Lock, ChevronDown, Menu, AlertTriangle, Inbox } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, UserPlus, Building2, Settings, Lock, ChevronDown, Menu, AlertTriangle, Inbox, Megaphone } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,6 +29,7 @@ const menuItems: MenuItem[] = [
   { title: "Fila de Leads", url: "/leads", icon: Inbox, screenKey: "fila_leads" },
   { title: "Clientes", url: "/clientes", icon: Building2, screenKey: "clientes" },
   { title: "Intimações", url: "/intimacoes", icon: AlertTriangle, screenKey: "intimacoes" },
+  { title: "Marketing", url: "/marketing", icon: Megaphone, screenKey: "marketing" },
   {
     title: "Configurações",
     url: "/configuracoes",

@@ -37,6 +37,19 @@ export const SCREENS: ScreenDef[] = [
     ],
   },
   { key: "intimacoes", label: "Intimações", route: "/intimacoes", defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial"] },
+  {
+    key: "marketing", label: "Marketing", route: "/marketing",
+    defaultRoles: ["admin", "pmo", "comercial"],
+    defaultReadOnlyRoles: [],
+    children: [
+      { key: "marketing.overview",    label: "Overview",     defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: [] },
+      { key: "marketing.campanhas",   label: "Campanhas",    defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: [] },
+      { key: "marketing.anuncios",    label: "Anúncios",     defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: [] },
+      { key: "marketing.formularios", label: "Formulários",  defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: [] },
+      { key: "marketing.leads",       label: "Leads (Meta)", defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: [] },
+      { key: "marketing.logs",        label: "Logs",         defaultRoles: ["admin", "pmo"],              defaultReadOnlyRoles: [] },
+    ],
+  },
   { key: "motor_calculo", label: "Motor de Cálculo", route: "/configuracoes/motor", defaultRoles: ["admin", "pmo"], defaultReadOnlyRoles: [] },
   { key: "benchmarks", label: "Benchmarks e Teses", route: "/benchmarks", defaultRoles: ["admin"], defaultReadOnlyRoles: [] },
   { key: "usuarios", label: "Gestão de Usuários", route: "/usuarios", defaultRoles: ["admin", "pmo"], defaultReadOnlyRoles: [] },
@@ -77,6 +90,7 @@ export function routeToScreenKey(path: string): string | null {
   if (path.startsWith("/leads")) return "fila_leads";
   if (path.startsWith("/clientes")) return "clientes";
   if (path.startsWith("/intimacoes")) return "intimacoes";
+  if (path.startsWith("/marketing")) return "marketing";
   if (path.startsWith("/usuarios")) return "usuarios";
   if (path.startsWith("/dashboard")) return "dashboard";
   return null;
