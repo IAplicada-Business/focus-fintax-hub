@@ -47,19 +47,11 @@ export default function Login() {
       className="min-h-screen w-full flex items-center justify-center relative overflow-hidden p-4"
       style={{ background: "#06081f" }}
     >
-      {/* Component-scoped keyframes */}
+      {/* Component-scoped keyframes — sem pulsações */}
       <style>{`
         @keyframes halo-orbit {
           from { transform: translate(-50%, -50%) rotate(0deg); }
           to   { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-        @keyframes halo-pulse {
-          0%, 100% { opacity: .85; }
-          50%      { opacity: 1; }
-        }
-        @keyframes brand-float {
-          0%, 100% { transform: scale(1); opacity: .07; }
-          50%      { transform: scale(1.03); opacity: .10; }
         }
         @keyframes fade-up-soft {
           from { opacity: 0; transform: translateY(12px); }
@@ -77,18 +69,16 @@ export default function Login() {
         }}
       />
 
-      {/* ─── Background layer: Focus logo as huge watermark ─── */}
+      {/* ─── Background layer: Focus logo as huge watermark (visible through card) ─── */}
       <div
         aria-hidden
         className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
-        style={{ animation: "brand-float 8s ease-in-out infinite" }}
       >
         <img
           src={logoWhite}
           alt=""
-          className="w-[78vmin] max-w-[820px] h-auto"
+          className="w-[78vmin] max-w-[820px] h-auto opacity-[0.28]"
           draggable={false}
-          style={{ filter: "blur(0.4px)" }}
         />
       </div>
 
@@ -102,7 +92,7 @@ export default function Login() {
           background:
             "radial-gradient(circle at 38% 42%, rgba(208,69,69,0.22) 0%, rgba(208,69,69,0.06) 30%, transparent 55%)",
           filter: "blur(40px)",
-          animation: "halo-orbit 32s linear infinite, halo-pulse 6s ease-in-out infinite",
+          animation: "halo-orbit 32s linear infinite",
           willChange: "transform",
           transform: "translate(-50%, -50%)",
         }}
@@ -119,12 +109,11 @@ export default function Login() {
         }}
       />
 
-      {/* ─── Center glass card ─── */}
+      {/* ─── Center card (transparente — deixa a logo aparecer atrás) ─── */}
       <div
-        className="relative z-10 w-full max-w-md p-7 sm:p-9 rounded-2xl border border-white/10 shadow-[0_32px_80px_-24px_rgba(0,0,0,0.7),0_1px_0_0_rgba(255,255,255,0.06)_inset] backdrop-blur-xl"
+        className="relative z-10 w-full max-w-md p-7 sm:p-9 rounded-2xl border border-white/15 shadow-[0_32px_80px_-24px_rgba(0,0,0,0.55),0_1px_0_0_rgba(255,255,255,0.06)_inset]"
         style={{
-          background:
-            "linear-gradient(180deg, rgba(10,14,46,0.62) 0%, rgba(6,8,31,0.78) 100%)",
+          background: "transparent",
           animation: "fade-up-soft .6s cubic-bezier(0.16, 1, 0.3, 1) both",
         }}
       >
@@ -144,7 +133,7 @@ export default function Login() {
           <h1 className="text-2xl sm:text-[1.7rem] font-bold mb-2 relative group inline-block">
             <span
               aria-hidden
-              className="absolute -inset-2 blur-xl opacity-75 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"
+              className="absolute -inset-2 blur-xl opacity-60 transition-opacity duration-500 group-hover:opacity-90"
               style={{
                 background:
                   "linear-gradient(90deg, rgba(208,69,69,0.45) 0%, rgba(224,107,107,0.35) 50%, rgba(1,15,105,0.45) 100%)",
@@ -160,7 +149,7 @@ export default function Login() {
               : "Acesse a plataforma de inteligência tributária."}
           </p>
           <div className="mt-3 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/40 font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#d04545] animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#d04545]" />
             Focus FinTax · Grupo Focus
           </div>
         </div>

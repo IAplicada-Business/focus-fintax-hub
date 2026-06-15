@@ -148,8 +148,8 @@ em{font-style:italic;color:var(--red-soft);font-weight:inherit}
 .hero-eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:var(--eyebrow);font-weight:700;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--text);background:rgba(255,255,255,.05);border:1px solid var(--line-2);padding:7px 14px;border-radius:var(--radius-pill);margin-bottom:20px}
 .hero-eyebrow-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;box-shadow:0 0 0 3px rgba(208,69,69,.25);animation:pulse 2.6s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.25)}}
-.hero h1{font-size:var(--fs-display);font-weight:700;line-height:1.1;color:var(--text);margin-bottom:20px;letter-spacing:var(--tracking-tighter);max-width:580px;text-wrap:balance;-webkit-text-wrap:balance}
-.hero h1 .hl{display:inline}
+.hero h1{font-size:var(--fs-display);font-weight:700;line-height:1.1;color:var(--text);margin-bottom:20px;letter-spacing:var(--tracking-tighter);max-width:none}
+.hero h1 .hl-line{display:inline-block;white-space:nowrap}
 .hero h1 em{font-style:italic;color:var(--red-soft);font-weight:700;background:none;-webkit-text-fill-color:initial}
 .hero-desc{font-size:var(--fs-lead);color:var(--text-mut);line-height:1.55;margin-bottom:0;max-width:500px;letter-spacing:-.005em}
 .hero-desc strong{color:var(--text);font-weight:600}
@@ -277,11 +277,11 @@ section{position:relative}
 
 /* ────────────────────────────────── ALCIR */
 .section-alcir{padding:var(--py) 0;background:var(--bg)}
-.alcir-grid{display:grid;grid-template-columns:440px 1fr;gap:clamp(40px,6vw,88px);align-items:center}
+.alcir-grid{display:grid;grid-template-columns:540px 1fr;gap:clamp(40px,5vw,72px);align-items:center}
 .alcir-photo{position:relative}
 .alcir-photo::after{content:'';position:absolute;inset:-20px;background:radial-gradient(ellipse at center,rgba(208,69,69,.16) 0%,transparent 65%);border-radius:var(--radius-xl);z-index:0;pointer-events:none;filter:blur(20px)}
 @keyframes alcirGlow{0%{opacity:.5}100%{opacity:.85}}
-.alcir-photo img{width:100%;border-radius:var(--radius-lg);max-height:580px;object-fit:cover;object-position:top center;position:relative;z-index:1;-webkit-mask-image:linear-gradient(to bottom,black 78%,transparent 100%);mask-image:linear-gradient(to bottom,black 78%,transparent 100%);opacity:0;transition:opacity .3s ease}
+.alcir-photo img{width:100%;border-radius:var(--radius-lg);max-height:680px;object-fit:cover;object-position:top center;position:relative;z-index:1;-webkit-mask-image:linear-gradient(to bottom,black 80%,transparent 100%);mask-image:linear-gradient(to bottom,black 80%,transparent 100%);opacity:0;transition:opacity .3s ease}
 .deco{display:none}
 .alcir-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text-mut);margin-bottom:16px;display:inline-flex;align-items:center;gap:8px}
 .alcir-eyebrow::before{content:'';width:24px;height:1px;background:var(--red)}
@@ -371,7 +371,7 @@ section{position:relative}
 /* ────────────────────────────────── RESPONSIVE */
 @media(max-width:1200px){
   .hero-inner{grid-template-columns:1fr 380px;gap:32px}
-  .alcir-grid{grid-template-columns:360px 1fr;gap:56px}
+  .alcir-grid{grid-template-columns:420px 1fr;gap:48px}
 }
 @media(max-width:1024px){
   .hero-inner{grid-template-columns:1fr;gap:40px}
@@ -383,6 +383,7 @@ section{position:relative}
 }
 @media(max-width:640px){
   .hero h1 br{display:none}
+  .hero h1 .hl-line{white-space:normal;display:inline}
 }
 @media(max-width:768px){
   .steps{grid-template-columns:repeat(2,1fr);gap:32px}
@@ -440,7 +441,7 @@ section{position:relative}
     <div class="hero-inner">
       <!-- esquerda -->
       <div class="hero-text-col">
-        <h1>Seu varejo perde em média<br><em>R$&nbsp;2&nbsp;milhões por ano</em><br>em impostos pagos a mais</h1>
+        <h1><span class="hl-line">Seu varejo perde em média</span><br><span class="hl-line"><em>R$&nbsp;2&nbsp;milhões por ano</em></span><br><span class="hl-line">em impostos pagos a mais</span></h1>
         <p class="hero-desc">Supermercados, farmácias e PETs perdem fortunas por não fazer um diagnóstico tributário. É dinheiro seu, parado nos cofres do governo. Descubra em 30 segundos quanto você pode recuperar <strong>gratuitamente</strong>.</p>
       </div>
       <!-- direita: form card -->
@@ -624,15 +625,14 @@ section{position:relative}
       </div>
       <div>
         <div class="alcir-eyebrow">QUEM ESTÁ POR TRÁS</div>
-        <div class="alcir-name">Alcir Guimarães — <em>15 anos no varejo</em></div>
+        <div class="alcir-name">Alcir Guimarães<br><em>15 anos no varejo</em></div>
         <div class="alcir-role">FUNDADOR &middot; GRUPO FOCUS</div>
         <p class="alcir-text">Fundador do maior grupo de contabilidade especializado em supermercado do Brasil e América Latina, Alcir acumula mais de 15 anos ajudando varejistas a recuperar milhões em impostos pagos indevidamente e a criar processos para que não continuem perdendo.</p>
-        <p class="alcir-text">Contador, estrategista tributário e analista financeiro, ele construiu seu legado saindo do chão de loja até o fechamento tributário e a apresentação da DRE para os donos — entendendo o varejo de dentro para fora.</p>
+        <p class="alcir-text">Contador, estrategista tributário e analista financeiro, ele construiu seu legado saindo do chão de loja até o fechamento tributário e a apresentação da DRE para os donos, entendendo o varejo de dentro para fora.</p>
         <p class="alcir-text">A Focus FinTax nasceu desse legado: especialização inegociável, tecnologia proprietária e uma filosofia que coloca segurança antes da recuperação.</p>
         <div class="alcir-tags">
           <span class="alcir-tag">Contador CRC</span>
           <span class="alcir-tag">Estrategista Tributário</span>
-          <span class="alcir-tag">Analista Financeiro</span>
           <span class="alcir-tag">Especialista em Varejo</span>
 
         </div>
@@ -701,7 +701,7 @@ section{position:relative}
   <div class="container">
     <div class="section-header">
       <h2 class="section-title">Não fomos criados para recuperar tributos.<br>Fomos criados para trazer <em>segurança</em>.</h2>
-      <p class="section-desc" style="margin:0 auto">Antes de mapear um único centavo de recuperação, garantimos que sua operação está em plena conformidade. Um erro de classificação tributária pode gerar autuação maior do que anos de créditos recuperados. Nossa metodologia é clara: <strong>o que protege vem antes do que recupera.</strong></p>
+      <p class="section-desc">Antes de mapear um único centavo de recuperação, garantimos que sua operação está em plena conformidade. Um erro de classificação tributária pode gerar autuação maior do que anos de créditos recuperados. Nossa metodologia é clara: <strong>o que protege vem antes do que recupera.</strong></p>
     </div>
     <div class="seg-cards">
       <div class="seg-card-g reveal stagger">
