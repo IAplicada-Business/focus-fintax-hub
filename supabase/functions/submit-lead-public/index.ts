@@ -7,6 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// LP form labels → DB enum
 const SEGMENTO_MAP: Record<string, string> = {
   "Supermercado": "supermercado",
   "Farmácia": "farmacia",
@@ -40,6 +41,36 @@ const FATURAMENTO_MIDPOINTS: Record<string, number> = {
   "acima_15m": 20_000_000,
 };
 
+// Valid DB enum values (case-insensitive match — Meta Ads pode mandar valores já enum)
+const VALID_SEGMENTOS = new Set(["supermercado", "farmacia", "pet", "materiais_construcao", "outros"]);
+const VALID_REGIMES_KEY = new Set(["simples", "lucro_presumido", "lucro_real"]);
+
+function deriveFaixaFromNumber(n: number): string {
+  if (n <= 500_000) return "ate_500k";
+  if (n <= 2_000_000) return "500k_2m";
+  if (n <= 5_000_000) return "2m_5m";
+  if (n <= 15_000_000) return "5m_15m";
+  return "acima_15m";
+}
+
+function normalizeSegmento(s: string | undefined): string {
+  if (!s) return "outros";
+  const low = String(s).toLowerCase().trim().replace(/\s+/g, "_");
+  if (VALID_SEGMENTOS.has(low)) return low;
+  return SEGMENTO_MAP[s] || "outros";
+}
+
+function normalizeRegime(r: string | undefined): { key: string; label: string } {
+  if (!r) return { key: "simples", label: "Simples Nacional" };
+  const low = String(r).toLowerCase().trim().replace(/\s+/g, "_");
+  if (VALID_REGIMES_KEY.has(low)) {
+    const label = low === "simples" ? "Simples Nacional" : low === "lucro_real" ? "Lucro Real" : "Lucro Presumido";
+    return { key: low, label };
+  }
+  const key = REGIME_MAP[r] || "simples";
+  return { key, label: r };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -47,19 +78,40 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { nome, empresa, cnpj, whatsapp, email, segmento, regime, faturamento } = body;
 
-    if (!nome || !segmento || !faturamento) {
+    // Aceita ambos os formatos: LP (formulario_lp) e Meta Ads (meta_ads)
+    const origem: string = body.origem || "formulario_lp";
+
+    const nome: string | undefined = body.nome;
+    const empresa: string = body.empresa || body.razao_social || "";
+    const cnpj: string | undefined = body.cnpj;
+    const whatsapp: string = body.whatsapp || body.telefone || "";
+    const email: string = body.email || "";
+    const segmento: string | undefined = body.segmento;
+    const regimeRaw: string | undefined = body.regime;
+    const faturamentoLabel: string | undefined = body.faturamento;                  // LP (label)
+    const faturamentoEstimado: number | undefined = body.faturamento_mensal_estimado; // Meta (numeric)
+
+    // Meta-only tracking (não bloqueia, só passa adiante p/ logs)
+    const metaLeadId: string | undefined = body.meta_lead_id;
+    const metaFormId: string | undefined = body.meta_form_id;
+    const metaCampaignId: string | undefined = body.meta_campaign_id;
+    const metaAdId: string | undefined = body.meta_ad_id;
+
+    const hasFaturamento = !!faturamentoLabel || (typeof faturamentoEstimado === "number" && faturamentoEstimado > 0);
+    if (!nome || !segmento || !hasFaturamento) {
       return new Response(
-        JSON.stringify({ error: "nome, segmento e faturamento são obrigatórios" }),
+        JSON.stringify({ error: "nome, segmento e faturamento (label ou estimado) são obrigatórios" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const segmentoDb = SEGMENTO_MAP[segmento] || "outros";
-    const faturamentoDb = FATURAMENTO_MAP[faturamento] || "ate_500k";
-    const regimeDb = regime || "Simples Nacional";
-    const regimeKey = REGIME_MAP[regimeDb] || "simples";
+    const segmentoDb = normalizeSegmento(segmento);
+    const { key: regimeKey, label: regimeDb } = normalizeRegime(regimeRaw);
+
+    const faturamentoDb = faturamentoLabel
+      ? (FATURAMENTO_MAP[faturamentoLabel] || "ate_500k")
+      : deriveFaixaFromNumber(faturamentoEstimado!);
 
     // Block Simples Nacional — no eligible teses
     if (regimeKey === "simples") {
@@ -89,22 +141,24 @@ serve(async (req) => {
         segmento: segmentoDb,
         regime_tributario: regimeDb,
         faturamento_faixa: faturamentoDb,
-        origem: "formulario_lp",
+        origem,
         status: "novo",
       })
       .select("id, token")
       .single();
 
     if (leadErr || !lead) {
-      console.error("Lead insert error:", leadErr);
+      console.error("Lead insert error:", leadErr, { origem, metaLeadId });
       return new Response(
         JSON.stringify({ error: "Falha ao salvar lead" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Call the RPC to calculate diagnostico
-    const faturamentoMensal = FATURAMENTO_MIDPOINTS[faturamentoDb] || 1_000_000;
+    // Calcula o diagnóstico via RPC (mantém pipeline existente)
+    const faturamentoMensal = typeof faturamentoEstimado === "number" && faturamentoEstimado > 0
+      ? faturamentoEstimado
+      : (FATURAMENTO_MIDPOINTS[faturamentoDb] || 1_000_000);
 
     const { error: rpcErr } = await supabase.rpc("calcular_diagnostico", {
       _lead_id: lead.id,
@@ -118,7 +172,13 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, token: lead.token }),
+      JSON.stringify({
+        success: true,
+        lead_id: lead.id,                       // ← novo: necessário p/ meta-webhook
+        token: lead.token,
+        origem,
+        meta_lead_id: metaLeadId ?? null,        // echo p/ debug
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
