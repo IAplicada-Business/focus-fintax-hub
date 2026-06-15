@@ -60,6 +60,10 @@
   box-shadow: 0 0 0 1px rgba(6,8,31,0.05);
 }
 
+/* Hide scrollbar but keep scroll functionality (used em tabs nav etc) */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* Modern link/CTA with diagonal arrow micro-interaction (uses brand red as accent) */
 .link-arrow {
   display: inline-flex;
