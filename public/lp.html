@@ -50,7 +50,7 @@
 
   /* Type — escala reduzida e alinhada ao form */
   --font:'Inter',ui-sans-serif,system-ui,sans-serif;
-  --fs-display: clamp(1.875rem, 3.6vw, 2.875rem);  /* hero H1: 30–46px */
+  --fs-display: clamp(2rem, 4.4vw, 3.5rem);  /* hero H1: 32–56px */
   --fs-h2:      clamp(1.625rem, 3vw, 2.25rem);     /* sections H2: 26–36px */
   --fs-h3:      clamp(1.125rem, 1.6vw, 1.375rem);
   --fs-lead:    clamp(0.9375rem, .9vw, 1.0625rem);
@@ -118,12 +118,13 @@ em{font-style:italic;color:var(--red-soft);font-weight:inherit}
 .hero{padding:clamp(64px,8vh,112px) 0 clamp(56px,7vh,88px);background:radial-gradient(ellipse 90% 55% at 50% 0%, var(--surface) 0%, var(--bg) 55%);position:relative;overflow:hidden}
 .hero-bg-image,.hero-grid-pattern{display:none}
 .hero::before{content:'';position:absolute;top:-20%;left:50%;transform:translateX(-50%);width:min(900px,90vw);height:520px;background:radial-gradient(ellipse at center,rgba(208,69,69,.10) 0%,transparent 65%);pointer-events:none;filter:blur(40px)}
-.hero-inner{display:grid;grid-template-columns:1fr 420px;gap:clamp(36px,4.5vw,64px);align-items:start;position:relative;z-index:2}
-.hero-text-col{padding-top:4px}
+.hero-inner{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:clamp(36px,4.5vw,56px);align-items:start;position:relative;z-index:2}
+.hero-text-col{padding-top:4px;min-width:0}
 .hero-eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:var(--eyebrow);font-weight:700;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--text);background:rgba(255,255,255,.05);border:1px solid var(--line-2);padding:7px 14px;border-radius:var(--radius-pill);margin-bottom:20px}
 .hero-eyebrow-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;box-shadow:0 0 0 3px rgba(208,69,69,.25);animation:pulse 2.6s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.25)}}
-.hero h1{font-size:var(--fs-display);font-weight:700;line-height:1.1;color:var(--text);margin-bottom:24px;letter-spacing:var(--tracking-tighter);max-width:560px}
+.hero h1{font-size:var(--fs-display);font-weight:700;line-height:1.06;color:var(--text);margin-bottom:24px;letter-spacing:var(--tracking-tighter);max-width:680px;text-wrap:balance;-webkit-text-wrap:balance}
+.hero h1 .hl{display:inline}
 .hero h1 em{font-style:italic;color:var(--red-soft);font-weight:700;background:none;-webkit-text-fill-color:initial}
 .hero-desc{font-size:var(--fs-lead);color:var(--text-mut);line-height:1.55;margin-bottom:32px;max-width:520px;letter-spacing:-.005em}
 .hero-desc strong{color:var(--text);font-weight:600}
@@ -354,6 +355,9 @@ section{position:relative}
   .plat-grid{grid-template-columns:1fr;border-radius:var(--radius)}
   .seg-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 }
+@media(max-width:640px){
+  .hero h1 br{display:none}
+}
 @media(max-width:768px){
   .steps{grid-template-columns:repeat(2,1fr);gap:32px}
   .steps::before{display:none}
@@ -410,7 +414,7 @@ section{position:relative}
     <div class="hero-inner">
       <!-- esquerda -->
       <div class="hero-text-col">
-        <h1>Seu varejo perde em média <em>R$ 2 milhões por ano</em> em impostos pagos a mais</h1>
+        <h1>Seu varejo perde em média<br><em>R$&nbsp;2&nbsp;milhões por ano</em><br>em impostos pagos a mais</h1>
         <p class="hero-desc">Supermercados, farmácias e PETs perdem fortunas por não fazer um diagnóstico tributário. É dinheiro seu, parado nos cofres do governo. Descubra em 30 segundos quanto você pode recuperar <strong>gratuitamente</strong>.</p>
       </div>
       <!-- direita: form card -->
