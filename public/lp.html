@@ -197,15 +197,15 @@ section{position:relative}
 
 /* ────────────────────────────────── SEGMENTS */
 .section-segments{padding:var(--py) 0;background:var(--bg)}
-.seg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:48px}
-.seg-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:36px 26px;text-align:left;transition:transform var(--t) var(--ease),background var(--t) var(--ease),border-color var(--t) var(--ease);position:relative;overflow:hidden;box-shadow:var(--shadow-card)}
+.seg-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:48px}
+.seg-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:28px 22px;text-align:left;transition:transform var(--t) var(--ease),background var(--t) var(--ease),border-color var(--t) var(--ease);position:relative;overflow:hidden;box-shadow:var(--shadow-card)}
 .seg-card::before{display:none}
 .seg-card:hover{background:var(--card-2);border-color:var(--line-2);transform:translateY(-3px)}
-.seg-icon{width:48px;height:48px;background:rgba(208,69,69,.10);border:1px solid rgba(208,69,69,.20);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 0 22px;transition:all var(--t) var(--ease)}
+.seg-icon{width:44px;height:44px;background:rgba(208,69,69,.10);border:1px solid rgba(208,69,69,.20);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 0 18px;transition:all var(--t) var(--ease)}
 .seg-card:hover .seg-icon{background:rgba(208,69,69,.18);border-color:rgba(208,69,69,.32)}
-.seg-icon svg{width:22px;height:22px;color:var(--red-soft);transition:color var(--t)}
-.seg-name{font-size:17px;font-weight:700;color:var(--text);margin-bottom:8px;position:relative;letter-spacing:-.012em}
-.seg-desc{font-size:13.5px;color:var(--text-mut);line-height:1.55;position:relative}
+.seg-icon svg{width:20px;height:20px;color:var(--red-soft);transition:color var(--t)}
+.seg-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;position:relative;letter-spacing:-.01em}
+.seg-desc{font-size:12.5px;color:var(--text-mut);line-height:1.5;position:relative}
 
 /* ────────────────────────────────── OPORTUNIDADES */
 .section-opp{padding:var(--py) 0;background:var(--bg);position:relative;overflow:hidden}
@@ -352,6 +352,7 @@ section{position:relative}
   .opp-grid{grid-template-columns:1fr}
   .footer-grid{grid-template-columns:1fr 1fr;gap:48px}
   .plat-grid{grid-template-columns:1fr;border-radius:var(--radius)}
+  .seg-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 }
 @media(max-width:768px){
   .steps{grid-template-columns:repeat(2,1fr);gap:32px}
@@ -387,7 +388,7 @@ section{position:relative}
 <!-- HEADER -->
 <header class="header" id="mainHeader">
   <div class="container">
-    <a href="#inicio" class="logo"><img src="/images/logo-focus-fintax-white.png" alt="Focus FinTax" style="height:56px;width:auto"></a>
+    <a href="#inicio" class="logo"><img src="/images/logo-focus-fintax-white.png" alt="Focus FinTax" style="height:108px;width:auto;display:block;margin:-14px 0"></a>
     <nav class="nav" id="nav">
       <a href="#inicio" class="active">Início</a>
       <a href="#oportunidades">Oportunidades</a>
@@ -712,7 +713,7 @@ section{position:relative}
   <div class="container">
     <div class="footer-grid">
       <div>
-        <img src="/images/logo-focus-fintax-white.png" alt="Focus FinTax" style="height:44px;width:auto;margin-bottom:12px;display:block">
+        <img src="/images/logo-focus-fintax-white.png" alt="Focus FinTax" style="height:72px;width:auto;margin:0 0 16px -10px;display:block">
         <div class="footer-brand-sub">Grupo Focus</div>
         <p class="footer-brand-desc">Inteligência Tributária e Financeira para o Varejo</p>
       </div>
