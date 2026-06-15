@@ -77,7 +77,7 @@ export default function Login() {
         <img
           src={logoWhite}
           alt=""
-          className="w-[78vmin] max-w-[820px] h-auto opacity-[0.28]"
+          className="w-[78vmin] max-w-[820px] h-auto opacity-[0.22]"
           draggable={false}
         />
       </div>
@@ -109,11 +109,12 @@ export default function Login() {
         }}
       />
 
-      {/* ─── Center card (transparente — deixa a logo aparecer atrás) ─── */}
+      {/* ─── Center card (semi-transparente — logo aparece atrás mas inputs ficam legíveis) ─── */}
       <div
-        className="relative z-10 w-full max-w-md p-7 sm:p-9 rounded-2xl border border-white/15 shadow-[0_32px_80px_-24px_rgba(0,0,0,0.55),0_1px_0_0_rgba(255,255,255,0.06)_inset]"
+        className="relative z-10 w-full max-w-md p-7 sm:p-9 rounded-2xl border border-white/12 shadow-[0_32px_80px_-24px_rgba(0,0,0,0.65),0_1px_0_0_rgba(255,255,255,0.06)_inset] backdrop-blur-md"
         style={{
-          background: "transparent",
+          background:
+            "linear-gradient(180deg, rgba(6,8,31,0.55) 0%, rgba(6,8,31,0.72) 100%)",
           animation: "fade-up-soft .6s cubic-bezier(0.16, 1, 0.3, 1) both",
         }}
       >
@@ -176,7 +177,7 @@ export default function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full pl-11 pr-3 py-3 h-12 bg-white/5 border border-white/10 rounded-xl text-white text-[15px] placeholder-white/30 transition-all duration-200 focus:outline-none focus:border-[#d04545]/55 focus:bg-white/[0.07] focus:shadow-[0_0_0_3px_rgba(208,69,69,0.18)]"
+                className="w-full pl-11 pr-3 py-3 h-12 bg-[rgba(6,8,31,0.6)] border border-white/15 rounded-xl text-white text-[15px] placeholder-white/45 transition-all duration-200 focus:outline-none focus:border-[#d04545]/55 focus:bg-[rgba(6,8,31,0.75)] focus:shadow-[0_0_0_3px_rgba(208,69,69,0.18)]"
               />
             </div>
           </div>
@@ -201,7 +202,7 @@ export default function Login() {
                   required
                   minLength={6}
                   autoComplete="current-password"
-                  className="w-full pl-11 pr-11 py-3 h-12 bg-white/5 border border-white/10 rounded-xl text-white text-[15px] placeholder-white/30 transition-all duration-200 focus:outline-none focus:border-[#d04545]/55 focus:bg-white/[0.07] focus:shadow-[0_0_0_3px_rgba(208,69,69,0.18)]"
+                  className="w-full pl-11 pr-11 py-3 h-12 bg-[rgba(6,8,31,0.6)] border border-white/15 rounded-xl text-white text-[15px] placeholder-white/45 transition-all duration-200 focus:outline-none focus:border-[#d04545]/55 focus:bg-[rgba(6,8,31,0.75)] focus:shadow-[0_0_0_3px_rgba(208,69,69,0.18)]"
                 />
                 <button
                   type="button"
