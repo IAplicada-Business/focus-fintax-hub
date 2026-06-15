@@ -90,8 +90,8 @@ function SidebarNav({ visibleItems, canAccess, isReadOnly, configOpen, setConfig
               <button
                 onClick={() => setConfigOpen(!configOpen)}
                 className={cn(
-                  "flex items-center gap-3 h-9 rounded-xl px-3 text-sidebar-foreground transition-colors whitespace-nowrap w-full",
-                  isActive ? "bg-white/10 backdrop-blur-sm text-white font-semibold" : "hover:bg-sidebar-accent/50"
+                  "flex items-center gap-3 h-9 rounded-full px-3 text-sidebar-foreground transition-all duration-150 ease-out-modern whitespace-nowrap w-full",
+                  isActive ? "bg-white/12 backdrop-blur-sm text-white font-semibold" : "hover:bg-sidebar-accent/55"
                 )}
               >
                 <item.icon className="h-5 w-5 shrink-0" />
@@ -107,8 +107,8 @@ function SidebarNav({ visibleItems, canAccess, isReadOnly, configOpen, setConfig
                     const childReadOnly = isReadOnly(child.screenKey);
                     return (
                       <NavLink key={child.url} to={child.url} onClick={onNavigate}
-                        className={cn("flex items-center h-8 rounded-xl pl-10 pr-3 text-sidebar-foreground transition-colors whitespace-nowrap",
-                          childActive ? "bg-white/10 backdrop-blur-sm text-white font-semibold" : "hover:bg-sidebar-accent/50"
+                        className={cn("flex items-center h-8 rounded-full pl-10 pr-3 text-sidebar-foreground transition-all duration-150 ease-out-modern whitespace-nowrap",
+                          childActive ? "bg-white/12 backdrop-blur-sm text-white font-semibold" : "hover:bg-sidebar-accent/55"
                         )}
                       >
                         <span className="text-xs flex items-center gap-1.5">
@@ -126,8 +126,8 @@ function SidebarNav({ visibleItems, canAccess, isReadOnly, configOpen, setConfig
 
         return (
           <NavLink key={item.title} to={item.url} onClick={onNavigate}
-            className={cn("flex items-center gap-3 h-9 rounded-xl px-3 text-sidebar-foreground transition-colors whitespace-nowrap",
-              isActive ? "bg-white/10 backdrop-blur-sm text-white font-semibold" : "hover:bg-sidebar-accent/50"
+            className={cn("flex items-center gap-3 h-9 rounded-full px-3 text-sidebar-foreground transition-all duration-150 ease-out-modern whitespace-nowrap",
+              isActive ? "bg-white/12 backdrop-blur-sm text-white font-semibold" : "hover:bg-sidebar-accent/55"
             )}
           >
             <item.icon className="h-5 w-5 shrink-0" />

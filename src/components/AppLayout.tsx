@@ -16,9 +16,9 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="min-h-screen flex w-full bg-sidebar">
       <AppSidebar />
-      <div className={cn("flex-1 flex flex-col bg-background overflow-hidden", !isMobile && "rounded-tl-2xl")}>
+      <div className={cn("flex-1 flex flex-col bg-background overflow-hidden", !isMobile && "rounded-tl-3xl shadow-[inset_1px_1px_0_0_rgba(255,255,255,0.06)]")}>
         {!isDashboard && <AppHeader />}
-        <main className={cn("flex-1 overflow-auto", !isDashboard && "p-4", isMobile && "pt-14")}>
+        <main className={cn("flex-1 overflow-auto animate-fade-up", !isDashboard && "p-4 md:p-6", isMobile && "pt-14")}>
           {children}
         </main>
       </div>

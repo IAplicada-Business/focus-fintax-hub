@@ -20,7 +20,7 @@ export function AppHeader() {
   };
 
   return (
-    <header className="h-16 border-b border-border bg-card flex items-center justify-end px-6">
+    <header className="h-16 border-b border-card-border/70 bg-card/95 backdrop-blur-sm flex items-center justify-end px-6 sticky top-0 z-30">
       <div className="flex items-center gap-4">
         <Popover>
           <PopoverTrigger asChild>
@@ -31,9 +31,9 @@ export function AppHeader() {
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-80 p-0">
-            <div className="px-4 py-3 border-b border-border">
-              <p className="text-sm font-semibold text-foreground">Notificações</p>
+          <PopoverContent align="end" className="w-80 p-0 rounded-2xl border-card-border/70 shadow-soft-hover">
+            <div className="px-4 py-3 border-b border-card-border/70">
+              <p className="text-sm font-semibold text-foreground tracking-[-0.005em]">Notificações</p>
             </div>
             {notifLoading ? (
               <div className="p-4 space-y-3">
@@ -75,11 +75,11 @@ export function AppHeader() {
         </Popover>
 
         <div className="flex items-center gap-3">
-          <div className="text-right">
-            <p className="text-sm font-semibold text-foreground">{profile?.full_name || "Usuário"}</p>
-            <p className="text-xs text-body-text">{ROLE_LABELS[userRole ?? ""] || profile?.cargo || "—"}</p>
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-semibold text-foreground tracking-[-0.005em] leading-tight">{profile?.full_name || "Usuário"}</p>
+            <p className="text-[11px] text-body-text tracking-[0.04em] uppercase">{ROLE_LABELS[userRole ?? ""] || profile?.cargo || "—"}</p>
           </div>
-          <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center">
+          <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center ring-2 ring-card-border/70 transition-transform duration-150 ease-out-modern hover:scale-[1.04]">
             <span className="text-primary-foreground text-sm font-bold">
               {(profile?.full_name || "U")[0].toUpperCase()}
             </span>
