@@ -11,32 +11,37 @@ export interface ScreenDef {
   route: string;
   defaultRoles: string[];
   defaultReadOnlyRoles: string[];
+  /** Quando true, o item é só um agrupador visual (sem rota navegável própria) */
+  containerOnly?: boolean;
   children?: ScreenChild[];
 }
 
+/**
+ * Hierarquia espelha a sidebar (AppSidebar.tsx):
+ * Dashboard · Leads ▾ · Marketing · Clientes ▾ · Configurações ▾ · Admin ▾
+ *
+ * Chaves antigas (fila_leads, intimacoes, motor_calculo, benchmarks, usuarios)
+ * permanecem como CHILDREN — não foram renomeadas pra preservar registros
+ * existentes na tabela user_permissions.
+ */
 export const SCREENS: ScreenDef[] = [
   {
     key: "dashboard", label: "Dashboard", route: "/dashboard",
     defaultRoles: ["admin", "pmo", "gestor_tributario", "comercial", "cliente"],
     defaultReadOnlyRoles: [],
     children: [
-      { key: "dashboard.comercial", label: "Visão Comercial", defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: [] },
+      { key: "dashboard.comercial",   label: "Visão Comercial",   defaultRoles: ["admin", "pmo", "comercial"],        defaultReadOnlyRoles: [] },
       { key: "dashboard.operacional", label: "Visão Operacional", defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: [] },
     ],
   },
-  { key: "pipeline", label: "Pipeline de Leads", route: "/pipeline", defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: ["gestor_tributario"] },
-  { key: "fila_leads", label: "Fila de Leads", route: "/leads", defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: ["gestor_tributario"] },
   {
-    key: "clientes", label: "Clientes", route: "/clientes",
-    defaultRoles: ["admin", "pmo", "gestor_tributario"],
-    defaultReadOnlyRoles: ["comercial"],
+    key: "pipeline", label: "Leads", route: "/pipeline",
+    defaultRoles: ["admin", "pmo", "comercial"],
+    defaultReadOnlyRoles: ["gestor_tributario"],
     children: [
-      { key: "clientes.processos", label: "Processos por Tese", defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial"] },
-      { key: "clientes.compensacoes", label: "Compensações", defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial"] },
-      { key: "clientes.resumo", label: "Resumo Financeiro", defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial"] },
+      { key: "fila_leads", label: "Fila de Leads", defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: ["gestor_tributario"] },
     ],
   },
-  { key: "intimacoes", label: "Intimações", route: "/intimacoes", defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial"] },
   {
     key: "marketing", label: "Marketing", route: "/marketing",
     defaultRoles: ["admin", "pmo", "comercial"],
@@ -50,9 +55,36 @@ export const SCREENS: ScreenDef[] = [
       { key: "marketing.logs",        label: "Logs",         defaultRoles: ["admin", "pmo"],              defaultReadOnlyRoles: [] },
     ],
   },
-  { key: "motor_calculo", label: "Motor de Cálculo", route: "/configuracoes/motor", defaultRoles: ["admin", "pmo"], defaultReadOnlyRoles: [] },
-  { key: "benchmarks", label: "Benchmarks e Teses", route: "/benchmarks", defaultRoles: ["admin"], defaultReadOnlyRoles: [] },
-  { key: "usuarios", label: "Gestão de Usuários", route: "/usuarios", defaultRoles: ["admin", "pmo"], defaultReadOnlyRoles: [] },
+  {
+    key: "clientes", label: "Clientes", route: "/clientes",
+    defaultRoles: ["admin", "pmo", "gestor_tributario"],
+    defaultReadOnlyRoles: ["comercial"],
+    children: [
+      { key: "clientes.processos",    label: "Processos por Tese", defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial"] },
+      { key: "clientes.compensacoes", label: "Compensações",       defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial"] },
+      { key: "clientes.resumo",       label: "Resumo Financeiro",  defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial"] },
+      { key: "intimacoes",            label: "Intimações",         defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial"] },
+    ],
+  },
+  {
+    key: "configuracoes", label: "Configurações", route: "/configuracoes",
+    defaultRoles: ["admin", "pmo"],
+    defaultReadOnlyRoles: [],
+    containerOnly: true,
+    children: [
+      { key: "motor_calculo", label: "Motor de Cálculo",   defaultRoles: ["admin", "pmo"], defaultReadOnlyRoles: [] },
+      { key: "benchmarks",    label: "Benchmarks e Teses", defaultRoles: ["admin"],         defaultReadOnlyRoles: [] },
+    ],
+  },
+  {
+    key: "admin", label: "Admin", route: "/admin",
+    defaultRoles: ["admin", "pmo"],
+    defaultReadOnlyRoles: [],
+    containerOnly: true,
+    children: [
+      { key: "usuarios", label: "Gestão de Usuários", defaultRoles: ["admin", "pmo"], defaultReadOnlyRoles: [] },
+    ],
+  },
 ];
 
 export interface ScreenPermission {
@@ -84,7 +116,8 @@ export function getDefaultPermissions(role: string): ScreenPermission[] {
 
 /** Map a route path to a screen key */
 export function routeToScreenKey(path: string): string | null {
-  if (path.startsWith("/configuracoes")) return "motor_calculo";
+  if (path.startsWith("/configuracoes/motor")) return "motor_calculo";
+  if (path.startsWith("/configuracoes")) return "configuracoes";
   if (path.startsWith("/benchmarks")) return "benchmarks";
   if (path.startsWith("/pipeline")) return "pipeline";
   if (path.startsWith("/leads")) return "fila_leads";

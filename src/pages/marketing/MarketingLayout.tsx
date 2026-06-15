@@ -42,7 +42,7 @@ export default function MarketingLayout() {
         </div>
       </header>
 
-      <nav className="border-b border-card-border/70 flex gap-1 overflow-x-auto">
+      <nav className="border-b border-card-border/70 flex gap-1 overflow-x-auto no-scrollbar">
         {visibleTabs.map((t) => {
           const active = t.to === "/marketing"
             ? location.pathname === "/marketing"
