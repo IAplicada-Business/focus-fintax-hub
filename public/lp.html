@@ -50,7 +50,7 @@
 
   /* Type — escala reduzida e alinhada ao form */
   --font:'Inter',ui-sans-serif,system-ui,sans-serif;
-  --fs-display: clamp(1.75rem, 3.2vw, 2.75rem);  /* hero H1: 28–44px */
+  --fs-display: clamp(2rem, 4vw, 3.5rem);  /* hero H1: 32–56px */
   --fs-h2:      clamp(1.625rem, 3vw, 2.25rem);     /* sections H2: 26–36px */
   --fs-h3:      clamp(1.125rem, 1.6vw, 1.375rem);
   --fs-lead:    clamp(0.9375rem, .9vw, 1.0625rem);
@@ -400,15 +400,10 @@ section{position:relative}
 @media(max-width:1024px){
   .hero-inner{grid-template-columns:1fr;gap:40px}
   .hero h1{max-width:none}
-  .hero h1 br{display:none}
   .opp-grid{grid-template-columns:1fr}
   .footer-grid{grid-template-columns:1fr 1fr;gap:48px}
   .plat-grid{grid-template-columns:1fr;border-radius:var(--radius)}
   .seg-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-}
-@media(max-width:640px){
-  .hero h1 br{display:none}
-  .hero h1 .hl-line{white-space:normal;display:inline}
 }
 @media(max-width:768px){
   .steps{grid-template-columns:repeat(2,1fr);gap:32px}
@@ -490,7 +485,7 @@ section{position:relative}
     <div class="hero-inner">
       <!-- esquerda -->
       <div class="hero-text-col">
-        <h1><span class="hl-line">Seu varejo</span><br><span class="hl-line">perde em média</span><br><span class="hl-line"><em>R$&nbsp;2&nbsp;milhões</em></span><br><span class="hl-line">por ano em impostos pagos a mais</span></h1>
+        <h1>Seu varejo perde em média<br><em>R$&nbsp;2&nbsp;milhões por ano</em><br>em impostos pagos a mais</h1>
         <p class="hero-desc">Supermercados, farmácias e PETs perdem fortunas por não fazer um diagnóstico tributário. É dinheiro seu, parado nos cofres do governo. Descubra em 30 segundos quanto você pode recuperar <strong>gratuitamente</strong>.</p>
       </div>
       <!-- direita: form card -->
