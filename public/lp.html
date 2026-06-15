@@ -50,7 +50,7 @@
 
   /* Type — escala reduzida e alinhada ao form */
   --font:'Inter',ui-sans-serif,system-ui,sans-serif;
-  --fs-display: clamp(1.875rem, 3.6vw, 3rem);  /* hero H1: 30–48px */
+  --fs-display: clamp(2rem, 4vw, 3.5rem);  /* hero H1: 32–56px */
   --fs-h2:      clamp(1.625rem, 3vw, 2.25rem);     /* sections H2: 26–36px */
   --fs-h3:      clamp(1.125rem, 1.6vw, 1.375rem);
   --fs-lead:    clamp(0.9375rem, .9vw, 1.0625rem);
@@ -153,8 +153,8 @@ em{font-style:italic;color:var(--red-soft);font-weight:inherit}
 .hero-eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:var(--eyebrow);font-weight:700;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--text);background:rgba(255,255,255,.05);border:1px solid var(--line-2);padding:7px 14px;border-radius:var(--radius-pill);margin-bottom:20px}
 .hero-eyebrow-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;box-shadow:0 0 0 3px rgba(208,69,69,.25);animation:pulse 2.6s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.25)}}
-.hero h1{font-size:var(--fs-display);font-weight:700;line-height:1.1;color:var(--text);margin-bottom:20px;letter-spacing:var(--tracking-tighter);max-width:none}
-.hero h1 .hl-line{display:inline-block;white-space:nowrap}
+.hero h1{font-size:var(--fs-display);font-weight:700;line-height:1.08;color:var(--text);margin-bottom:20px;letter-spacing:var(--tracking-tighter);max-width:none;text-wrap:balance;-webkit-text-wrap:balance;hyphens:none;word-wrap:break-word;overflow-wrap:anywhere}
+.hero h1 .hl-line{display:inline}
 .hero h1 em{font-style:italic;color:var(--red-soft);font-weight:700;background:none;-webkit-text-fill-color:initial}
 .hero-desc{font-size:var(--fs-lead);color:var(--text-mut);line-height:1.55;margin-bottom:0;max-width:500px;letter-spacing:-.005em}
 .hero-desc strong{color:var(--text);font-weight:600}
@@ -391,13 +391,12 @@ section{position:relative}
 
 /* ────────────────────────────────── RESPONSIVE */
 @media(max-width:1200px){
-  .hero-inner{grid-template-columns:1fr 380px;gap:32px}
+  .hero-inner{grid-template-columns:minmax(0,1fr) 360px;gap:28px}
   .alcir-grid{grid-template-columns:420px 1fr;gap:48px}
 }
 @media(max-width:1024px){
   .hero-inner{grid-template-columns:1fr;gap:40px}
   .hero h1{max-width:none}
-  .hero h1 .hl-line{white-space:normal;display:inline}
   .hero h1 br{display:none}
   .opp-grid{grid-template-columns:1fr}
   .footer-grid{grid-template-columns:1fr 1fr;gap:48px}
