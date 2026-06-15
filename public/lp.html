@@ -100,7 +100,8 @@ em{font-style:italic;color:var(--red-soft);font-weight:inherit}
 .marquee:hover .marquee-track{animation-play-state:paused}
 
 /* Word reveal animation for hero H1 */
-.word-reveal{display:inline-block;overflow-x:visible;overflow-y:hidden;vertical-align:bottom;padding:0 .04em}
+.word-reveal{display:inline-block;overflow-x:visible;overflow-y:hidden;vertical-align:bottom;padding:0 .04em .12em}
+.word-reveal.is-revealed,.hero h1.is-revealed .word-reveal{overflow:visible}
 .word-reveal>span{display:inline-block;transform:translateY(110%);opacity:0;transition:transform .9s var(--ease-q),opacity .6s var(--ease-q)}
 .hero h1.is-revealed .word-reveal>span,.word-reveal.is-revealed>span{transform:translateY(0);opacity:1}
 
