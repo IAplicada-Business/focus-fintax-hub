@@ -50,7 +50,7 @@
 
   /* Type — escala reduzida e alinhada ao form */
   --font:'Inter',ui-sans-serif,system-ui,sans-serif;
-  --fs-display: clamp(2rem, 4.4vw, 3.5rem);  /* hero H1: 32–56px */
+  --fs-display: clamp(1.75rem, 3.2vw, 2.625rem);  /* hero H1: 28–42px */
   --fs-h2:      clamp(1.625rem, 3vw, 2.25rem);     /* sections H2: 26–36px */
   --fs-h3:      clamp(1.125rem, 1.6vw, 1.375rem);
   --fs-lead:    clamp(0.9375rem, .9vw, 1.0625rem);
@@ -90,11 +90,6 @@ ul{list-style:none}
 em{font-style:italic;color:var(--red-soft);font-weight:inherit}
 .container{max-width:var(--container);margin:0 auto;padding:0 var(--gutter);position:relative;z-index:2}
 .text-center{text-align:center}
-
-/* Section number eyebrow (Edwin-style "(01) — Label") */
-.section-num{display:inline-flex;align-items:center;gap:14px;font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:20px;font-feature-settings:"tnum"}
-.section-num::before{content:'';display:inline-block;width:32px;height:1px;background:var(--red)}
-.section-num strong{color:var(--red);font-weight:700;margin-right:2px}
 
 /* Marquee ticker (CSS-only infinite scroll) */
 .marquee{overflow:hidden;padding:28px 0;background:var(--bg);border-top:1px solid var(--line);border-bottom:1px solid var(--line);position:relative;z-index:2}
@@ -148,15 +143,15 @@ em{font-style:italic;color:var(--red-soft);font-weight:inherit}
 .hero::before{content:'';position:absolute;top:-30%;left:50%;transform:translateX(-50%);width:min(1100px,110vw);aspect-ratio:1;background:radial-gradient(circle at 38% 42%,rgba(208,69,69,.18) 0%,rgba(208,69,69,.06) 30%,transparent 55%);pointer-events:none;filter:blur(40px);animation:haloOrbit 26s linear infinite;will-change:transform}
 @keyframes haloOrbit{from{transform:translateX(-50%) rotate(0deg)}to{transform:translateX(-50%) rotate(360deg)}}
 .hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 30% at 50% 100%,rgba(1,15,105,.4) 0%,transparent 70%);pointer-events:none;z-index:1}
-.hero-inner{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:clamp(36px,4.5vw,56px);align-items:start;position:relative;z-index:2}
-.hero-text-col{padding-top:4px;min-width:0}
+.hero-inner{display:grid;grid-template-columns:minmax(0,1fr) 460px;gap:clamp(36px,4.5vw,64px);align-items:center;position:relative;z-index:2}
+.hero-text-col{min-width:0}
 .hero-eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:var(--eyebrow);font-weight:700;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--text);background:rgba(255,255,255,.05);border:1px solid var(--line-2);padding:7px 14px;border-radius:var(--radius-pill);margin-bottom:20px}
 .hero-eyebrow-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;box-shadow:0 0 0 3px rgba(208,69,69,.25);animation:pulse 2.6s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.25)}}
-.hero h1{font-size:var(--fs-display);font-weight:700;line-height:1.06;color:var(--text);margin-bottom:24px;letter-spacing:var(--tracking-tighter);max-width:680px;text-wrap:balance;-webkit-text-wrap:balance}
+.hero h1{font-size:var(--fs-display);font-weight:700;line-height:1.1;color:var(--text);margin-bottom:20px;letter-spacing:var(--tracking-tighter);max-width:580px;text-wrap:balance;-webkit-text-wrap:balance}
 .hero h1 .hl{display:inline}
 .hero h1 em{font-style:italic;color:var(--red-soft);font-weight:700;background:none;-webkit-text-fill-color:initial}
-.hero-desc{font-size:var(--fs-lead);color:var(--text-mut);line-height:1.55;margin-bottom:32px;max-width:520px;letter-spacing:-.005em}
+.hero-desc{font-size:var(--fs-lead);color:var(--text-mut);line-height:1.55;margin-bottom:0;max-width:500px;letter-spacing:-.005em}
 .hero-desc strong{color:var(--text);font-weight:600}
 .hero-stats{display:none}
 
@@ -519,7 +514,6 @@ section{position:relative}
 <section class="section-segments" id="paraquem">
   <div class="container">
     <div class="section-header text-center">
-      <span class="section-num"><strong>(01)</strong> Para quem é</span>
       <h2 class="section-title">O varejo paga tributos demais.<br><em>Todo segmento tem oportunidade.</em></h2>
       <p class="section-desc" style="margin:0 auto">A Focus FinTax atende qualquer varejista com operação no Lucro Real, Lucro Presumido ou Simples Nacional. A complexidade tributária do varejo é universal — os setores mudam, a oportunidade não.</p>
     </div>
@@ -574,7 +568,6 @@ section{position:relative}
 <section class="section-opp" id="oportunidades">
   <div class="container">
     <div class="section-header text-center">
-      <span class="section-num"><strong>(02)</strong> O que auditamos</span>
       <h2 class="section-title light">Mais de 43 pontos onde o varejo <em>paga imposto a mais</em></h2>
       <p class="section-desc light" style="margin:0 auto">No Brasil, teses tributárias são argumentos jurídicos que questionam se certos impostos estão sendo cobrados corretamente. A maioria das empresas nunca foi auditada por especialistas. Quando isso acontece, o resultado é consistente: dinheiro que estava preso volta para o caixa.</p>
     </div>
@@ -597,7 +590,6 @@ section{position:relative}
 <section class="section-processo" id="processo">
   <div class="container">
     <div class="section-header text-center">
-      <span class="section-num"><strong>(03)</strong> Processo</span>
       <h2 class="section-title">Do diagnóstico ao dinheiro no caixa: <em>4 etapas</em></h2>
       <p class="section-desc" style="margin:0 auto">Você preenche o formulário. A Focus FinTax faz todo o trabalho técnico, jurídico e operacional.</p>
     </div>
@@ -614,7 +606,6 @@ section{position:relative}
 <section class="section-plat">
   <div class="container">
     <div class="section-header text-center" style="margin-bottom:0">
-      <span class="section-num"><strong>(04)</strong> Nossa plataforma</span>
       <h2 class="section-title light">O que tecnologia de ponta mais<br>15 anos de varejo produz</h2>
     </div>
     <div class="plat-grid">
@@ -670,7 +661,6 @@ section{position:relative}
 <section class="section-casos" id="resultados">
   <div class="container">
     <div class="section-header text-center">
-      <span class="section-num"><strong>(05)</strong> Casos reais confirmados</span>
       <h2 class="section-title light">Resultados que aconteceram de <em>verdade</em></h2>
     </div>
     <div class="casos-grid">
@@ -710,7 +700,6 @@ section{position:relative}
 <section class="section-seg" id="seguranca">
   <div class="container">
     <div class="section-header">
-      <span class="section-num"><strong>(06)</strong> Segurança em primeiro lugar</span>
       <h2 class="section-title">Não fomos criados para recuperar tributos.<br>Fomos criados para trazer <em>segurança</em>.</h2>
       <p class="section-desc" style="margin:0 auto">Antes de mapear um único centavo de recuperação, garantimos que sua operação está em plena conformidade. Um erro de classificação tributária pode gerar autuação maior do que anos de créditos recuperados. Nossa metodologia é clara: <strong>o que protege vem antes do que recupera.</strong></p>
     </div>
