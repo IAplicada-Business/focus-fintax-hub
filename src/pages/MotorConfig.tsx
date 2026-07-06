@@ -139,10 +139,14 @@ export default function MotorConfig() {
       .select("*")
       .order("ordem_exibicao", { ascending: true });
     if (error) { toastError(error, "Erro ao carregar teses"); setLoading(false); return; }
+    // Defensivo: se qualquer array vier null/undefined do banco, coerce pra []
+    // (evita crash em `.includes()`/`.map()` no simulador e nas cells).
     setTeses((data as any[] || []).map((d) => ({
       ...d,
-      percentual_min: Number(d.percentual_min),
-      percentual_max: Number(d.percentual_max),
+      percentual_min: Number(d.percentual_min ?? 0),
+      percentual_max: Number(d.percentual_max ?? 0),
+      regimes_elegiveis: Array.isArray(d.regimes_elegiveis) ? d.regimes_elegiveis : [],
+      segmentos_elegiveis: Array.isArray(d.segmentos_elegiveis) ? d.segmentos_elegiveis : [],
       tributos: Array.isArray(d.tributos) ? d.tributos : [],
     })));
     setLoading(false);
