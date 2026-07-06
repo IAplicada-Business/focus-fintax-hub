@@ -12,8 +12,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { toastError } from "@/lib/handle-error";
-import { ExternalLink, MessageCircle, Pencil, UserCheck, XCircle, ArrowRight, AlertTriangle, Check } from "lucide-react";
+import { ExternalLink, MessageCircle, Pencil, UserCheck, XCircle, ArrowRight, AlertTriangle, Check, Trash2, Save, X as CloseIcon } from "lucide-react";
 import { PIPELINE_STAGES, STAGE_COLORS, SEGMENTO_LABELS, formatCurrency, daysSince } from "@/lib/pipeline-constants";
+import { REGIMES } from "@/lib/lead-constants";
 import { useAuth } from "@/hooks/useAuth";
 import { canEditLead } from "@/lib/role-permissions";
 import type { PipelineLead } from "@/pages/Pipeline";
@@ -35,10 +36,22 @@ interface HistoricoEntry {
   usuario_nome: string;
 }
 
+type EditForm = {
+  nome: string;
+  empresa: string;
+  cnpj: string;
+  email: string;
+  whatsapp: string;
+  regime_tributario: string;
+  segmento: string;
+  faturamento_faixa: string;
+};
+
 export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
   const { user, userRole } = useAuth();
   const isEditable = lead ? canEditLead(userRole, lead.status_funil) : false;
   const isFullReadOnly = userRole === "gestor_tributario";
+  const canDelete = userRole === "admin";
   const [obs, setObs] = useState("");
   const [historico, setHistorico] = useState<HistoricoEntry[]>([]);
   const [showConvert, setShowConvert] = useState(false);
@@ -47,6 +60,11 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
   const [exceptionSaving, setExceptionSaving] = useState(false);
   const [showLostConfirm, setShowLostConfirm] = useState(false);
   const [obsSaved, setObsSaved] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [calcData, setCalcData] = useState<{
     faturamento_mensal: number;
     ibs_cbs_estimado: number | null;
@@ -61,6 +79,8 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
   useEffect(() => {
     if (lead) {
       setObs(lead.observacoes || "");
+      setIsEditing(false);
+      setEditForm(null);
       fetchHistorico(lead.id);
       // Se o lead veio da calculadora, puxa detalhes extras
       const calcId = (lead as any).calculadora_lead_id as string | undefined;
@@ -76,6 +96,59 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
       }
     }
   }, [lead?.id]);
+
+  const handleStartEdit = () => {
+    if (!lead) return;
+    setEditForm({
+      nome: lead.nome ?? "",
+      empresa: lead.empresa ?? "",
+      cnpj: lead.cnpj ?? "",
+      email: lead.email ?? "",
+      whatsapp: lead.whatsapp ?? "",
+      regime_tributario: lead.regime_tributario ?? "",
+      segmento: lead.segmento ?? "",
+      faturamento_faixa: lead.faturamento_faixa ?? "",
+    });
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditForm(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!lead || !editForm) return;
+    setIsSavingEdit(true);
+    const { error } = await supabase.from("leads").update({
+      nome: editForm.nome.trim(),
+      empresa: editForm.empresa.trim(),
+      cnpj: editForm.cnpj.trim(),
+      email: editForm.email.trim(),
+      whatsapp: editForm.whatsapp.trim(),
+      regime_tributario: editForm.regime_tributario.trim(),
+      segmento: editForm.segmento.trim(),
+      faturamento_faixa: editForm.faturamento_faixa.trim(),
+    }).eq("id", lead.id);
+    setIsSavingEdit(false);
+    if (error) { toastError(error, "Erro ao salvar edição"); return; }
+    toast.success("Lead atualizado");
+    setIsEditing(false);
+    setEditForm(null);
+    onRefresh();
+  };
+
+  const handleDelete = async () => {
+    if (!lead) return;
+    setIsDeleting(true);
+    const { error } = await supabase.from("leads").delete().eq("id", lead.id);
+    setIsDeleting(false);
+    if (error) { toastError(error, "Erro ao excluir lead"); return; }
+    toast.success("Lead excluído");
+    setShowDeleteConfirm(false);
+    onRefresh();
+    onClose();
+  };
 
   const fetchHistorico = async (leadId: string) => {
     const { data } = await supabase
@@ -193,7 +266,35 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
           {lead && (
             <div className="flex flex-col h-full">
               <SheetHeader className="p-6 pb-4 border-b">
-                <SheetTitle className="text-lg">{lead.empresa}</SheetTitle>
+                <div className="flex items-start justify-between gap-2">
+                  <SheetTitle className="text-lg flex-1 truncate">{lead.empresa}</SheetTitle>
+                  {!isFullReadOnly && !isEditing && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      {isEditable && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={handleStartEdit}
+                          title="Editar lead"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => setShowDeleteConfirm(true)}
+                          title="Excluir lead"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant="outline" className={STAGE_COLORS[lead.status_funil] || ""}>{stageLabel(lead.status_funil)}</Badge>
                   <span className="text-xs text-muted-foreground">{daysSince(lead.status_funil_atualizado_em || lead.criado_em)}d nesta etapa</span>
@@ -209,51 +310,96 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
 
                 {/* Dados Tab */}
                 <TabsContent value="dados" className="flex-1 overflow-y-auto px-6 pb-4 space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Responsável</Label>
-                      <p className="text-sm font-medium">{lead.nome}</p>
+                  {isEditing && editForm ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2">
+                        <Label className="text-xs text-muted-foreground">Empresa</Label>
+                        <Input value={editForm.empresa} onChange={(e) => setEditForm({ ...editForm, empresa: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Responsável</Label>
+                        <Input value={editForm.nome} onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">CNPJ</Label>
+                        <Input value={editForm.cnpj} onChange={(e) => setEditForm({ ...editForm, cnpj: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Telefone</Label>
+                        <Input value={editForm.whatsapp} onChange={(e) => setEditForm({ ...editForm, whatsapp: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Email</Label>
+                        <Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Regime</Label>
+                        <Select value={editForm.regime_tributario} onValueChange={(v) => setEditForm({ ...editForm, regime_tributario: v })}>
+                          <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                          <SelectContent>
+                            {REGIMES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                            {editForm.regime_tributario && !REGIMES.includes(editForm.regime_tributario as any) && (
+                              <SelectItem value={editForm.regime_tributario}>{editForm.regime_tributario}</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Segmento</Label>
+                        <Input value={editForm.segmento} onChange={(e) => setEditForm({ ...editForm, segmento: e.target.value })} />
+                      </div>
+                      <div className="col-span-2">
+                        <Label className="text-xs text-muted-foreground">Faturamento</Label>
+                        <Input value={editForm.faturamento_faixa} onChange={(e) => setEditForm({ ...editForm, faturamento_faixa: e.target.value })} />
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">CNPJ</Label>
-                      <p className="text-sm font-medium">{lead.cnpj}</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Responsável</Label>
+                        <p className="text-sm font-medium">{lead.nome}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">CNPJ</Label>
+                        <p className="text-sm font-medium">{lead.cnpj}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Telefone</Label>
+                        <a href={`https://wa.me/55${lead.whatsapp?.replace(/\D/g, "")}`} target="_blank" className="text-sm font-medium text-primary flex items-center gap-1">
+                          {lead.whatsapp} <MessageCircle className="h-3 w-3" />
+                        </a>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Email</Label>
+                        <p className="text-sm font-medium truncate">{lead.email}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Regime</Label>
+                        <p className="text-sm">{lead.regime_tributario}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Segmento</Label>
+                        <p className="text-sm">{SEGMENTO_LABELS[lead.segmento] || lead.segmento}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Faturamento</Label>
+                        <p className="text-sm">{lead.faturamento_faixa}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Fonte</Label>
+                        <p className="text-sm">
+                          {lead.origem === "calculadora" ? "Calculadora RT"
+                            : lead.origem === "formulario_lp" ? "Formulário LP"
+                            : lead.origem === "meta_ads" ? "Meta Ads"
+                            : lead.origem}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Cadastro</Label>
+                        <p className="text-sm">{new Date(lead.criado_em).toLocaleDateString("pt-BR")}</p>
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Telefone</Label>
-                      <a href={`https://wa.me/55${lead.whatsapp?.replace(/\D/g, "")}`} target="_blank" className="text-sm font-medium text-primary flex items-center gap-1">
-                        {lead.whatsapp} <MessageCircle className="h-3 w-3" />
-                      </a>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Email</Label>
-                      <p className="text-sm font-medium truncate">{lead.email}</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Regime</Label>
-                      <p className="text-sm">{lead.regime_tributario}</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Segmento</Label>
-                      <p className="text-sm">{SEGMENTO_LABELS[lead.segmento] || lead.segmento}</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Faturamento</Label>
-                      <p className="text-sm">{lead.faturamento_faixa}</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Fonte</Label>
-                      <p className="text-sm">
-                        {lead.origem === "calculadora" ? "Calculadora RT"
-                          : lead.origem === "formulario_lp" ? "Formulário LP"
-                          : lead.origem === "meta_ads" ? "Meta Ads"
-                          : lead.origem}
-                      </p>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Cadastro</Label>
-                      <p className="text-sm">{new Date(lead.criado_em).toLocaleDateString("pt-BR")}</p>
-                    </div>
-                  </div>
+                  )}
 
                   {calcData && (
                     <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-3 space-y-2">
@@ -415,7 +561,16 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
               )}
 
               {/* Footer */}
-              {!isFullReadOnly && isEditable && (
+              {isEditing ? (
+                <div className="border-t p-4 flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={handleCancelEdit} disabled={isSavingEdit}>
+                    <CloseIcon className="h-4 w-4 mr-1" /> Cancelar
+                  </Button>
+                  <Button size="sm" className="flex-1" onClick={handleSaveEdit} disabled={isSavingEdit}>
+                    <Save className="h-4 w-4 mr-1" /> {isSavingEdit ? "Salvando..." : "Salvar"}
+                  </Button>
+                </div>
+              ) : !isFullReadOnly && isEditable && (
                 <div className="border-t p-4 flex gap-2">
                   <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowConvert(true)}>
                     <UserCheck className="h-4 w-4 mr-1" /> Converter
@@ -452,6 +607,27 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleMarkLost} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir lead permanentemente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é irreversível. O lead <strong>{lead?.empresa || lead?.nome}</strong> será removido do Pipeline junto com seu histórico e relatórios vinculados. Prefira marcar como "Perdido" se quiser manter o rastro.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Excluindo..." : "Excluir definitivamente"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
