@@ -174,6 +174,38 @@ Deno.serve(async (req) => {
       console.error("submit-calculadora-lead snapshot err:", snapErr);
     }
 
+    // Espelha em `leads` pra o Pipeline enxergar (origem = 'calculadora')
+    // Falha aqui não bloqueia o resultado pro usuário — a calculadora
+    // continua sua função, e o comercial pode achar o lead via calc_leads
+    // se o espelho tiver falhado.
+    try {
+      const regimeLabel =
+        body.regime === "real" ? "Lucro Real"
+        : body.regime === "presumido" ? "Lucro Presumido"
+        : "Simples Nacional";
+      const faturamentoFaixa =
+        faturamento <= 500_000 ? "ate_500k"
+        : faturamento <= 2_000_000 ? "500k_2m"
+        : faturamento <= 5_000_000 ? "2m_5m"
+        : faturamento <= 15_000_000 ? "5m_15m"
+        : "acima_15m";
+      const empresa = (body as any).empresa || body.nome; // form da /calculadora não tem empresa
+      await sb.from("leads").insert({
+        nome: String(body.nome).slice(0, 255),
+        empresa: String(empresa).slice(0, 255),
+        email: String(body.email).slice(0, 255),
+        whatsapp: String(body.telefone).replace(/\D/g, "").slice(0, 11),
+        segmento,
+        regime_tributario: regimeLabel,
+        faturamento_faixa: faturamentoFaixa,
+        origem: "calculadora",
+        status: "novo",
+        calculadora_lead_id: lead.id,
+      } as any);
+    } catch (mirrorErr) {
+      console.error("submit-calculadora-lead mirror to leads err:", mirrorErr);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

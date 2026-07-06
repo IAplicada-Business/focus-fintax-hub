@@ -42,9 +42,29 @@ interface Resultado {
 // Config visual — reusa da LP
 // -----------------------------------------------------------------------------
 
-const NAVY = "#010f69";
-const GRANADA = "#c73737";
-const CREAM = "#f6f4ee";
+// Palette da LP raiz (public/lp.html) — cinematic dark
+const BG = "#06081f";                  // deep near-black navy
+const SURFACE = "#0e1235";              // card/form surface
+const CARD = "#101434";                 // card interno
+const NAVY = "#010f69";                 // brand navy (badges)
+const RED = "#d04545";                  // brand red da LP
+const TEXT = "#e8ebff";                 // texto principal claro
+const TEXT_MUTED = "rgba(232,235,255,.6)";
+const BORDER = "rgba(255,255,255,.08)";
+const LOGO_WHITE = "/images/logo-focus-fintax-white.png";
+
+// Legado — usados em pontos internos onde não vale reescrever
+const GRANADA = RED;
+const CREAM = BG;
+
+// Faixas de faturamento (mesmo set da LP raiz — dropdown)
+const FATURAMENTO_FAIXAS = [
+  { label: "Até R$ 500 mil", value: 350_000 },
+  { label: "R$ 500 mil – R$ 1M", value: 750_000 },
+  { label: "R$ 1M – R$ 5M", value: 2_500_000 },
+  { label: "R$ 5M – R$ 20M", value: 10_000_000 },
+  { label: "Acima de R$ 20M", value: 25_000_000 },
+];
 
 // -----------------------------------------------------------------------------
 // Utilidades
@@ -55,12 +75,6 @@ const fmtBRL = (v: number) =>
 const fmtBRLCent = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 const fmtPct = (v: number) => `${(v * 100).toFixed(2)}%`;
-
-const parseMoneyInput = (s: string): number => {
-  const clean = s.replace(/R\$/g, "").replace(/\./g, "").replace(",", ".").replace(/\s/g, "");
-  const n = parseFloat(clean);
-  return isFinite(n) ? n : 0;
-};
 
 const maskTel = (v: string) => {
   const d = v.replace(/\D/g, "").slice(0, 11);
@@ -93,7 +107,8 @@ export default function Calculadora() {
   const [email, setEmail] = useState("");
   const [segmento, setSegmento] = useState("supermercado");
   const [regime, setRegime] = useState<"" | "simples" | "presumido" | "real">("");
-  const [faturamento, setFaturamento] = useState("");
+  // faturamento agora é dropdown — armazena o midpoint numérico da faixa
+  const [faturamentoFaixa, setFaturamentoFaixa] = useState<number | null>(null);
   const [jaFaz, setJaFaz] = useState<"" | "sim" | "nao">("");
   const [lgpd, setLgpd] = useState(false);
 
@@ -106,16 +121,24 @@ export default function Calculadora() {
     document.title = "Calculadora da Reforma Tributária para Supermercados | Focus FinTax";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute("content", "Descubra em 30 segundos quanto seu supermercado vai pagar de IBS/CBS na Reforma Tributária.");
+    // Carrega Inter da Google Fonts pra bater com a LP raiz
+    if (!document.getElementById("gf-inter")) {
+      const link = document.createElement("link");
+      link.id = "gf-inter";
+      link.rel = "stylesheet";
+      link.href = "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap";
+      document.head.appendChild(link);
+    }
   }, []);
 
   const handleSubmit = async () => {
-    const fat = parseMoneyInput(faturamento);
+    const fat = faturamentoFaixa ?? 0;
 
     if (nome.trim().length < 3) { toast.error("Nome muito curto (mínimo 3 caracteres)."); return; }
     if (telefone.replace(/\D/g, "").length < 10) { toast.error("Telefone incompleto."); return; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast.error("E-mail inválido."); return; }
     if (!regime) { toast.error("Selecione o regime tributário."); return; }
-    if (fat < 100_000) { toast.error("Faturamento mensal mínimo: R$ 100.000."); return; }
+    if (!faturamentoFaixa) { toast.error("Selecione a faixa de faturamento."); return; }
     if (!jaFaz) { toast.error("Informe se já faz recuperação tributária."); return; }
     if (!lgpd) { toast.error("Aceite a política de privacidade (LGPD)."); return; }
 
@@ -157,46 +180,48 @@ export default function Calculadora() {
         });
       }
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error("Calculadora submit err:", e);
+      // Mostra a mensagem real da API pra ajudar debug
+      const msg = e?.context?.error ?? e?.message ?? "Erro desconhecido";
       toast.error("Não foi possível calcular agora.", {
-        description: "Tente novamente em instantes ou entre em contato pelo WhatsApp.",
+        description: `Detalhes: ${String(msg).slice(0, 200)}. Se persistir, contate a Focus pelo WhatsApp.`,
       });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const faturamentoNum = parseMoneyInput(faturamento);
+  const faturamentoNum = faturamentoFaixa ?? 0;
 
   return (
-    <div style={{ background: CREAM, minHeight: "100vh", fontFamily: "'Poppins', system-ui, sans-serif", color: "#0f1117" }}>
-      {/* Header público minimal */}
-      <header style={{ borderBottom: "1px solid rgba(0,0,0,.06)", background: "rgba(246,244,238,.9)", backdropFilter: "blur(8px)", position: "sticky", top: 0, zIndex: 40 }}>
+    <div style={{ background: BG, minHeight: "100vh", fontFamily: "'Inter', system-ui, sans-serif", color: TEXT }}>
+      {/* Header público — logo real Focus (PNG white) */}
+      <header style={{ borderBottom: `1px solid ${BORDER}`, background: "rgba(6,8,31,.85)", backdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 40 }}>
         <div style={{ maxWidth: 1160, margin: "0 auto", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Link to="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-            <span style={{ fontWeight: 800, fontSize: 15, color: NAVY, letterSpacing: 0.5 }}>Focus FinTax</span>
+            <img src={LOGO_WHITE} alt="Focus FinTax" style={{ height: 44, width: "auto", display: "block" }} />
           </Link>
-          <a href="#form-calc" style={{ fontSize: 12, fontWeight: 600, color: NAVY, textDecoration: "none", padding: "8px 14px", borderRadius: 999, border: `1px solid ${NAVY}` }}>
+          <a href="#form-calc" style={{ fontSize: 12, fontWeight: 600, color: TEXT, textDecoration: "none", padding: "8px 18px", borderRadius: 999, border: `1px solid ${RED}`, background: "transparent" }}>
             Calcular agora
           </a>
         </div>
       </header>
 
-      {/* HERO */}
-      <section style={{ padding: "64px 24px 40px", background: `linear-gradient(180deg, ${CREAM} 0%, #eeece5 100%)` }}>
+      {/* HERO — cinematic dark */}
+      <section style={{ padding: "72px 24px 48px", background: `radial-gradient(ellipse at top, ${SURFACE} 0%, ${BG} 60%)` }}>
         <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }}>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: GRANADA, marginBottom: 12 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: RED, marginBottom: 14 }}>
             Grupo Focus · Reforma Tributária 2026
           </p>
-          <h1 style={{ fontSize: "clamp(28px, 5vw, 46px)", fontWeight: 800, lineHeight: 1.1, color: NAVY, marginBottom: 20 }}>
+          <h1 style={{ fontSize: "clamp(28px, 5vw, 48px)", fontWeight: 800, lineHeight: 1.1, color: TEXT, marginBottom: 22 }}>
             Quanto seu supermercado vai pagar de imposto{" "}
-            <span style={{ color: GRANADA, fontStyle: "italic" }}>na Reforma?</span>
+            <span style={{ color: RED, fontStyle: "italic" }}>na Reforma?</span>
           </h1>
-          <p style={{ fontSize: 17, color: "rgba(15,17,23,.7)", maxWidth: 640, margin: "0 auto 12px" }}>
+          <p style={{ fontSize: 17, color: TEXT_MUTED, maxWidth: 640, margin: "0 auto 12px" }}>
             Descubra em 30 segundos o impacto do IBS/CBS na sua rede — com base em 12 anos de dados Focus do segmento supermercadista.
           </p>
-          <div style={{ display: "flex", justifyContent: "center", gap: 24, marginTop: 20, fontSize: 12, color: "rgba(15,17,23,.55)" }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 28, marginTop: 22, fontSize: 12, color: "rgba(232,235,255,.5)", flexWrap: "wrap" }}>
             <span>✓ 12 anos de expertise</span>
             <span>✓ R$ 26M recuperados</span>
             <span>✓ 180+ supermercados</span>
@@ -204,11 +229,11 @@ export default function Calculadora() {
         </div>
       </section>
 
-      {/* FORM */}
+      {/* FORM — card dark */}
       <section id="form-calc" style={{ padding: "40px 24px 80px" }}>
-        <div style={{ maxWidth: 620, margin: "0 auto", background: "white", borderRadius: 18, padding: 32, boxShadow: "0 20px 60px -20px rgba(1,15,105,.15)" }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Preencha e receba seu diagnóstico</h2>
-          <p style={{ fontSize: 12, color: "rgba(15,17,23,.6)", marginBottom: 24 }}>7 campos rápidos. Você recebe a estimativa na próxima tela.</p>
+        <div style={{ maxWidth: 620, margin: "0 auto", background: SURFACE, borderRadius: 20, padding: 32, boxShadow: "0 30px 80px -30px rgba(0,0,0,.6)", border: `1px solid ${BORDER}` }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: TEXT, marginBottom: 4 }}>Preencha e receba seu diagnóstico</h2>
+          <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 24 }}>7 campos rápidos. Você recebe a estimativa na próxima tela.</p>
 
           <div style={{ display: "grid", gap: 14 }}>
             <Field label="Nome completo *">
@@ -224,7 +249,7 @@ export default function Calculadora() {
               <select value={segmento} onChange={(e) => setSegmento(e.target.value)} style={inputStyle}>
                 <option value="supermercado">Supermercado</option>
               </select>
-              <p style={{ fontSize: 10, color: "rgba(15,17,23,.5)", marginTop: 4 }}>Outros segmentos em breve (farmácia, atacado).</p>
+              <p style={{ fontSize: 10, color: "rgba(232,235,255,.4)", marginTop: 4 }}>Outros segmentos em breve (farmácia, atacado).</p>
             </Field>
             <Field label="Regime tributário *">
               <select value={regime} onChange={(e) => setRegime(e.target.value as any)} style={inputStyle}>
@@ -234,13 +259,17 @@ export default function Calculadora() {
                 <option value="real">Lucro Real</option>
               </select>
             </Field>
-            <Field label="Faturamento mensal (R$) *">
-              <input value={faturamento} onChange={(e) => setFaturamento(e.target.value)} placeholder="1.500.000" inputMode="numeric" style={inputStyle} />
-              {faturamentoNum > 0 && faturamentoNum < 700_000 && (
-                <p style={{ fontSize: 11, color: "#a86400", marginTop: 4 }}>
-                  Faixa abaixo de R$ 700k pode ter estimativa menos precisa — o diagnóstico personalizado é mais adequado.
-                </p>
-              )}
+            <Field label="Faturamento mensal *">
+              <select
+                value={faturamentoFaixa ?? ""}
+                onChange={(e) => setFaturamentoFaixa(e.target.value ? Number(e.target.value) : null)}
+                style={inputStyle}
+              >
+                <option value="">Selecione a faixa...</option>
+                {FATURAMENTO_FAIXAS.map((f) => (
+                  <option key={f.label} value={f.value}>{f.label}</option>
+                ))}
+              </select>
             </Field>
             <Field label="Já faz recuperação tributária? *">
               <div style={{ display: "flex", gap: 12 }}>
@@ -248,20 +277,22 @@ export default function Calculadora() {
                 <RadioBtn checked={jaFaz === "nao"} onClick={() => setJaFaz("nao")} label="Não" />
               </div>
             </Field>
-            <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, color: "rgba(15,17,23,.65)", marginTop: 4 }}>
+            <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, color: TEXT_MUTED, marginTop: 4 }}>
               <input type="checkbox" checked={lgpd} onChange={(e) => setLgpd(e.target.checked)} style={{ marginTop: 2 }} />
               <span>
                 Concordo com o uso dos meus dados para receber o diagnóstico e ser contatado pela Focus.{" "}
-                <Link to="/privacidade" style={{ color: NAVY, textDecoration: "underline" }}>Política de privacidade</Link>.
+                <Link to="/privacidade" style={{ color: RED, textDecoration: "underline" }}>Política de privacidade</Link>.
               </span>
             </label>
             <button
               onClick={handleSubmit}
               disabled={submitting}
               style={{
-                marginTop: 8, padding: "14px 20px", borderRadius: 10, border: "none",
-                background: submitting ? "rgba(1,15,105,.5)" : NAVY, color: "white", fontWeight: 700, fontSize: 15,
+                marginTop: 8, padding: "16px 20px", borderRadius: 12, border: "none",
+                background: submitting ? "rgba(208,69,69,.5)" : RED, color: "white", fontWeight: 700, fontSize: 15,
                 cursor: submitting ? "wait" : "pointer",
+                boxShadow: "0 8px 24px -6px rgba(208,69,69,.4)",
+                letterSpacing: 0.3,
               }}
             >
               {submitting ? "Calculando com 12 anos de dados Focus..." : "Calcular meu diagnóstico"}
@@ -278,10 +309,10 @@ export default function Calculadora() {
       )}
 
       {/* Autoridade */}
-      <section style={{ padding: "60px 24px", background: "white" }}>
+      <section style={{ padding: "60px 24px", background: SURFACE, borderTop: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}` }}>
         <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }}>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: GRANADA, marginBottom: 12 }}>Autoridade</p>
-          <h2 style={{ fontSize: 26, fontWeight: 700, color: NAVY, marginBottom: 16 }}>Por que Focus FinTax</h2>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: RED, marginBottom: 12 }}>Autoridade</p>
+          <h2 style={{ fontSize: 26, fontWeight: 700, color: TEXT, marginBottom: 16 }}>Por que Focus FinTax</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 24, marginTop: 24 }}>
             <Kpi n="12" label="anos de expertise em tributário" />
             <Kpi n="R$ 26M" label="recuperados para clientes" />
@@ -292,11 +323,11 @@ export default function Calculadora() {
       </section>
 
       {/* Footer */}
-      <footer style={{ padding: "40px 24px", background: NAVY, color: "rgba(255,255,255,.75)" }}>
+      <footer style={{ padding: "48px 24px", background: BG, color: TEXT_MUTED }}>
         <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center", fontSize: 12 }}>
-          <p style={{ fontWeight: 700, color: "white", marginBottom: 6 }}>Focus FinTax</p>
+          <img src={LOGO_WHITE} alt="Focus FinTax" style={{ height: 40, width: "auto", margin: "0 auto 12px", display: "block" }} />
           <p>Grupo Focus · A Contabilidade do Supermercado</p>
-          <p style={{ marginTop: 10, opacity: 0.6 }}>© {new Date().getFullYear()} — Focus FinTax. Todos os direitos reservados.</p>
+          <p style={{ marginTop: 12, opacity: 0.6 }}>© {new Date().getFullYear()} — Focus FinTax. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>
@@ -308,14 +339,15 @@ export default function Calculadora() {
 // -----------------------------------------------------------------------------
 
 const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(0,0,0,.15)",
-  fontSize: 14, fontFamily: "inherit", background: "white",
+  width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid ${BORDER}`,
+  fontSize: 14, fontFamily: "inherit", background: CARD, color: TEXT,
+  outline: "none",
 };
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: "rgba(15,17,23,.6)", marginBottom: 6, display: "block" }}>
+      <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: TEXT_MUTED, marginBottom: 8, display: "block" }}>
         {label}
       </label>
       {children}
@@ -329,9 +361,9 @@ function RadioBtn({ checked, onClick, label }: { checked: boolean; onClick: () =
       type="button"
       onClick={onClick}
       style={{
-        flex: 1, padding: "10px 14px", borderRadius: 8,
-        border: `1.5px solid ${checked ? NAVY : "rgba(0,0,0,.15)"}`,
-        background: checked ? NAVY : "white", color: checked ? "white" : NAVY,
+        flex: 1, padding: "12px 14px", borderRadius: 10,
+        border: `1.5px solid ${checked ? RED : BORDER}`,
+        background: checked ? RED : CARD, color: checked ? "white" : TEXT,
         fontWeight: 600, fontSize: 13, cursor: "pointer",
       }}
     >
@@ -343,8 +375,8 @@ function RadioBtn({ checked, onClick, label }: { checked: boolean; onClick: () =
 function Kpi({ n, label }: { n: string; label: string }) {
   return (
     <div>
-      <p style={{ fontSize: 34, fontWeight: 800, color: NAVY, marginBottom: 4 }}>{n}</p>
-      <p style={{ fontSize: 12, color: "rgba(15,17,23,.6)", lineHeight: 1.35 }}>{label}</p>
+      <p style={{ fontSize: 34, fontWeight: 800, color: TEXT, marginBottom: 4 }}>{n}</p>
+      <p style={{ fontSize: 12, color: TEXT_MUTED, lineHeight: 1.35 }}>{label}</p>
     </div>
   );
 }
