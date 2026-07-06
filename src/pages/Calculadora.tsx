@@ -200,7 +200,11 @@ export default function Calculadora() {
       <header style={{ borderBottom: `1px solid ${BORDER}`, background: "rgba(6,8,31,.85)", backdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 40 }}>
         <div style={{ maxWidth: 1160, margin: "0 auto", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Link to="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-            <img src={LOGO_WHITE} alt="Focus FinTax" style={{ height: 44, width: "auto", display: "block" }} />
+            <img
+              src={LOGO_WHITE}
+              alt="Focus FinTax"
+              style={{ height: 96, width: "auto", display: "block", margin: "-14px 0" }}
+            />
           </Link>
           <a href="#form-calc" style={{ fontSize: 12, fontWeight: 600, color: TEXT, textDecoration: "none", padding: "8px 18px", borderRadius: 999, border: `1px solid ${RED}`, background: "transparent" }}>
             Calcular agora
@@ -325,7 +329,7 @@ export default function Calculadora() {
       {/* Footer */}
       <footer style={{ padding: "48px 24px", background: BG, color: TEXT_MUTED }}>
         <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center", fontSize: 12 }}>
-          <img src={LOGO_WHITE} alt="Focus FinTax" style={{ height: 40, width: "auto", margin: "0 auto 12px", display: "block" }} />
+          <img src={LOGO_WHITE} alt="Focus FinTax" style={{ height: 72, width: "auto", margin: "0 auto 16px", display: "block" }} />
           <p>Grupo Focus · A Contabilidade do Supermercado</p>
           <p style={{ marginTop: 12, opacity: 0.6 }}>© {new Date().getFullYear()} — Focus FinTax. Todos os direitos reservados.</p>
         </div>
