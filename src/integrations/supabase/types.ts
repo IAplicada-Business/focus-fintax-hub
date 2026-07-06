@@ -90,6 +90,13 @@ export type Database = {
             foreignKeyName: "fk_cliente_historico_cliente"
             columns: ["cliente_id"]
             isOneToOne: false
+            referencedRelation: "v_clientes_status_compensacao"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "fk_cliente_historico_cliente"
+            columns: ["cliente_id"]
+            isOneToOne: false
             referencedRelation: "v_meta_lead_funnel"
             referencedColumns: ["cliente_id"]
           },
@@ -102,6 +109,7 @@ export type Database = {
           compensacao_outro_escritorio: string | null
           compensando_fintax: boolean | null
           criado_em: string | null
+          data_apuracao: string | null
           email: string | null
           empresa: string
           faturamento_faixa: string | null
@@ -109,9 +117,14 @@ export type Database = {
           lead_id: string | null
           nome_contato: string | null
           observacoes: string | null
+          regiao: string | null
           regime_tributario: string | null
           segmento: string | null
           status: string | null
+          status_operacional:
+            | Database["public"]["Enums"]["status_cliente"]
+            | null
+          taxa_honorario: number | null
           whatsapp: string | null
         }
         Insert: {
@@ -120,6 +133,7 @@ export type Database = {
           compensacao_outro_escritorio?: string | null
           compensando_fintax?: boolean | null
           criado_em?: string | null
+          data_apuracao?: string | null
           email?: string | null
           empresa: string
           faturamento_faixa?: string | null
@@ -127,9 +141,14 @@ export type Database = {
           lead_id?: string | null
           nome_contato?: string | null
           observacoes?: string | null
+          regiao?: string | null
           regime_tributario?: string | null
           segmento?: string | null
           status?: string | null
+          status_operacional?:
+            | Database["public"]["Enums"]["status_cliente"]
+            | null
+          taxa_honorario?: number | null
           whatsapp?: string | null
         }
         Update: {
@@ -138,6 +157,7 @@ export type Database = {
           compensacao_outro_escritorio?: string | null
           compensando_fintax?: boolean | null
           criado_em?: string | null
+          data_apuracao?: string | null
           email?: string | null
           empresa?: string
           faturamento_faixa?: string | null
@@ -145,9 +165,14 @@ export type Database = {
           lead_id?: string | null
           nome_contato?: string | null
           observacoes?: string | null
+          regiao?: string | null
           regime_tributario?: string | null
           segmento?: string | null
           status?: string | null
+          status_operacional?:
+            | Database["public"]["Enums"]["status_cliente"]
+            | null
+          taxa_honorario?: number | null
           whatsapp?: string | null
         }
         Relationships: [
@@ -171,38 +196,62 @@ export type Database = {
         Row: {
           cliente_id: string
           criado_em: string | null
+          honorario_percentual: number | null
+          honorario_valor: number | null
           id: string
+          lancado_mapa: boolean
           mes_referencia: string
+          nfse_valor: number | null
           observacao: string | null
           processo_tese_id: string
           status_pagamento: string | null
+          status_pagamento_honorario: Database["public"]["Enums"]["status_pagamento"]
+          tese_origem_id: string | null
           tributo: string | null
+          tributo_enum: Database["public"]["Enums"]["tributo"]
           valor_compensado: number | null
           valor_nf_servico: number | null
+          vencimento_debito: string | null
         }
         Insert: {
           cliente_id: string
           criado_em?: string | null
+          honorario_percentual?: number | null
+          honorario_valor?: number | null
           id?: string
+          lancado_mapa?: boolean
           mes_referencia: string
+          nfse_valor?: number | null
           observacao?: string | null
           processo_tese_id: string
           status_pagamento?: string | null
+          status_pagamento_honorario?: Database["public"]["Enums"]["status_pagamento"]
+          tese_origem_id?: string | null
           tributo?: string | null
+          tributo_enum: Database["public"]["Enums"]["tributo"]
           valor_compensado?: number | null
           valor_nf_servico?: number | null
+          vencimento_debito?: string | null
         }
         Update: {
           cliente_id?: string
           criado_em?: string | null
+          honorario_percentual?: number | null
+          honorario_valor?: number | null
           id?: string
+          lancado_mapa?: boolean
           mes_referencia?: string
+          nfse_valor?: number | null
           observacao?: string | null
           processo_tese_id?: string
           status_pagamento?: string | null
+          status_pagamento_honorario?: Database["public"]["Enums"]["status_pagamento"]
+          tese_origem_id?: string | null
           tributo?: string | null
+          tributo_enum?: Database["public"]["Enums"]["tributo"]
           valor_compensado?: number | null
           valor_nf_servico?: number | null
+          vencimento_debito?: string | null
         }
         Relationships: [
           {
@@ -216,6 +265,13 @@ export type Database = {
             foreignKeyName: "compensacoes_mensais_cliente_id_fkey"
             columns: ["cliente_id"]
             isOneToOne: false
+            referencedRelation: "v_clientes_status_compensacao"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "compensacoes_mensais_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
             referencedRelation: "v_meta_lead_funnel"
             referencedColumns: ["cliente_id"]
           },
@@ -224,6 +280,104 @@ export type Database = {
             columns: ["processo_tese_id"]
             isOneToOne: false
             referencedRelation: "processos_teses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compensacoes_mensais_tese_origem_id_fkey"
+            columns: ["tese_origem_id"]
+            isOneToOne: false
+            referencedRelation: "teses_tributarias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creditos_apurados: {
+        Row: {
+          atualizado_em: string
+          cliente_id: string
+          criado_em: string
+          data_apuracao: string | null
+          id: string
+          observacoes: string | null
+          tese_id: string
+          valor_apurado_inicial: number
+        }
+        Insert: {
+          atualizado_em?: string
+          cliente_id: string
+          criado_em?: string
+          data_apuracao?: string | null
+          id?: string
+          observacoes?: string | null
+          tese_id: string
+          valor_apurado_inicial: number
+        }
+        Update: {
+          atualizado_em?: string
+          cliente_id?: string
+          criado_em?: string
+          data_apuracao?: string | null
+          id?: string
+          observacoes?: string | null
+          tese_id?: string
+          valor_apurado_inicial?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creditos_apurados_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creditos_apurados_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_clientes_status_compensacao"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "creditos_apurados_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "creditos_apurados_tese_id_fkey"
+            columns: ["tese_id"]
+            isOneToOne: false
+            referencedRelation: "teses_tributarias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dcomps: {
+        Row: {
+          compensacao_id: string
+          criado_em: string
+          id: string
+          numero_declaracao: string
+        }
+        Insert: {
+          compensacao_id: string
+          criado_em?: string
+          id?: string
+          numero_declaracao: string
+        }
+        Update: {
+          compensacao_id?: string
+          criado_em?: string
+          id?: string
+          numero_declaracao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dcomps_compensacao_id_fkey"
+            columns: ["compensacao_id"]
+            isOneToOne: false
+            referencedRelation: "compensacoes_mensais"
             referencedColumns: ["id"]
           },
         ]
@@ -335,6 +489,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clientes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intimacoes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_clientes_status_compensacao"
+            referencedColumns: ["cliente_id"]
           },
           {
             foreignKeyName: "intimacoes_cliente_id_fkey"
@@ -938,6 +1099,30 @@ export type Database = {
           },
         ]
       }
+      migration_log_tributo_20260706: {
+        Row: {
+          compensacao_id: string
+          id: string
+          migrated_at: string
+          tributo_final: Database["public"]["Enums"]["tributo"]
+          tributo_original: string | null
+        }
+        Insert: {
+          compensacao_id: string
+          id?: string
+          migrated_at?: string
+          tributo_final: Database["public"]["Enums"]["tributo"]
+          tributo_original?: string | null
+        }
+        Update: {
+          compensacao_id?: string
+          id?: string
+          migrated_at?: string
+          tributo_final?: Database["public"]["Enums"]["tributo"]
+          tributo_original?: string | null
+        }
+        Relationships: []
+      }
       motor_teses_config: {
         Row: {
           ativo: boolean | null
@@ -982,6 +1167,55 @@ export type Database = {
           tese?: string
         }
         Relationships: []
+      }
+      observacoes_cliente: {
+        Row: {
+          cliente_id: string
+          created_by: string | null
+          criado_em: string
+          data: string
+          id: string
+          texto: string
+        }
+        Insert: {
+          cliente_id: string
+          created_by?: string | null
+          criado_em?: string
+          data?: string
+          id?: string
+          texto: string
+        }
+        Update: {
+          cliente_id?: string
+          created_by?: string | null
+          criado_em?: string
+          data?: string
+          id?: string
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observacoes_cliente_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observacoes_cliente_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_clientes_status_compensacao"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "observacoes_cliente_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["cliente_id"]
+          },
+        ]
       }
       processos_teses: {
         Row: {
@@ -1038,6 +1272,13 @@ export type Database = {
             foreignKeyName: "fk_processos_cliente"
             columns: ["cliente_id"]
             isOneToOne: false
+            referencedRelation: "v_clientes_status_compensacao"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "fk_processos_cliente"
+            columns: ["cliente_id"]
+            isOneToOne: false
             referencedRelation: "v_meta_lead_funnel"
             referencedColumns: ["cliente_id"]
           },
@@ -1047,6 +1288,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clientes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_teses_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_clientes_status_compensacao"
+            referencedColumns: ["cliente_id"]
           },
           {
             foreignKeyName: "processos_teses_cliente_id_fkey"
@@ -1144,6 +1392,36 @@ export type Database = {
           },
         ]
       }
+      teses_tributarias: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          codigo: Database["public"]["Enums"]["tese_tributaria"]
+          criado_em: string
+          id: string
+          label: string
+          visivel_cliente: boolean
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          codigo: Database["public"]["Enums"]["tese_tributaria"]
+          criado_em?: string
+          id?: string
+          label: string
+          visivel_cliente?: boolean
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          codigo?: Database["public"]["Enums"]["tese_tributaria"]
+          criado_em?: string
+          id?: string
+          label?: string
+          visivel_cliente?: boolean
+        }
+        Relationships: []
+      }
       user_permissions: {
         Row: {
           can_access: boolean
@@ -1194,6 +1472,65 @@ export type Database = {
       }
     }
     Views: {
+      v_clientes_status_compensacao: {
+        Row: {
+          cliente_id: string | null
+          compensacao_outro_escritorio: string | null
+          compensando_fintax: boolean | null
+          status_principal: string | null
+          tem_alguma_tese_assinada: boolean | null
+          tem_compensacao_mes_corrente: boolean | null
+          tem_compensacao_qualquer: boolean | null
+          tem_judicial: boolean | null
+          tem_reporto: boolean | null
+          tem_tese_ativa: boolean | null
+          todos_encerrados: boolean | null
+          ultima_competencia_compensada: string | null
+        }
+        Relationships: []
+      }
+      v_mapa_creditos: {
+        Row: {
+          cliente_id: string | null
+          saldo_final: number | null
+          tese_codigo: Database["public"]["Enums"]["tese_tributaria"] | null
+          tese_id: string | null
+          tese_label: string | null
+          total_compensado: number | null
+          valor_apurado_inicial: number | null
+          visivel_cliente: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creditos_apurados_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creditos_apurados_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_clientes_status_compensacao"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "creditos_apurados_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "creditos_apurados_tese_id_fkey"
+            columns: ["tese_id"]
+            isOneToOne: false
+            referencedRelation: "teses_tributarias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_meta_lead_funnel: {
         Row: {
           ad_id: string | null
@@ -1248,6 +1585,25 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "pmo" | "gestor_tributario" | "comercial" | "cliente"
+      regime_tributario: "lucro_real" | "lucro_presumido" | "simples_nacional"
+      status_cliente: "fechado" | "relatorio_enviado" | "em_analise" | "ativo"
+      status_pagamento: "pendente" | "pago"
+      tese_tributaria:
+        | "INSUMOS"
+        | "SUBVENCAO"
+        | "ICMS_ST"
+        | "EXCLUSAO_ICMS_BC"
+        | "PIS_COFINS_JUD"
+        | "PREVIDENCIARIO"
+        | "REPORTO"
+      tributo:
+        | "INSS_52"
+        | "INSS_retidos"
+        | "PIS"
+        | "COFINS"
+        | "IRPJ_CSLL_agregado"
+        | "DCTWEB_trimestral"
+        | "outros"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1376,6 +1732,27 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "pmo", "gestor_tributario", "comercial", "cliente"],
+      regime_tributario: ["lucro_real", "lucro_presumido", "simples_nacional"],
+      status_cliente: ["fechado", "relatorio_enviado", "em_analise", "ativo"],
+      status_pagamento: ["pendente", "pago"],
+      tese_tributaria: [
+        "INSUMOS",
+        "SUBVENCAO",
+        "ICMS_ST",
+        "EXCLUSAO_ICMS_BC",
+        "PIS_COFINS_JUD",
+        "PREVIDENCIARIO",
+        "REPORTO",
+      ],
+      tributo: [
+        "INSS_52",
+        "INSS_retidos",
+        "PIS",
+        "COFINS",
+        "IRPJ_CSLL_agregado",
+        "DCTWEB_trimestral",
+        "outros",
+      ],
     },
   },
 } as const
