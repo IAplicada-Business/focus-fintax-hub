@@ -47,6 +47,119 @@ export type Database = {
         }
         Relationships: []
       }
+      calculadora_leads: {
+        Row: {
+          aceite_lgpd: boolean
+          aceite_lgpd_at: string | null
+          criado_em: string
+          economia_potencial_anual: number | null
+          email: string
+          faturamento_mensal: number
+          ibs_cbs_estimado: number | null
+          id: string
+          ip_address: string | null
+          ja_faz_recuperacao: boolean
+          nome: string
+          regime: string
+          resultado_dre_atual: Json | null
+          resultado_dre_reforma: Json | null
+          segmento: string
+          telefone: string
+          user_agent: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          aceite_lgpd?: boolean
+          aceite_lgpd_at?: string | null
+          criado_em?: string
+          economia_potencial_anual?: number | null
+          email: string
+          faturamento_mensal: number
+          ibs_cbs_estimado?: number | null
+          id?: string
+          ip_address?: string | null
+          ja_faz_recuperacao?: boolean
+          nome: string
+          regime: string
+          resultado_dre_atual?: Json | null
+          resultado_dre_reforma?: Json | null
+          segmento: string
+          telefone: string
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          aceite_lgpd?: boolean
+          aceite_lgpd_at?: string | null
+          criado_em?: string
+          economia_potencial_anual?: number | null
+          email?: string
+          faturamento_mensal?: number
+          ibs_cbs_estimado?: number | null
+          id?: string
+          ip_address?: string | null
+          ja_faz_recuperacao?: boolean
+          nome?: string
+          regime?: string
+          resultado_dre_atual?: Json | null
+          resultado_dre_reforma?: Json | null
+          segmento?: string
+          telefone?: string
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: []
+      }
+      calculadora_snapshots: {
+        Row: {
+          criado_em: string
+          focus_indices_snapshot: Json
+          id: string
+          input_payload: Json
+          lead_id: string
+          output_payload: Json
+          reforma_config_snapshot: Json
+        }
+        Insert: {
+          criado_em?: string
+          focus_indices_snapshot: Json
+          id?: string
+          input_payload: Json
+          lead_id: string
+          output_payload: Json
+          reforma_config_snapshot: Json
+        }
+        Update: {
+          criado_em?: string
+          focus_indices_snapshot?: Json
+          id?: string
+          input_payload?: Json
+          lead_id?: string
+          output_payload?: Json
+          reforma_config_snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calculadora_snapshots_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "calculadora_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cliente_historico: {
         Row: {
           cliente_id: string
@@ -435,6 +548,45 @@ export type Database = {
             referencedColumns: ["crm_lead_id"]
           },
         ]
+      }
+      focus_indices: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          entra_na_exclusao_credito: boolean
+          gera_credito_ibs_cbs: boolean
+          grupo: string
+          id: string
+          ordem_exibicao: number | null
+          percentual_sobre_faturamento: number
+          rubrica: string
+          segmento: string
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          entra_na_exclusao_credito?: boolean
+          gera_credito_ibs_cbs?: boolean
+          grupo: string
+          id?: string
+          ordem_exibicao?: number | null
+          percentual_sobre_faturamento?: number
+          rubrica: string
+          segmento: string
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          entra_na_exclusao_credito?: boolean
+          gera_credito_ibs_cbs?: boolean
+          grupo?: string
+          id?: string
+          ordem_exibicao?: number | null
+          percentual_sobre_faturamento?: number
+          rubrica?: string
+          segmento?: string
+        }
+        Relationships: []
       }
       intimacoes: {
         Row: {
@@ -1335,6 +1487,27 @@ export type Database = {
           is_active?: boolean
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      reforma_config: {
+        Row: {
+          atualizado_em: string
+          chave: string
+          descricao: string | null
+          valor: number
+        }
+        Insert: {
+          atualizado_em?: string
+          chave: string
+          descricao?: string | null
+          valor: number
+        }
+        Update: {
+          atualizado_em?: string
+          chave?: string
+          descricao?: string | null
+          valor?: number
         }
         Relationships: []
       }
