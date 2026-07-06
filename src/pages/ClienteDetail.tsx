@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { toastError } from "@/lib/handle-error";
 import { ProcessosTesesTab } from "@/components/clientes/ProcessosTesesTab";
+import { ClienteHeaderQuadrantes } from "@/components/clientes/ClienteHeaderQuadrantes";
 import { CompensacoesTab } from "@/components/clientes/CompensacoesTab";
 import { ResumoFinanceiroTab } from "@/components/clientes/ResumoFinanceiroTab";
 import { SEGMENTO_LABELS } from "@/lib/pipeline-constants";
@@ -397,6 +398,7 @@ export default function ClienteDetail() {
 
       {/* Main */}
       <div className="flex-1 p-6 overflow-y-auto">
+        {id && <ClienteHeaderQuadrantes clienteId={id} />}
         {(() => {
           const canTab = (key: string) => {
             const p = permissions.find((pp) => pp.screen_key === key);
