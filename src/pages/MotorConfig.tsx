@@ -73,6 +73,12 @@ const TRIBUTO_CHIP_COLORS: Record<string, string> = {
   "Outros": "bg-slate-500 text-white border-slate-500",
 };
 
+const REGIME_CHIP_COLORS: Record<string, string> = {
+  lucro_real: "bg-blue-600 text-white border-blue-600",
+  lucro_presumido: "bg-teal-600 text-white border-teal-600",
+  simples: "bg-lime-600 text-white border-lime-600",
+};
+
 const SEGMENTO_CHIP_COLORS: Record<string, string> = {
   supermercado: "bg-emerald-600 text-white border-emerald-600",
   farmacia: "bg-purple-600 text-white border-purple-600",
