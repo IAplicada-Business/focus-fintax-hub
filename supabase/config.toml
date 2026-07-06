@@ -17,3 +17,12 @@ verify_jwt = false
 
 [functions.meta-sync-insights]
 verify_jwt = false
+
+[functions.calcular-dre-completa]
+verify_jwt = false
+
+[functions.calcular-ibs-cbs]
+verify_jwt = false
+
+[functions.submit-calculadora-lead]
+verify_jwt = false
