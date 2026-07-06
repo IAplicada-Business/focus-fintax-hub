@@ -205,7 +205,9 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
         tributo: rowTributo,
       }));
 
-      const { error } = await supabase.from("compensacoes_mensais").insert(inserts);
+      const { error } = await supabase.from("compensacoes_mensais").insert(
+        inserts.map(i => ({ ...i, tributo_enum: "outros" })) as any
+      );
       if (!error) {
         totalComp += inserts.length;
         clienteIds.add(clienteId);
