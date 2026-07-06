@@ -952,31 +952,59 @@ async function runDiag(){
   const btnOrigText=btn?btn.textContent:'';
   if(btn){btn.textContent='Analisando...';btn.disabled=true;}
 
-  try{
-    const SUPABASE_URL='https://klfpgpymgkfurylwpkrc.supabase.co';
-    const resp=await fetch(SUPABASE_URL+'/functions/v1/submit-lead-public',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({nome,empresa,cnpj,whatsapp,email,segmento,regime,faturamento:fat})
-    });
-    const data=await resp.json();
-    if(resp.ok&&data.blocked){
-      alert(data.message||'Regime não elegível.');
-      if(btn){btn.textContent=btnOrigText;btn.disabled=false;}
-      return;
+  const payload={nome,empresa,cnpj,whatsapp,email,segmento,regime,faturamento:fat};
+  const SUPABASE_URL='https://klfpgpymgkfurylwpkrc.supabase.co';
+  const SUBMIT_URL=SUPABASE_URL+'/functions/v1/submit-lead-public';
+
+  // Retry com backoff exponencial (250ms, 750ms, 2s). Fallback só se todas
+  // as 3 tentativas falharem — evita fallback silencioso na primeira falha
+  // transiente (network glitch, cold start da edge function, etc.)
+  async function trySubmit(){
+    const delays=[0,250,750,2000];
+    let lastErr=null;
+    for(let i=0;i<delays.length;i++){
+      if(delays[i]>0)await new Promise(r=>setTimeout(r,delays[i]));
+      try{
+        const resp=await fetch(SUBMIT_URL,{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(payload)
+        });
+        const data=await resp.json();
+        return {ok:resp.ok,data,status:resp.status,attempts:i+1};
+      }catch(e){lastErr=e;}
     }
-    if(resp.ok&&data.token){
-      // Meta Pixel: lead capturado com sucesso via API
-      if(typeof fbq==='function'){
-        fbq('track','Lead',{content_name:'Diagnostico Focus FinTax',content_category:segmento||'varejo'});
-      }
-      window.location.href='/diagnostico/'+data.token;
-      return;
-    }
-    console.error('submit-lead-public error:',data);
-  }catch(e){
-    console.error('Network error:',e);
+    return {ok:false,data:null,network_error:lastErr?String(lastErr):'unknown',attempts:delays.length};
   }
+
+  const result=await trySubmit();
+  if(result.ok&&result.data&&result.data.blocked){
+    alert(result.data.message||'Regime não elegível.');
+    if(btn){btn.textContent=btnOrigText;btn.disabled=false;}
+    return;
+  }
+  if(result.ok&&result.data&&result.data.token){
+    // Meta Pixel: lead salvo com sucesso na API
+    if(typeof fbq==='function'){
+      fbq('track','Lead',{
+        content_name:'Diagnostico Focus FinTax',
+        content_category:segmento||'varejo',
+        source:'api',
+        attempts:result.attempts
+      });
+    }
+    window.location.href='/diagnostico/'+result.data.token;
+    return;
+  }
+
+  // FALLBACK — todas as tentativas falharam. Registra pra recuperação.
+  console.error('submit-lead-public falhou após retry:',result);
+  try{
+    // Guarda o payload em localStorage pra o operador tentar recuperar depois
+    const q=JSON.parse(localStorage.getItem('ft_lp_pendentes')||'[]');
+    q.push({ts:Date.now(),payload,result});
+    localStorage.setItem('ft_lp_pendentes',JSON.stringify(q.slice(-20)));
+  }catch(_){/* localStorage cheio ou desabilitado */}
 
   // Fallback: client-side calculation
   if(btn){btn.textContent=btnOrigText;btn.disabled=false;}
@@ -1008,10 +1036,32 @@ async function runDiag(){
   document.getElementById('btnWa').href='https://wa.me/5521971655550?text='+msg;
   document.getElementById('form-state').style.display='none';
   document.getElementById('diag-result').style.display='block';
-  // Meta Pixel: lead capturado (fallback client-side)
+  // Meta Pixel: lead capturado via FALLBACK (NÃO foi salvo no CRM).
+  // Uso evento customizado 'LeadFallback' pra o time de mkt conseguir medir
+  // no Meta Ads Manager o buraco entre "quem viu o resultado" e "quem
+  // entrou no funil". Se esse número for > 0 no relatório, tem lead
+  // perdido — checar console.error do usuário ou localStorage.ft_lp_pendentes.
   if(typeof fbq==='function'){
-    fbq('track','Lead',{content_name:'Diagnostico Focus FinTax (fallback)',content_category:segmento||'varejo'});
+    fbq('trackCustom','LeadFallback',{
+      content_name:'Diagnostico Focus FinTax (fallback local)',
+      content_category:segmento||'varejo',
+      source:'fallback_local',
+      empresa:empresa||nome
+    });
   }
+
+  // Aviso discreto ao usuário — não bloqueia a jornada, mas sinaliza que a
+  // Focus não recebeu a submissão automaticamente.
+  try{
+    const diagResult=document.getElementById('diag-result');
+    if(diagResult&&!document.getElementById('ft-fallback-notice')){
+      const notice=document.createElement('div');
+      notice.id='ft-fallback-notice';
+      notice.style.cssText='margin-top:16px;padding:10px 14px;background:rgba(199,55,55,.08);border:1px solid rgba(199,55,55,.35);border-radius:8px;font-size:12px;color:#c73737;line-height:1.5';
+      notice.innerHTML='⚠️ Estimativa gerada localmente — não conseguimos registrar automaticamente. Toque em <strong>Falar no WhatsApp</strong> abaixo pra a Focus te atender direto.';
+      diagResult.appendChild(notice);
+    }
+  }catch(_){}
   setTimeout(()=>{
     teses.forEach((_,i)=>{
       const b=document.getElementById('b'+i);
