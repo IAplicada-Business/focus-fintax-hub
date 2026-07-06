@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 // -----------------------------------------------------------------------------
 // Tipos (espelham o retorno do submit-calculadora-lead / calc-motor)
@@ -366,6 +368,8 @@ function ResultadoView({
 }) {
   const { dre, reforma } = resultado;
   const fat = dre.faturamento;
+  const pdfRef = useRef<HTMLDivElement>(null);
+  const [downloading, setDownloading] = useState(false);
 
   // Impostos atuais estimados (regime real presumido): ~ (PIS+COFINS+ICMS) baseline.
   // Simples proxy: 8-11% do faturamento como carga total antes da Reforma.
@@ -374,8 +378,97 @@ function ResultadoView({
   const impostoReforma = reforma.saldo_a_pagar; // negativo/zero = a receber; positivo = a pagar
   const delta = ((impostoReforma - impostoAtual) / Math.max(impostoAtual, 1)) * 100;
 
+  const sanitizeFileName = (s: string) =>
+    (s || "cliente")
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-zA-Z0-9_-]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 60);
+
+  const handleDownloadPdf = async () => {
+    const el = pdfRef.current;
+    if (!el || downloading) return;
+    setDownloading(true);
+
+    // Mesma técnica dos PRs #34/#38/#43: neutraliza overflow/max-height/vh
+    // dos ancestrais pra capturar o conteúdo inteiro (não só a viewport).
+    const modified: { el: HTMLElement; prop: string; prev: string }[] = [];
+    const force = (n: HTMLElement, prop: string, value: string) => {
+      modified.push({ el: n, prop, prev: n.style.getPropertyValue(prop) });
+      n.style.setProperty(prop, value, "important");
+    };
+    let node: HTMLElement | null = el;
+    while (node && node !== document.body) {
+      const cs = window.getComputedStyle(node);
+      if (["auto", "scroll", "hidden"].includes(cs.overflow) || ["auto", "scroll", "hidden"].includes(cs.overflowY)) {
+        force(node, "overflow", "visible");
+        force(node, "overflow-y", "visible");
+      }
+      if (cs.maxHeight && cs.maxHeight !== "none") force(node, "max-height", "none");
+      if (cs.height && cs.height.endsWith("vh")) force(node, "height", "auto");
+      node = node.parentElement;
+    }
+    force(el, "height", "auto");
+    force(el, "max-height", "none");
+    force(el, "overflow", "visible");
+
+    try {
+      await new Promise((r) => setTimeout(r, 50));
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        windowWidth: el.scrollWidth,
+        windowHeight: el.scrollHeight,
+        height: el.scrollHeight,
+        width: el.scrollWidth,
+      });
+
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidthMm = 210;
+      const pageHeightMm = 297;
+      const imgWidthMm = pageWidthMm;
+      const imgHeightMm = (canvas.height * imgWidthMm) / canvas.width;
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+
+      let heightLeft = imgHeightMm;
+      let position = 0;
+      pdf.addImage(imgData, "JPEG", 0, position, imgWidthMm, imgHeightMm);
+      heightLeft -= pageHeightMm;
+      while (heightLeft > 0) {
+        position -= pageHeightMm;
+        pdf.addPage();
+        pdf.addImage(imgData, "JPEG", 0, position, imgWidthMm, imgHeightMm);
+        heightLeft -= pageHeightMm;
+      }
+      const pageCount = pdf.getNumberOfPages();
+      const nowStr = new Date().toLocaleDateString("pt-BR");
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(120, 120, 120);
+        pdf.text(`Focus FinTax · Diagnóstico da Reforma Tributária · ${nowStr}`, 10, pageHeightMm - 6);
+        pdf.text(`Página ${i} de ${pageCount}`, pageWidthMm - 32, pageHeightMm - 6);
+      }
+      const nomeSan = sanitizeFileName(nome);
+      const dataStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      pdf.save(`Diagnostico_Reforma_${nomeSan}_${dataStr}.pdf`);
+      toast.success("PDF gerado!");
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao gerar PDF", { description: "Tenta usar Ctrl+P como fallback." });
+    } finally {
+      for (const { el: n, prop, prev } of modified) {
+        if (prev) n.style.setProperty(prop, prev);
+        else n.style.removeProperty(prop);
+      }
+      setDownloading(false);
+    }
+  };
+
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", display: "grid", gap: 20 }}>
+    <div ref={pdfRef} style={{ maxWidth: 1000, margin: "0 auto", display: "grid", gap: 20 }}>
       {/* BLOCO 1 — Card destaque */}
       <div style={{ background: NAVY, color: "white", borderRadius: 20, padding: "40px 32px", textAlign: "center" }}>
         <p style={{ fontSize: 11, letterSpacing: 3, textTransform: "uppercase", opacity: 0.7, marginBottom: 8 }}>
@@ -466,15 +559,16 @@ function ResultadoView({
       {/* CTAs finais */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 8 }}>
         <button
-          disabled
-          title="Em breve — PDF gerado por Puppeteer"
+          onClick={handleDownloadPdf}
+          disabled={downloading}
           style={{
             padding: "14px 20px", borderRadius: 10, border: "none",
-            background: GRANADA, color: "white", fontWeight: 700, fontSize: 14,
-            opacity: 0.7, cursor: "not-allowed",
+            background: downloading ? "rgba(199,55,55,.6)" : GRANADA, color: "white",
+            fontWeight: 700, fontSize: 14,
+            cursor: downloading ? "wait" : "pointer",
           }}
         >
-          Baixar diagnóstico em PDF (em breve)
+          {downloading ? "Gerando PDF..." : "Baixar diagnóstico em PDF"}
         </button>
         <a
           href={`https://wa.me/5521971655550?text=${encodeURIComponent(
