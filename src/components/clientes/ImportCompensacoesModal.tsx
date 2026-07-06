@@ -149,8 +149,8 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
       // Get or create a process for this client — preferindo o que cobre o tributo
       const { data: procs } = await supabase
         .from("processos_teses")
-        .select("id, tributo")
-        .eq("cliente_id", clienteId);
+        .select("id, tributo" as any)
+        .eq("cliente_id", clienteId) as any;
 
       let processoId: string;
       const procMatchTributo = rowTributo
