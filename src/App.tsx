@@ -20,6 +20,7 @@ const Pipeline = lazy(() => import("@/pages/Pipeline"));
 const Benchmarks = lazy(() => import("@/pages/Benchmarks"));
 const ClientesList = lazy(() => import("@/pages/ClientesList"));
 const ClienteDetail = lazy(() => import("@/pages/ClienteDetail"));
+const MapaCreditos = lazy(() => import("@/pages/MapaCreditos"));
 const Diagnostico = lazy(() => import("@/pages/Diagnostico"));
 const MotorConfig = lazy(() => import("@/pages/MotorConfig"));
 const Intimacoes = lazy(() => import("@/pages/Intimacoes"));
@@ -76,6 +77,7 @@ const App = () => (
                         <Route path="/leads/:id/relatorio" element={<LeadReport />} />
                         <Route path="/clientes" element={<ClientesList />} />
                         <Route path="/clientes/:id" element={<ClienteDetail />} />
+                        <Route path="/clientes/:id/mapa-creditos" element={<MapaCreditos />} />
                         <Route path="/intimacoes" element={<Intimacoes />} />
                         <Route path="/marketing" element={<MarketingLayout />}>
                           <Route index             element={<MarketingOverview />} />

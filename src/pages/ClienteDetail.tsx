@@ -285,6 +285,15 @@ export default function ClienteDetail() {
           <Upload className="h-4 w-4" /> Importar dados Laratex
         </Button>
 
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full justify-start gap-2"
+          onClick={() => navigate(`/clientes/${id}/mapa-creditos`)}
+        >
+          <FileText className="h-4 w-4" /> Mapa de Créditos
+        </Button>
+
         {intimacoesPendentes > 0 && (
           <Link to="/intimacoes" className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/5 border border-destructive/15 hover:bg-destructive/10 transition-colors">
             <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
