@@ -127,7 +127,16 @@ export function ProcessosTesesTab({ clienteId, compensacoesTotal }: Props) {
             const sc = getStatusContratoConfig(p.status_contrato);
             return (
               <TableRow key={p.id}>
-                <TableCell className="font-medium">{p.nome_exibicao}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    <span>{p.nome_exibicao}</span>
+                    {p.categoria === "reporto" && (
+                      <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-[10px]">
+                        Reporto
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell>{formatCurrencyBR(Number(p.valor_credito || 0))}</TableCell>
                 <TableCell><Badge variant="outline" className={sc.color}>{sc.label}</Badge></TableCell>
                 <TableCell>
