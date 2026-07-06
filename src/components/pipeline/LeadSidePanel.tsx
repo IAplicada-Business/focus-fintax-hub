@@ -47,12 +47,33 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
   const [exceptionSaving, setExceptionSaving] = useState(false);
   const [showLostConfirm, setShowLostConfirm] = useState(false);
   const [obsSaved, setObsSaved] = useState(false);
+  const [calcData, setCalcData] = useState<{
+    faturamento_mensal: number;
+    ibs_cbs_estimado: number | null;
+    economia_potencial_anual: number | null;
+    regime: string;
+    ja_faz_recuperacao: boolean;
+    utm_source: string | null;
+    utm_campaign: string | null;
+  } | null>(null);
   const debounceRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     if (lead) {
       setObs(lead.observacoes || "");
       fetchHistorico(lead.id);
+      // Se o lead veio da calculadora, puxa detalhes extras
+      const calcId = (lead as any).calculadora_lead_id as string | undefined;
+      if (calcId) {
+        (supabase as any)
+          .from("calculadora_leads")
+          .select("faturamento_mensal, ibs_cbs_estimado, economia_potencial_anual, regime, ja_faz_recuperacao, utm_source, utm_campaign")
+          .eq("id", calcId)
+          .maybeSingle()
+          .then(({ data }: any) => setCalcData(data ?? null));
+      } else {
+        setCalcData(null);
+      }
     }
   }, [lead?.id]);
 
@@ -221,13 +242,63 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
                     </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Fonte</Label>
-                      <p className="text-sm">{lead.origem}</p>
+                      <p className="text-sm">
+                        {lead.origem === "calculadora" ? "Calculadora RT"
+                          : lead.origem === "formulario_lp" ? "Formulário LP"
+                          : lead.origem === "meta_ads" ? "Meta Ads"
+                          : lead.origem}
+                      </p>
                     </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Cadastro</Label>
                       <p className="text-sm">{new Date(lead.criado_em).toLocaleDateString("pt-BR")}</p>
                     </div>
                   </div>
+
+                  {calcData && (
+                    <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-bold tracking-widest uppercase text-rose-800">
+                          📊 Diagnóstico da Calculadora RT
+                        </p>
+                        <Badge variant="outline" className="bg-white text-rose-800 border-rose-200 text-[10px]">
+                          {calcData.regime}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground">Faturamento mensal</p>
+                          <p className="font-semibold">{formatCurrency(calcData.faturamento_mensal)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground">Já recupera?</p>
+                          <p className="font-semibold">{calcData.ja_faz_recuperacao ? "Sim" : "Não"}</p>
+                        </div>
+                        {calcData.ibs_cbs_estimado !== null && (
+                          <div>
+                            <p className="text-[10px] text-muted-foreground">Saldo IBS/CBS estimado</p>
+                            <p className="font-semibold">{formatCurrency(calcData.ibs_cbs_estimado)}/mês</p>
+                          </div>
+                        )}
+                        {calcData.economia_potencial_anual !== null && (
+                          <div>
+                            <p className="text-[10px] text-muted-foreground">Economia potencial anual</p>
+                            <p className="font-semibold text-emerald-700">
+                              {formatCurrency(Math.abs(calcData.economia_potencial_anual))}
+                            </p>
+                          </div>
+                        )}
+                        {(calcData.utm_source || calcData.utm_campaign) && (
+                          <div className="col-span-2 pt-1 border-t border-rose-200">
+                            <p className="text-[10px] text-muted-foreground">UTM</p>
+                            <p className="text-[11px] font-mono">
+                              {calcData.utm_source ?? "—"} · {calcData.utm_campaign ?? "—"}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {!isFullReadOnly && isEditable && (
                     <div>

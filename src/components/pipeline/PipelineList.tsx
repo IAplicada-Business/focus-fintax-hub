@@ -21,6 +21,7 @@ export function PipelineList({ leads, onLeadClick }: Props) {
   const [segFilter, setSegFilter] = useState("all");
   const [regimeFilter, setRegimeFilter] = useState("all");
   const [stageFilter, setStageFilter] = useState("all");
+  const [origemFilter, setOrigemFilter] = useState("all");
   const [page, setPage] = useState(0);
   const [sortCol, setSortCol] = useState<string>("criado_em");
   const [sortAsc, setSortAsc] = useState(false);
@@ -34,6 +35,7 @@ export function PipelineList({ leads, onLeadClick }: Props) {
     if (segFilter !== "all") result = result.filter((l) => l.segmento === segFilter);
     if (regimeFilter !== "all") result = result.filter((l) => l.regime_tributario === regimeFilter);
     if (stageFilter !== "all") result = result.filter((l) => l.status_funil === stageFilter);
+    if (origemFilter !== "all") result = result.filter((l) => l.origem === origemFilter);
 
     result.sort((a, b) => {
       let va: any, vb: any;
@@ -55,7 +57,12 @@ export function PipelineList({ leads, onLeadClick }: Props) {
     });
 
     return result;
-  }, [leads, search, segFilter, regimeFilter, stageFilter, sortCol, sortAsc]);
+  }, [leads, search, segFilter, regimeFilter, stageFilter, origemFilter, sortCol, sortAsc]);
+
+  const origensDisponiveis = useMemo(
+    () => Array.from(new Set(leads.map((l) => l.origem).filter(Boolean))).sort(),
+    [leads]
+  );
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -100,6 +107,20 @@ export function PipelineList({ leads, onLeadClick }: Props) {
             {PIPELINE_STAGES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={origemFilter} onValueChange={(v) => { setOrigemFilter(v); setPage(0); }}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Origem" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas origens</SelectItem>
+            {origensDisponiveis.map((o) => (
+              <SelectItem key={o} value={o}>
+                {o === "calculadora" ? "Calculadora RT"
+                  : o === "formulario_lp" ? "Formulário LP"
+                  : o === "meta_ads" ? "Meta Ads"
+                  : o}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Table */}
@@ -140,7 +161,23 @@ export function PipelineList({ leads, onLeadClick }: Props) {
                     {potMax > 0 ? `${formatCurrency(potMin)} → ${formatCurrency(potMax)}` : "—"}
                   </TableCell>
                   <TableCell><Badge variant="outline" className={`text-[10px] ${stageColor}`}>{stageLabel}</Badge></TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{lead.origem}</TableCell>
+                  <TableCell className="text-xs">
+                    {lead.origem === "calculadora" ? (
+                      <Badge variant="outline" className="bg-rose-100 text-rose-800 border-rose-200 text-[10px]">
+                        Calculadora RT
+                      </Badge>
+                    ) : lead.origem === "formulario_lp" ? (
+                      <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-[10px]">
+                        LP
+                      </Badge>
+                    ) : lead.origem === "meta_ads" ? (
+                      <Badge variant="outline" className="bg-cyan-100 text-cyan-800 border-cyan-200 text-[10px]">
+                        Meta Ads
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">{lead.origem}</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{new Date(lead.criado_em).toLocaleDateString("pt-BR")}</TableCell>
                   <TableCell className="text-xs">{days}d</TableCell>
                 </TableRow>
