@@ -61,7 +61,7 @@ No Supabase do Lovable → **Edge Functions → Manage secrets** → adiciona:
 |---|---|
 | `META_APP_ID` | `1024795040390999` |
 | `META_APP_SECRET` | App Meta → Configurações Básicas → App Secret |
-| `META_SYSTEM_USER_TOKEN` | Token do passo 2 |
+| `META_ACCESS_TOKEN` | Token do passo 2. Aceita **User Access Token** (uso atual — Mariana) OU **System User Token** do BM. Nome antigo `META_SYSTEM_USER_TOKEN` ainda é lido como fallback durante transição — remova depois de cadastrar o novo. |
 | `META_AD_ACCOUNT_ID` | `act_1567349847850269` |
 | `META_PAGE_ID` | `886052397927220` |
 | `META_WEBHOOK_VERIFY_TOKEN` | Gera ~32 chars aleatórios (`focus_meta_wh_XXX`) |
@@ -213,7 +213,7 @@ Já deployado pelo Lovable junto com o merge do PR. Acessa:
 
 ### "(#100) Tried accessing nonexisting field 'leads_retrieval'" ou similar
 - Causa: o System User Token não tem permissão `leads_retrieval`
-- Fix: vai no BM → System User → **Gerar novo token** marcando `leads_retrieval` + atualiza `META_SYSTEM_USER_TOKEN`
+- Fix: vai no BM → System User → **Gerar novo token** marcando `leads_retrieval` + atualiza `META_ACCESS_TOKEN` (nome antigo `META_SYSTEM_USER_TOKEN` ainda é lido como fallback)
 
 ### Cron disparou mas `meta_execution_log` vazio
 - Verifica `net._http_response.status_code` — se for 404, a função não está deployada (volta ao passo 5)
