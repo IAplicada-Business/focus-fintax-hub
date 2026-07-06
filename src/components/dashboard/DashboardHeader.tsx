@@ -7,11 +7,17 @@ interface Props {
   role: string;
   canComercial: boolean;
   canOperacional: boolean;
+  canExecutiva: boolean;
   activeTab: string;
   switchTab: (t: string) => void;
 }
 
-export function DashboardHeader({ profileName, role, canComercial, canOperacional, activeTab, switchTab }: Props) {
+export function DashboardHeader({ profileName, role, canComercial, canOperacional, canExecutiva, activeTab, switchTab }: Props) {
+  const tabs = [
+    canComercial && { key: "comercial", label: "Visão Comercial" },
+    canOperacional && { key: "operacional", label: "Visão Operacional" },
+    canExecutiva && { key: "executiva", label: "Visão Executiva" },
+  ].filter(Boolean) as { key: string; label: string }[];
   return (
     <div className="sticky top-0 z-[100]">
       <div className="h-[52px] px-7 flex items-center justify-between">
@@ -24,10 +30,10 @@ export function DashboardHeader({ profileName, role, canComercial, canOperaciona
           <span className="font-mono-dm text-xs text-ink-60 ml-2.5">{format(new Date(), "HH:mm")}</span>
         </div>
       </div>
-      {canComercial && canOperacional && (
+      {tabs.length > 1 && (
         <div className="flex justify-center pb-3">
           <div className="bg-white/80 border border-[rgba(10,21,100,0.08)] rounded-lg px-1 py-1 flex gap-1">
-            {[{ key: "comercial", label: "Visão Comercial" }, { key: "operacional", label: "Visão Operacional" }].map(t => (
+            {tabs.map(t => (
               <button key={t.key} onClick={() => switchTab(t.key)} className={`px-6 py-1.5 text-[13px] cursor-pointer bg-transparent border-none rounded-md font-sans transition-colors ${activeTab === t.key ? "font-semibold text-navy" : "font-medium text-ink-60"}`}>
                 {t.label}
               </button>
