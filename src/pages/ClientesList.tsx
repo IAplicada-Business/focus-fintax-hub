@@ -17,6 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { ImportCompensacoesModal } from "@/components/clientes/ImportCompensacoesModal";
 import { ImportControleModal } from "@/components/clientes/ImportControleModal";
+import { ImportFluxoCaixaModal } from "@/components/clientes/ImportFluxoCaixaModal";
 import { formatCurrencyBR } from "@/lib/clientes-constants";
 import { SEGMENTO_LABELS } from "@/lib/pipeline-constants";
 import { toast } from "sonner";
@@ -46,6 +47,7 @@ export default function ClientesList() {
   const [reportOpen, setReportOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importControleOpen, setImportControleOpen] = useState(false);
+  const [importFluxoOpen, setImportFluxoOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filterSegmento, setFilterSegmento] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -200,8 +202,11 @@ export default function ClientesList() {
                 <DropdownMenuItem onClick={() => setImportControleOpen(true)}>
                   Cadastro + créditos (aba Controle)
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setImportFluxoOpen(true)}>
+                  Fluxo de caixa (compensações por tributo + DCOMPs)
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setImportOpen(true)}>
-                  Compensações mensais
+                  Compensações mensais (legado)
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -587,6 +592,12 @@ export default function ClientesList() {
       <ImportControleModal
         open={importControleOpen}
         onOpenChange={setImportControleOpen}
+        onImported={fetchAll}
+      />
+
+      <ImportFluxoCaixaModal
+        open={importFluxoOpen}
+        onOpenChange={setImportFluxoOpen}
         onImported={fetchAll}
       />
     </div>
