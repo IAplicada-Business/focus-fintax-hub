@@ -13,6 +13,13 @@ import { LeadSidePanel } from "@/components/pipeline/LeadSidePanel";
 import { SkeletonKpi } from "@/components/dashboard/SkeletonKpi";
 import { SkeletonTable } from "@/components/dashboard/SkeletonTable";
 import { useLeadsPipeline, useLeadExceptions } from "@/hooks/data/useLeads";
+import {
+  StatusCompensacaoFilter,
+  useStatusCompensacao,
+  countByStatus,
+  STATUS_COMPENSACAO_VALUES,
+  type StatusCompensacao,
+} from "@/components/StatusCompensacaoFilter";
 
 export interface PipelineLead {
   id: string;
@@ -49,6 +56,50 @@ export default function Pipeline() {
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [showForm, setShowForm] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [filterStatusComp, setFilterStatusComp] = useState<Set<StatusCompensacao>>(
+    new Set(STATUS_COMPENSACAO_VALUES)
+  );
+
+  const { statusMap: statusCompMap } = useStatusCompensacao();
+  // Mapeia lead_id → cliente_id (converted leads only)
+  const [leadToCliente, setLeadToCliente] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    supabase
+      .from("clientes")
+      .select("id, lead_id")
+      .not("lead_id", "is", null)
+      .then(({ data }) => {
+        const m = new Map<string, string>();
+        for (const c of (data || []) as { id: string; lead_id: string }[]) {
+          m.set(c.lead_id, c.id);
+        }
+        setLeadToCliente(m);
+      });
+  }, []);
+
+  const leadStatusMap = useMemo(() => {
+    const m = new Map<string, StatusCompensacao>();
+    for (const [leadId, cId] of leadToCliente.entries()) {
+      const s = statusCompMap.get(cId);
+      if (s) m.set(leadId, s);
+    }
+    return m;
+  }, [leadToCliente, statusCompMap]);
+
+  const filteredLeads = useMemo(() => {
+    const allOrNone =
+      filterStatusComp.size === 0 || filterStatusComp.size === STATUS_COMPENSACAO_VALUES.length;
+    if (allOrNone) return leads;
+    return leads.filter((l) => {
+      const s = leadStatusMap.get(l.id) ?? "sem_operacao";
+      return filterStatusComp.has(s);
+    });
+  }, [leads, leadStatusMap, filterStatusComp]);
+
+  const statusCompCounts = useMemo(
+    () => countByStatus(leads.map((l) => l.id), leadStatusMap),
+    [leads, leadStatusMap]
+  );
 
   const fetchLeads = () => queryClient.invalidateQueries({ queryKey: ["leads"] });
 
@@ -120,6 +171,11 @@ export default function Pipeline() {
               <List className="h-4 w-4" />
             </Button>
           </div>
+          <StatusCompensacaoFilter
+            selectedStatuses={filterStatusComp}
+            onChange={setFilterStatusComp}
+            counts={statusCompCounts}
+          />
           {userRole !== "gestor_tributario" && (
             <Button onClick={() => setShowForm(true)}>
               <Plus className="h-4 w-4 mr-1" /> Novo Lead
@@ -159,9 +215,9 @@ export default function Pipeline() {
           <SkeletonTable />
         </div>
       ) : view === "kanban" ? (
-        <PipelineKanban leads={leads} onLeadClick={setSelectedLeadId} onRefresh={fetchLeads} exceptionLeadIds={exceptionLeadIds} />
+        <PipelineKanban leads={filteredLeads} onLeadClick={setSelectedLeadId} onRefresh={fetchLeads} exceptionLeadIds={exceptionLeadIds} />
       ) : (
-        <PipelineList leads={leads} onLeadClick={setSelectedLeadId} />
+        <PipelineList leads={filteredLeads} onLeadClick={setSelectedLeadId} />
       )}
 
       {/* Form Modal */}
