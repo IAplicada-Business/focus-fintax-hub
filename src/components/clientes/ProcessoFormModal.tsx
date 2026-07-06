@@ -29,6 +29,7 @@ export function ProcessoFormModal({ open, onOpenChange, clienteId, existingTeses
     status_contrato: "aguardando_assinatura",
     status_processo: "a_iniciar",
     observacao: "",
+    categoria: "compensacao",
   });
 
   useEffect(() => {
@@ -47,6 +48,7 @@ export function ProcessoFormModal({ open, onOpenChange, clienteId, existingTeses
         status_contrato: processo.status_contrato,
         status_processo: processo.status_processo,
         observacao: processo.observacao || "",
+        categoria: (processo.categoria === "reporto" ? "reporto" : "compensacao"),
       });
     }
   }, [processo]);
@@ -57,7 +59,15 @@ export function ProcessoFormModal({ open, onOpenChange, clienteId, existingTeses
 
   const handleTesePick = (value: string) => {
     const t = teses.find((x) => x.tese === value);
-    setForm((p) => ({ ...p, tese: value, nome_exibicao: t?.nome_exibicao || value }));
+    // Auto-detecta reporto pelo nome — o usuário pode ajustar depois
+    const nome = t?.nome_exibicao || value;
+    const isReporto = /reporto/i.test(nome) || /reporto/i.test(value);
+    setForm((p) => ({
+      ...p,
+      tese: value,
+      nome_exibicao: nome,
+      categoria: isReporto ? "reporto" : p.categoria,
+    }));
   };
 
   const handleSave = async () => {
@@ -73,8 +83,9 @@ export function ProcessoFormModal({ open, onOpenChange, clienteId, existingTeses
       status_contrato: form.status_contrato,
       status_processo: form.status_processo,
       observacao: form.observacao,
+      categoria: form.categoria,
       atualizado_em: new Date().toISOString(),
-    };
+    } as any;
 
     const { error } = processo
       ? await supabase.from("processos_teses").update(payload).eq("id", processo.id)
@@ -104,6 +115,19 @@ export function ProcessoFormModal({ open, onOpenChange, clienteId, existingTeses
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Categoria</Label>
+            <Select value={form.categoria} onValueChange={(v) => update("categoria", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="compensacao">Compensação</SelectItem>
+                <SelectItem value="reporto">Reporto</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Reporto = regime PIS/COFINS acumulado (dinâmica diferente da compensação administrativa).
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Valor do Crédito (R$)</Label>

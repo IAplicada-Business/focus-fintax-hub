@@ -7,6 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/EmptyState";
 import { FileDown, TrendingUp, BarChart3, Download } from "lucide-react";
 import * as XLSX from "xlsx";
+import { useAuth } from "@/hooks/useAuth";
+
+// Cargos que podem enxergar KPIs internos financeiros (Honorários, Economia,
+// Saldo Restante). Comercial e cliente veem apenas os totais brutos.
+const INTERNAL_FINANCIAL_ROLES = new Set(["admin", "pmo", "gestor_tributario"]);
 
 interface Props {
   clienteId: string;
@@ -14,6 +19,9 @@ interface Props {
 }
 
 export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
+  const { userRole } = useAuth();
+  const canSeeInternalFinancials = userRole ? INTERNAL_FINANCIAL_ROLES.has(userRole) : false;
+
   const [processos, setProcessos] = useState<any[]>([]);
   const [compensacoes, setCompensacoes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +52,11 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
   const saldoRestante = totalIdentificado - totalCompensado;
   const pctUtilizado = totalIdentificado > 0 ? Math.round((totalCompensado / totalIdentificado) * 100) : 0;
   const taxaHonorarios = totalCompensado > 0 ? ((totalHonorarios / totalCompensado) * 100).toFixed(1) : "0";
+
+  // Trilhas do cliente (compensação / reporto) — vem da coluna categoria (PR 4).
+  const trilhas = new Set(assinados.map((p) => (p.categoria as string) || "compensacao"));
+  const temReporto = trilhas.has("reporto");
+  const temCompensacao = trilhas.has("compensacao");
 
   // Chart data grouped by month
   const porMes: Record<string, { compensado: number; honorarios: number }> = {};
@@ -126,22 +139,41 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
         </button>
       </div>
 
-      {/* KPI STRIP — 5 cards */}
+      {/* Trilhas — badges de categoria (compensação/reporto) */}
+      {(temCompensacao || temReporto) && (
+        <div className="flex items-center gap-2 text-xs">
+          <span className="font-bold tracking-[0.8px] uppercase text-ink-35 text-[10px]">Trilhas:</span>
+          {temCompensacao && (
+            <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-[10px]">
+              Compensação
+            </Badge>
+          )}
+          {temReporto && (
+            <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-[10px]">
+              Reporto
+            </Badge>
+          )}
+        </div>
+      )}
+
+      {/* KPI STRIP — cards financeiros; internos gated por role (RBAC) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {[
-          { label: "Total identificado", value: totalIdentificado, color: "var(--navy)" },
-          { label: "Total compensado", value: totalCompensado, color: "var(--dash-green)" },
-          { label: "Honorários Focus", value: totalHonorarios, color: "var(--navy)" },
-          { label: "Economia líquida", value: economiaLiquida, color: "var(--dash-green)" },
-          { label: "Saldo restante", value: saldoRestante, color: saldoRestante > 0 ? "var(--dash-red)" : "var(--ink-35)" },
-        ].map((kpi) => (
-          <div key={kpi.label} className="card-base px-4 py-3.5">
-            <p className="text-[10px] font-bold tracking-[0.8px] uppercase text-ink-35 mb-1">{kpi.label}</p>
-            <p className="font-display text-[22px] font-bold leading-none" style={{ color: kpi.color }}>
-              {formatCurrencyBR(kpi.value)}
-            </p>
-          </div>
-        ))}
+          { label: "Total identificado", value: totalIdentificado, color: "var(--navy)", internal: false },
+          { label: "Total compensado", value: totalCompensado, color: "var(--dash-green)", internal: false },
+          { label: "Honorários Focus", value: totalHonorarios, color: "var(--navy)", internal: true },
+          { label: "Economia líquida", value: economiaLiquida, color: "var(--dash-green)", internal: true },
+          { label: "Saldo restante", value: saldoRestante, color: saldoRestante > 0 ? "var(--dash-red)" : "var(--ink-35)", internal: true },
+        ]
+          .filter((kpi) => !kpi.internal || canSeeInternalFinancials)
+          .map((kpi) => (
+            <div key={kpi.label} className="card-base px-4 py-3.5">
+              <p className="text-[10px] font-bold tracking-[0.8px] uppercase text-ink-35 mb-1">{kpi.label}</p>
+              <p className="font-display text-[22px] font-bold leading-none" style={{ color: kpi.color }}>
+                {formatCurrencyBR(kpi.value)}
+              </p>
+            </div>
+          ))}
       </div>
 
       {/* PROGRESS + STATS */}
@@ -154,13 +186,15 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
             </p>
             <p className="text-[11px] text-ink-35 mt-0.5">do crédito identificado já compensado</p>
           </div>
-          <div className="text-right">
-            <p className="text-[10px] font-bold tracking-[0.8px] uppercase text-ink-35">Taxa de honorários</p>
-            <p className="font-display text-[28px] font-bold leading-none mt-1 text-[var(--navy)]">
-              {taxaHonorarios}%
-            </p>
-            <p className="text-[11px] text-ink-35 mt-0.5">média sobre compensações</p>
-          </div>
+          {canSeeInternalFinancials && (
+            <div className="text-right">
+              <p className="text-[10px] font-bold tracking-[0.8px] uppercase text-ink-35">Taxa de honorários</p>
+              <p className="font-display text-[28px] font-bold leading-none mt-1 text-[var(--navy)]">
+                {taxaHonorarios}%
+              </p>
+              <p className="text-[11px] text-ink-35 mt-0.5">média sobre compensações</p>
+            </div>
+          )}
         </div>
         <div className="w-full h-2.5 bg-[var(--ink-06)] rounded-full overflow-hidden">
           <div
