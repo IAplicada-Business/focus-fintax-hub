@@ -24,6 +24,7 @@ interface TeseConfig {
   descricao_comercial: string | null;
   regimes_elegiveis: string[];
   segmentos_elegiveis: string[];
+  tributos: string[];
   percentual_min: number;
   percentual_max: number;
   ativo: boolean;
@@ -54,10 +55,22 @@ const FATURAMENTO_FAIXAS = [
   { value: "acima_15m", label: "Acima R$ 15M", midpoint: 20_000_000 },
 ];
 
-const REGIME_CHIP_COLORS: Record<string, string> = {
-  lucro_real: "bg-blue-900 text-white border-blue-900",
-  lucro_presumido: "bg-blue-500 text-white border-blue-500",
-  simples: "bg-gray-400 text-white border-gray-400",
+const TRIBUTOS = [
+  { value: "INSS", label: "INSS" },
+  { value: "PIS/COFINS", label: "PIS/COFINS" },
+  { value: "IRPJ", label: "IRPJ" },
+  { value: "CSLL", label: "CSLL" },
+  { value: "ICMS", label: "ICMS" },
+  { value: "Outros", label: "Outros" },
+];
+
+const TRIBUTO_CHIP_COLORS: Record<string, string> = {
+  "INSS": "bg-indigo-600 text-white border-indigo-600",
+  "PIS/COFINS": "bg-cyan-700 text-white border-cyan-700",
+  "IRPJ": "bg-rose-600 text-white border-rose-600",
+  "CSLL": "bg-pink-600 text-white border-pink-600",
+  "ICMS": "bg-amber-700 text-white border-amber-700",
+  "Outros": "bg-slate-500 text-white border-slate-500",
 };
 
 const SEGMENTO_CHIP_COLORS: Record<string, string> = {
@@ -74,6 +87,7 @@ const emptyTese: Omit<TeseConfig, "id" | "atualizado_em" | "atualizado_por"> = {
   descricao_comercial: "",
   regimes_elegiveis: [],
   segmentos_elegiveis: [],
+  tributos: [],
   percentual_min: 0,
   percentual_max: 0,
   ativo: true,
@@ -129,6 +143,7 @@ export default function MotorConfig() {
       ...d,
       percentual_min: Number(d.percentual_min),
       percentual_max: Number(d.percentual_max),
+      tributos: Array.isArray(d.tributos) ? d.tributos : [],
     })));
     setLoading(false);
   };
@@ -216,6 +231,7 @@ export default function MotorConfig() {
       descricao_comercial: t.descricao_comercial || "",
       regimes_elegiveis: [...t.regimes_elegiveis],
       segmentos_elegiveis: [...t.segmentos_elegiveis],
+      tributos: [...(t.tributos || [])],
       percentual_min: t.percentual_min,
       percentual_max: t.percentual_max,
       ativo: t.ativo,
@@ -236,6 +252,7 @@ export default function MotorConfig() {
       descricao_comercial: editData.descricao_comercial || null,
       regimes_elegiveis: editData.regimes_elegiveis,
       segmentos_elegiveis: editData.segmentos_elegiveis,
+      tributos: editData.tributos,
       percentual_min: editData.percentual_min,
       percentual_max: editData.percentual_max,
       ativo: editData.ativo,
@@ -364,6 +381,7 @@ export default function MotorConfig() {
                   <TableHead>Nome da Tese</TableHead>
                   <TableHead>Regimes</TableHead>
                   <TableHead>Segmentos</TableHead>
+                  <TableHead>Tributos</TableHead>
                   <TableHead className="text-right w-[80px]">% Mín</TableHead>
                   <TableHead className="text-right w-[80px]">% Máx</TableHead>
                   <TableHead className="text-center w-[60px]">Ativo</TableHead>
@@ -505,6 +523,23 @@ export default function MotorConfig() {
                 ))}
               </div>
             </div>
+            <div>
+              <Label className="mb-2 block">Tributos cobertos</Label>
+              <div className="flex flex-wrap gap-3">
+                {TRIBUTOS.map((t) => (
+                  <label key={t.value} className="flex items-center gap-1.5 text-sm">
+                    <Checkbox
+                      checked={editData.tributos.includes(t.value)}
+                      onCheckedChange={() => setEditData({ ...editData, tributos: toggleArrayItem(editData.tributos, t.value) })}
+                    />
+                    {t.label}
+                  </label>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Uma tese pode cobrir mais de um tributo (ex: Subvenção ICMS → IRPJ + CSLL).
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
@@ -592,6 +627,24 @@ function TeseRow({
               </span>
             );
           })}
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex flex-wrap gap-0.5 max-w-[140px]">
+          {(t.tributos || []).length === 0 ? (
+            <span className="text-[10px] text-muted-foreground italic">—</span>
+          ) : (
+            (t.tributos || []).map((trib) => (
+              <span
+                key={trib}
+                className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                  TRIBUTO_CHIP_COLORS[trib] || "bg-slate-500 text-white"
+                }`}
+              >
+                {trib}
+              </span>
+            ))
+          )}
         </div>
       </TableCell>
       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
