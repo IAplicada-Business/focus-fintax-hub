@@ -23,6 +23,7 @@ const ClienteDetail = lazy(() => import("@/pages/ClienteDetail"));
 const Diagnostico = lazy(() => import("@/pages/Diagnostico"));
 const MotorConfig = lazy(() => import("@/pages/MotorConfig"));
 const Intimacoes = lazy(() => import("@/pages/Intimacoes"));
+const OAuthConsent = lazy(() => import("@/pages/OAuthConsent"));
 const MarketingLayout    = lazy(() => import("@/pages/marketing/MarketingLayout"));
 const MarketingOverview  = lazy(() => import("@/pages/marketing/MarketingOverview"));
 const MarketingCampanhas = lazy(() => import("@/pages/marketing/Campanhas"));
@@ -59,6 +60,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Login />} />
+            <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<PageSpinner />}><OAuthConsent /></Suspense>} />
             <Route path="/diagnostico/:token" element={<Suspense fallback={<PageSpinner />}><Diagnostico /></Suspense>} />
             <Route
               path="/*"

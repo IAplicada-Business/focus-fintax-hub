@@ -1,12 +1,21 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import logoWhite from "@/assets/logo-focus-fintax-white.png";
 
+function safeNext(raw: string | null): string {
+  if (!raw) return "/dashboard";
+  // Only allow same-origin relative paths.
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/dashboard";
+  return raw;
+}
+
 export default function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const nextPath = safeNext(searchParams.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -21,7 +30,7 @@ export default function Login() {
     if (error) {
       toast.error("Erro ao entrar", { description: error.message });
     } else {
-      navigate("/dashboard");
+      navigate(nextPath);
     }
   };
 
