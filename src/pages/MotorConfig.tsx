@@ -267,9 +267,9 @@ export default function MotorConfig() {
 
     let error;
     if (editData.id) {
-      ({ error } = await supabase.from("motor_teses_config").update(payload).eq("id", editData.id));
+      ({ error } = await supabase.from("motor_teses_config").update(payload as any).eq("id", editData.id));
     } else {
-      ({ error } = await supabase.from("motor_teses_config").insert(payload));
+      ({ error } = await supabase.from("motor_teses_config").insert(payload as any));
     }
 
     if (error) {
