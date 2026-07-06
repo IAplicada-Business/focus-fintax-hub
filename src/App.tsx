@@ -11,6 +11,8 @@ import Index from "@/pages/Index";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/NotFound";
 
+const Calculadora = lazy(() => import("@/pages/Calculadora"));
+
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
 const LeadQueue = lazy(() => import("@/pages/LeadQueue"));
@@ -64,6 +66,7 @@ const App = () => (
             <Route path="/auth" element={<Login />} />
             <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<PageSpinner />}><OAuthConsent /></Suspense>} />
             <Route path="/diagnostico/:token" element={<Suspense fallback={<PageSpinner />}><Diagnostico /></Suspense>} />
+            <Route path="/calculadora" element={<Suspense fallback={<PageSpinner />}><Calculadora /></Suspense>} />
             <Route
               path="/*"
               element={
