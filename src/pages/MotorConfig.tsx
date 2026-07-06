@@ -73,6 +73,12 @@ const TRIBUTO_CHIP_COLORS: Record<string, string> = {
   "Outros": "bg-slate-500 text-white border-slate-500",
 };
 
+const REGIME_CHIP_COLORS: Record<string, string> = {
+  lucro_real: "bg-blue-600 text-white border-blue-600",
+  lucro_presumido: "bg-teal-600 text-white border-teal-600",
+  simples: "bg-lime-600 text-white border-lime-600",
+};
+
 const SEGMENTO_CHIP_COLORS: Record<string, string> = {
   supermercado: "bg-emerald-600 text-white border-emerald-600",
   farmacia: "bg-purple-600 text-white border-purple-600",
@@ -267,9 +273,9 @@ export default function MotorConfig() {
 
     let error;
     if (editData.id) {
-      ({ error } = await supabase.from("motor_teses_config").update(payload).eq("id", editData.id));
+      ({ error } = await supabase.from("motor_teses_config").update(payload as any).eq("id", editData.id));
     } else {
-      ({ error } = await supabase.from("motor_teses_config").insert(payload));
+      ({ error } = await supabase.from("motor_teses_config").insert(payload as any));
     }
 
     if (error) {
