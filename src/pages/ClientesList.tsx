@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, AlertTriangle, AlertOctagon, FileText, Printer, Pencil, Trash2, Upload, Download, ChevronDown, Building2 } from "lucide-react";
@@ -18,6 +19,16 @@ import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { ImportCompensacoesModal } from "@/components/clientes/ImportCompensacoesModal";
 import { ImportControleModal } from "@/components/clientes/ImportControleModal";
 import { ImportFluxoCaixaModal } from "@/components/clientes/ImportFluxoCaixaModal";
+import {
+  StatusCompensacaoFilter,
+  useStatusCompensacao,
+  makeStatusFilterPredicate,
+  countByStatus,
+  STATUS_COMPENSACAO_VALUES,
+  STATUS_COMPENSACAO_LABELS,
+  STATUS_COMPENSACAO_COLORS,
+  type StatusCompensacao,
+} from "@/components/StatusCompensacaoFilter";
 import { formatCurrencyBR } from "@/lib/clientes-constants";
 import { SEGMENTO_LABELS } from "@/lib/pipeline-constants";
 import { toast } from "sonner";
@@ -51,6 +62,10 @@ export default function ClientesList() {
   const [search, setSearch] = useState("");
   const [filterSegmento, setFilterSegmento] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatusCompensacao, setFilterStatusCompensacao] = useState<Set<StatusCompensacao>>(
+    new Set(STATUS_COMPENSACAO_VALUES)
+  );
+  const { statusMap: statusCompMap } = useStatusCompensacao();
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 25;
 
@@ -90,8 +105,17 @@ export default function ClientesList() {
   if (filterStatus === "compensando") filtered = filtered.filter((c) => c.totalCompensado > 0);
   else if (filterStatus !== "all") filtered = filtered.filter((c) => c.status === filterStatus);
 
+  // Status compensação (view v_clientes_status_compensacao) — filtro multi-select
+  const statusCompPredicate = makeStatusFilterPredicate(filterStatusCompensacao, statusCompMap);
+  filtered = filtered.filter((c) => statusCompPredicate(c.id));
+
+  const statusCompCounts = useMemo(
+    () => countByStatus(allStats.map((c) => c.id), statusCompMap),
+    [allStats, statusCompMap]
+  );
+
   // Reset page on filter change
-  useEffect(() => setCurrentPage(1), [search, filterSegmento, filterStatus]);
+  useEffect(() => setCurrentPage(1), [search, filterSegmento, filterStatus, filterStatusCompensacao]);
 
   // Pagination
   const totalItems = filtered.length;
@@ -283,6 +307,11 @@ export default function ClientesList() {
             <SelectItem value="encerrado">Encerrado</SelectItem>
           </SelectContent>
         </Select>
+        <StatusCompensacaoFilter
+          selectedStatuses={filterStatusCompensacao}
+          onChange={setFilterStatusCompensacao}
+          counts={statusCompCounts}
+        />
       </div>
 
       {/* Table */}
@@ -321,7 +350,23 @@ export default function ClientesList() {
            ) : paginated.map((c) => {
             const row = (
              <TableRow key={c.id} className={`${isComercial ? "cursor-default" : "cursor-pointer"} hover:bg-muted/50`} onClick={() => !isComercial && navigate(`/clientes/${c.id}`)}>
-               <TableCell className="font-medium">{c.empresa}</TableCell>
+               <TableCell className="font-medium">
+                 <div className="flex items-center gap-2">
+                   <span>{c.empresa}</span>
+                   {(() => {
+                     const s = statusCompMap.get(c.id);
+                     if (!s || s === "sem_operacao") return null;
+                     return (
+                       <Badge
+                         variant="outline"
+                         className={`${STATUS_COMPENSACAO_COLORS[s]} text-[10px]`}
+                       >
+                         {STATUS_COMPENSACAO_LABELS[s]}
+                       </Badge>
+                     );
+                   })()}
+                 </div>
+               </TableCell>
                <TableCell className="text-sm text-muted-foreground">{c.cnpj}</TableCell>
                <TableCell className="text-sm">{SEGMENTO_LABELS[c.segmento] || c.segmento || "—"}</TableCell>
                <TableCell>{c.tesesAtivas}</TableCell>
