@@ -531,9 +531,9 @@ function ResultadoView({
       </div>
 
       {/* BLOCO 2 — Comparativo DRE lado a lado */}
-      <div style={{ background: "white", borderRadius: 16, padding: 24, boxShadow: "0 10px 30px -15px rgba(1,15,105,.1)" }}>
-        <h3 style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 4 }}>DRE — cenário atual vs Reforma</h3>
-        <p style={{ fontSize: 12, color: "rgba(15,17,23,.55)", marginBottom: 20 }}>Valores mensais estimados sobre R$ {fmtBRL(fat)} de faturamento.</p>
+      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 24, boxShadow: "0 20px 50px -20px rgba(0,0,0,.5)" }}>
+        <h3 style={{ fontSize: 18, fontWeight: 700, color: TEXT, marginBottom: 4 }}>DRE — cenário atual vs Reforma</h3>
+        <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 20 }}>Valores mensais estimados sobre R$ {fmtBRL(fat)} de faturamento.</p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
           <DreColuna titulo="Hoje (PIS/COFINS/ICMS)" dre={dre} destaque={impostoAtual} destaqueLabel="Impostos estimados" />
           <DreColuna titulo="Reforma (IBS/CBS 2033+)" dre={dre} destaque={impostoReforma} destaqueLabel="Saldo IBS/CBS" cor={GRANADA} />
@@ -541,9 +541,9 @@ function ResultadoView({
       </div>
 
       {/* BLOCO 3 — Detalhamento IBS/CBS */}
-      <div style={{ background: "white", borderRadius: 16, padding: 24, boxShadow: "0 10px 30px -15px rgba(1,15,105,.1)" }}>
-        <h3 style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Detalhamento IBS/CBS</h3>
-        <p style={{ fontSize: 12, color: "rgba(15,17,23,.55)", marginBottom: 20 }}>Débito sobre vendas, crédito ampliado e saldo mensal.</p>
+      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 24, boxShadow: "0 20px 50px -20px rgba(0,0,0,.5)" }}>
+        <h3 style={{ fontSize: 18, fontWeight: 700, color: TEXT, marginBottom: 4 }}>Detalhamento IBS/CBS</h3>
+        <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 20 }}>Débito sobre vendas, crédito ampliado e saldo mensal.</p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 24 }}>
           <MetricaCard label="Débito total" valor={reforma.debito.total} cor={GRANADA} />
@@ -551,8 +551,8 @@ function ResultadoView({
           <MetricaCard label="Exclusões" valor={reforma.exclusao.total} cor="#a86400" nota={`${reforma.exclusao.rubricas.length} rubricas`} />
         </div>
 
-        <div style={{ background: "rgba(1,15,105,.04)", borderRadius: 10, padding: 16, marginBottom: 14 }}>
-          <p style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: 1.5, color: "rgba(15,17,23,.6)", marginBottom: 8 }}>Créditos ampliados por origem</p>
+        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, color: TEXT_MUTED, marginBottom: 10 }}>Créditos ampliados por origem</p>
           <table style={{ width: "100%", fontSize: 13 }}>
             <tbody>
               <LinhaTabela label="Sobre compras (CMV)" v={reforma.credito_bruto.compras} />
@@ -565,8 +565,8 @@ function ResultadoView({
           </table>
         </div>
 
-        <div style={{ background: "rgba(199,55,55,.04)", borderRadius: 10, padding: 16, marginBottom: 14 }}>
-          <p style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: 1.5, color: "rgba(15,17,23,.6)", marginBottom: 8 }}>
+        <div style={{ background: "rgba(208,69,69,.10)", border: `1px solid rgba(208,69,69,.25)`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, color: TEXT_MUTED, marginBottom: 10 }}>
             Rubricas EXCLUÍDAS do crédito ({reforma.exclusao.rubricas.length} itens)
           </p>
           <table style={{ width: "100%", fontSize: 13 }}>
@@ -575,7 +575,7 @@ function ResultadoView({
               <LinhaTabela label="Total exclusão" v={reforma.exclusao.total} bold />
             </tbody>
           </table>
-          <p style={{ fontSize: 11, color: "rgba(15,17,23,.5)", marginTop: 8 }}>
+          <p style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 8 }}>
             Estas rubricas geram despesa mas não crédito na Reforma. Cadastro tributário correto é essencial.
           </p>
         </div>
@@ -612,8 +612,8 @@ function ResultadoView({
           )}`}
           target="_blank" rel="noreferrer"
           style={{
-            padding: "14px 20px", borderRadius: 10, border: `1.5px solid ${NAVY}`,
-            background: "white", color: NAVY, fontWeight: 700, fontSize: 14,
+            padding: "14px 20px", borderRadius: 10, border: `1.5px solid ${BORDER}`,
+            background: CARD, color: TEXT, fontWeight: 700, fontSize: 14,
             textAlign: "center", textDecoration: "none",
           }}
         >
@@ -621,18 +621,18 @@ function ResultadoView({
         </a>
       </div>
 
-      <p style={{ fontSize: 11, color: "rgba(15,17,23,.5)", textAlign: "center", marginTop: 4 }}>
+      <p style={{ fontSize: 11, color: TEXT_MUTED, textAlign: "center", marginTop: 4 }}>
         Estimativa baseada em 12 anos de dados Focus. Diagnóstico definitivo requer análise da DRE real da empresa.
       </p>
     </div>
   );
 }
 
-function DreColuna({ titulo, dre, destaque, destaqueLabel, cor = "#0a8548" }: { titulo: string; dre: DreOutput; destaque: number; destaqueLabel: string; cor?: string }) {
+function DreColuna({ titulo, dre, destaque, destaqueLabel, cor = "#84e5b3" }: { titulo: string; dre: DreOutput; destaque: number; destaqueLabel: string; cor?: string }) {
   return (
-    <div style={{ border: "1px solid rgba(0,0,0,.08)", borderRadius: 10, padding: 14 }}>
-      <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: cor, marginBottom: 10 }}>{titulo}</p>
-      <table style={{ width: "100%", fontSize: 13 }}>
+    <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: 14, background: CARD }}>
+      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: cor, marginBottom: 10 }}>{titulo}</p>
+      <table style={{ width: "100%", fontSize: 13, color: TEXT }}>
         <tbody>
           <LinhaTabela label="Faturamento" v={dre.faturamento} bold />
           <LinhaTabela label="(-) CMV" v={-dre.cmv} />
@@ -640,7 +640,7 @@ function DreColuna({ titulo, dre, destaque, destaqueLabel, cor = "#0a8548" }: { 
           {dre.grupos.map((g) => <LinhaTabela key={g.grupo} label={`(-) ${g.grupo}`} v={-g.subtotal} />)}
           <LinhaTabela label="Total Desp. Op." v={-dre.total_despesas_op} bold />
           <LinhaTabela label="Resultado antes impostos" v={dre.resultado_antes_impostos} bold />
-          <tr><td colSpan={2}><hr style={{ margin: "8px 0", border: 0, borderTop: "1px solid rgba(0,0,0,.08)" }} /></td></tr>
+          <tr><td colSpan={2}><hr style={{ margin: "8px 0", border: 0, borderTop: `1px solid ${BORDER}` }} /></td></tr>
           <LinhaTabela label={destaqueLabel} v={-destaque} bold color={cor} />
         </tbody>
       </table>
@@ -661,10 +661,10 @@ function LinhaTabela({ label, v, bold, color }: { label: string; v: number; bold
 
 function MetricaCard({ label, valor, cor, nota }: { label: string; valor: number; cor: string; nota?: string }) {
   return (
-    <div style={{ border: "1px solid rgba(0,0,0,.06)", borderRadius: 10, padding: 14, background: "white" }}>
-      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(15,17,23,.5)", marginBottom: 6 }}>{label}</p>
+    <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: 14, background: CARD }}>
+      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: TEXT_MUTED, marginBottom: 6 }}>{label}</p>
       <p style={{ fontSize: 22, fontWeight: 800, color: cor }}>{fmtBRL(valor)}</p>
-      {nota && <p style={{ fontSize: 11, color: "rgba(15,17,23,.55)", marginTop: 2 }}>{nota}</p>}
+      {nota && <p style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 2 }}>{nota}</p>}
     </div>
   );
 }
@@ -697,15 +697,15 @@ function ImpactoDepartamentos() {
   if (!rows.length) return null;
 
   return (
-    <div style={{ background: "white", borderRadius: 16, padding: 24, boxShadow: "0 10px 30px -15px rgba(1,15,105,.1)" }}>
-      <h3 style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Impacto por departamento</h3>
-      <p style={{ fontSize: 12, color: "rgba(15,17,23,.55)", marginBottom: 16 }}>
+    <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 24, boxShadow: "0 20px 50px -20px rgba(0,0,0,.5)" }}>
+      <h3 style={{ fontSize: 18, fontWeight: 700, color: TEXT, marginBottom: 4 }}>Impacto por departamento</h3>
+      <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 16 }}>
         Como a Reforma afeta cada seção do supermercado — mudança na alíquota efetiva e impacto no preço final.
       </p>
       <div style={{ overflow: "auto" }}>
-        <table style={{ width: "100%", fontSize: 12, minWidth: 640 }}>
+        <table style={{ width: "100%", fontSize: 12, minWidth: 640, color: TEXT }}>
           <thead>
-            <tr style={{ background: "rgba(1,15,105,.05)", textAlign: "left" }}>
+            <tr style={{ background: CARD, textAlign: "left" }}>
               <th style={thStyle}>Departamento</th>
               <th style={{ ...thStyle, textAlign: "right" }}>% Mix</th>
               <th style={{ ...thStyle, textAlign: "right" }}>Alíquota hoje</th>
@@ -718,7 +718,7 @@ function ImpactoDepartamentos() {
             {rows.map((r) => {
               const positivo = r.variacao_pp > 0;
               return (
-                <tr key={r.departamento} style={{ borderBottom: "1px solid rgba(0,0,0,.04)" }}>
+                <tr key={r.departamento} style={{ borderBottom: `1px solid ${BORDER}` }}>
                   <td style={tdStyle}>
                     {r.departamento}
                     {r.tem_imposto_seletivo && <span style={{ marginLeft: 6, fontSize: 10, background: GRANADA, color: "white", padding: "2px 6px", borderRadius: 4 }}>IS</span>}
@@ -742,7 +742,7 @@ function ImpactoDepartamentos() {
   );
 }
 
-const thStyle: React.CSSProperties = { padding: "8px 10px", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "rgba(15,17,23,.6)" };
+const thStyle: React.CSSProperties = { padding: "8px 10px", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: TEXT_MUTED };
 const tdStyle: React.CSSProperties = { padding: "10px 10px", fontVariantNumeric: "tabular-nums" };
 
 // -----------------------------------------------------------------------------
@@ -760,24 +760,24 @@ function TimelineIcms() {
     { ano: 2033, label: "ICMS extinto", pct: 100 },
   ];
   return (
-    <div style={{ background: "white", borderRadius: 16, padding: 24, boxShadow: "0 10px 30px -15px rgba(1,15,105,.1)" }}>
-      <h3 style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Timeline de transição do ICMS</h3>
-      <p style={{ fontSize: 12, color: "rgba(15,17,23,.55)", marginBottom: 20 }}>
+    <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 24, boxShadow: "0 20px 50px -20px rgba(0,0,0,.5)" }}>
+      <h3 style={{ fontSize: 18, fontWeight: 700, color: TEXT, marginBottom: 4 }}>Timeline de transição do ICMS</h3>
+      <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 20 }}>
         Redução gradativa do ICMS entre 2029 e 2033. IBS/CBS substituem PIS/COFINS/ICMS/ISS.
       </p>
       <div style={{ position: "relative", display: "flex", justifyContent: "space-between", padding: "20px 10px 40px" }}>
-        <div style={{ position: "absolute", top: 40, left: 20, right: 20, height: 3, background: "rgba(1,15,105,.1)" }} />
+        <div style={{ position: "absolute", top: 40, left: 20, right: 20, height: 3, background: BORDER }} />
         {marcos.map((m) => (
           <div key={m.ano} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", zIndex: 2, flex: 1 }}>
             <div
               style={{
                 width: 20, height: 20, borderRadius: 999,
-                background: m.pct === 100 ? GRANADA : m.pct > 0 ? NAVY : "rgba(1,15,105,.3)",
-                border: "3px solid white", boxShadow: "0 0 0 1px rgba(1,15,105,.2)",
+                background: m.pct === 100 ? RED : m.pct > 0 ? "#84e5b3" : "rgba(232,235,255,.2)",
+                border: `3px solid ${SURFACE}`, boxShadow: "0 0 0 1px rgba(255,255,255,.15)",
               }}
             />
-            <p style={{ fontSize: 12, fontWeight: 800, color: NAVY, marginTop: 12 }}>{m.ano}</p>
-            <p style={{ fontSize: 10, color: "rgba(15,17,23,.6)", textAlign: "center", maxWidth: 80, marginTop: 2 }}>{m.label}</p>
+            <p style={{ fontSize: 12, fontWeight: 800, color: TEXT, marginTop: 12 }}>{m.ano}</p>
+            <p style={{ fontSize: 10, color: TEXT_MUTED, textAlign: "center", maxWidth: 80, marginTop: 2 }}>{m.label}</p>
           </div>
         ))}
       </div>
