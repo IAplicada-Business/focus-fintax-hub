@@ -3,11 +3,28 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+
+const TRIBUTO_OPTIONS = ["INSS", "PIS/COFINS", "IRPJ", "CSLL", "ICMS", "Outros"];
+
+function normalizeTributo(raw: string): string | null {
+  if (!raw) return null;
+  const s = raw.toString().toUpperCase().trim();
+  if (s.includes("PIS") && s.includes("COFINS")) return "PIS/COFINS";
+  if (s === "PIS" || s === "COFINS") return "PIS/COFINS";
+  if (s.includes("INSS")) return "INSS";
+  if (s.includes("ICMS")) return "ICMS";
+  if (s.includes("IRPJ")) return "IRPJ";
+  if (s.includes("CSLL")) return "CSLL";
+  if (s.includes("OUTRO")) return "Outros";
+  return null;
+}
 
 interface Props {
   open: boolean;
@@ -19,6 +36,7 @@ interface ParsedRow {
   empresa: string;
   cnpj: string;
   cnpjNorm: string;
+  tributo: string | null;
   dez: number;
   jan: number;
   fev: number;
@@ -44,6 +62,10 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [step, setStep] = useState<"upload" | "preview" | "importing" | "done">("upload");
   const [result, setResult] = useState({ compensacoes: 0, clientes: 0 });
+  // Tributo desta planilha — usado quando o XLSX não tem coluna TRIBUTO
+  const [tributoGlobal, setTributoGlobal] = useState<string>("");
+  // Flag: pelo menos uma linha veio com TRIBUTO na planilha?
+  const [tributoInSheet, setTributoInSheet] = useState(false);
 
   const handleFile = async (file: File) => {
     const buffer = await file.arrayBuffer();
@@ -65,6 +87,7 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
     // Find column indices
     const colEmpresa = headerRow.findIndex((h: string) => h.includes("EMPRESA"));
     const colCnpj = headerRow.findIndex((h: string) => h.includes("CNPJ"));
+    const colTributo = headerRow.findIndex((h: string) => h === "TRIBUTO" || h.includes("TRIBUTOS"));
     const colDez = headerRow.findIndex((h: string) => h === "DEZ" || h.includes("DEZEMBRO"));
     const colJan = headerRow.findIndex((h: string) => h === "JAN" || h.includes("JANEIRO"));
     const colFev = headerRow.findIndex((h: string) => h === "FEV" || h.includes("FEVEREIRO"));
@@ -85,6 +108,7 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
       empresa: String(row[colEmpresa] || "").trim(),
       cnpj: String(row[colCnpj] || "").trim(),
       cnpjNorm: normCnpj(String(row[colCnpj] || "")),
+      tributo: colTributo >= 0 ? normalizeTributo(String(row[colTributo] || "")) : null,
       dez: colDez >= 0 ? parseMoneyCell(row[colDez]) : 0,
       jan: colJan >= 0 ? parseMoneyCell(row[colJan]) : 0,
       fev: colFev >= 0 ? parseMoneyCell(row[colFev]) : 0,
@@ -92,6 +116,8 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
       saldo: colSaldo >= 0 ? parseMoneyCell(row[colSaldo]) : 0,
       matched: false,
     }));
+
+    setTributoInSheet(colTributo >= 0 && parsed.some((r) => r.tributo));
 
     // Match with DB clients
     const { data: clientes } = await supabase.from("clientes").select("id, cnpj, empresa");
@@ -118,28 +144,40 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
 
     for (const row of matched) {
       const clienteId = row.clienteId!;
+      const rowTributo = row.tributo || tributoGlobal || null;
 
-      // Get or create a process for this client
+      // Get or create a process for this client — preferindo o que cobre o tributo
       const { data: procs } = await supabase
         .from("processos_teses")
-        .select("id")
-        .eq("cliente_id", clienteId)
-        .limit(1);
+        .select("id, tributo")
+        .eq("cliente_id", clienteId);
 
       let processoId: string;
-      if (procs && procs.length > 0) {
-        processoId = procs[0].id;
+      const procMatchTributo = rowTributo
+        ? (procs || []).find((p: any) => p.tributo === rowTributo)
+        : null;
+      const procAny = (procs || [])[0];
+
+      if (procMatchTributo) {
+        processoId = procMatchTributo.id;
+      } else if (procAny && !rowTributo) {
+        // sem tributo definido — reaproveita qualquer processo existente (comportamento legado)
+        processoId = procAny.id;
       } else {
+        const nomeExibicao = rowTributo
+          ? `Importação Planilha — ${rowTributo}`
+          : "Importação Planilha";
         const { data: newProc } = await supabase
           .from("processos_teses")
           .insert({
             cliente_id: clienteId,
             tese: "importacao_xlsx",
-            nome_exibicao: "Importação Planilha",
+            nome_exibicao: nomeExibicao,
             status_contrato: "assinado",
             status_processo: "compensando",
             valor_credito: row.saldo + row.dez + row.jan + row.fev,
-          })
+            tributo: rowTributo,
+          } as any)
           .select("id")
           .single();
         processoId = newProc?.id || "";
@@ -164,6 +202,7 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
         valor_nf_servico: Math.round(honorarioPorMes * 100) / 100,
         status_pagamento: "pendente" as const,
         observacao: "Importado via planilha XLSX",
+        tributo: rowTributo,
       }));
 
       const { error } = await supabase.from("compensacoes_mensais").insert(inserts);
@@ -190,6 +229,8 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
       setRows([]);
       setStep("upload");
       setResult({ compensacoes: 0, clientes: 0 });
+      setTributoGlobal("");
+      setTributoInSheet(false);
     }, 300);
   };
 
@@ -211,8 +252,25 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
             <Upload className="h-12 w-12 text-muted-foreground" />
             <p className="text-sm text-muted-foreground text-center">
               Selecione a planilha de compensações.<br />
-              Formato esperado: EMPRESAS, CNPJ, meses (DEZ, JAN, FEV...), HONORARIO, SALDO
+              Formato esperado: EMPRESAS, CNPJ, meses (DEZ, JAN, FEV...), HONORARIO, SALDO<br />
+              <span className="text-[11px]">Opcional: coluna TRIBUTO. Sem ela, use o seletor abaixo pra aplicar um tributo global.</span>
             </p>
+            <div className="w-full max-w-xs">
+              <Label className="text-xs">Tributo desta planilha (fallback)</Label>
+              <Select value={tributoGlobal} onValueChange={setTributoGlobal}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="— nenhum —" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRIBUTO_OPTIONS.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Aplicado a linhas sem coluna TRIBUTO na planilha.
+              </p>
+            </div>
             <label className="cursor-pointer">
               <input
                 type="file"
@@ -232,7 +290,7 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
 
         {step === "preview" && (
           <>
-            <div className="flex gap-3 mb-3">
+            <div className="flex flex-wrap gap-3 mb-3 items-center">
               <Badge variant="secondary" className="bg-dash-green/10 text-dash-green">
                 <CheckCircle2 className="h-3 w-3 mr-1" /> {matchedCount} encontrados
               </Badge>
@@ -244,6 +302,19 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
               <Badge variant="secondary">
                 {totalMeses} registros a importar
               </Badge>
+              {tributoInSheet ? (
+                <Badge variant="secondary" className="bg-cyan-100 text-cyan-800">
+                  Tributo por linha (planilha)
+                </Badge>
+              ) : tributoGlobal ? (
+                <Badge variant="secondary" className="bg-cyan-100 text-cyan-800">
+                  Tributo global: {tributoGlobal}
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                  Sem tributo definido — linhas ficarão sem classificação
+                </Badge>
+              )}
             </div>
 
             <div className="border rounded-md overflow-auto max-h-[400px]">
@@ -252,6 +323,7 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
                   <TableRow>
                     <TableHead>Empresa</TableHead>
                     <TableHead>CNPJ</TableHead>
+                    <TableHead>Tributo</TableHead>
                     <TableHead>DEZ</TableHead>
                     <TableHead>JAN</TableHead>
                     <TableHead>FEV</TableHead>
@@ -260,27 +332,37 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((r, i) => (
-                    <TableRow key={i} className={!r.matched ? "opacity-50" : ""}>
-                      <TableCell className="text-xs font-medium">{r.empresa}</TableCell>
-                      <TableCell className="text-xs font-mono">{r.cnpj}</TableCell>
-                      <TableCell className="text-xs">{r.dez > 0 ? fmt(r.dez) : "—"}</TableCell>
-                      <TableCell className="text-xs">{r.jan > 0 ? fmt(r.jan) : "—"}</TableCell>
-                      <TableCell className="text-xs">{r.fev > 0 ? fmt(r.fev) : "—"}</TableCell>
-                      <TableCell className="text-xs">{fmt(r.honorario)}</TableCell>
-                      <TableCell>
-                        {r.matched ? (
-                          <Badge variant="secondary" className="bg-dash-green/10 text-dash-green text-[10px]">
-                            <CheckCircle2 className="h-3 w-3 mr-0.5" /> OK
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="bg-dash-red/10 text-dash-red text-[10px]">
-                            <XCircle className="h-3 w-3 mr-0.5" /> Não encontrado
-                          </Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {rows.map((r, i) => {
+                    const effectiveTributo = r.tributo || tributoGlobal || null;
+                    return (
+                      <TableRow key={i} className={!r.matched ? "opacity-50" : ""}>
+                        <TableCell className="text-xs font-medium">{r.empresa}</TableCell>
+                        <TableCell className="text-xs font-mono">{r.cnpj}</TableCell>
+                        <TableCell className="text-xs">
+                          {effectiveTributo ? (
+                            <Badge variant="secondary" className="text-[10px]">{effectiveTributo}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground italic">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs">{r.dez > 0 ? fmt(r.dez) : "—"}</TableCell>
+                        <TableCell className="text-xs">{r.jan > 0 ? fmt(r.jan) : "—"}</TableCell>
+                        <TableCell className="text-xs">{r.fev > 0 ? fmt(r.fev) : "—"}</TableCell>
+                        <TableCell className="text-xs">{fmt(r.honorario)}</TableCell>
+                        <TableCell>
+                          {r.matched ? (
+                            <Badge variant="secondary" className="bg-dash-green/10 text-dash-green text-[10px]">
+                              <CheckCircle2 className="h-3 w-3 mr-0.5" /> OK
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-dash-red/10 text-dash-red text-[10px]">
+                              <XCircle className="h-3 w-3 mr-0.5" /> Não encontrado
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
