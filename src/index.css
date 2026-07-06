@@ -84,6 +84,13 @@
 @tailwind utilities;
 
 @media print {
+  /* Landscape para caber a tabela de 7 colunas do Resumo Financeiro sem cortar
+     a última coluna (Status). Margem ampla pra respeitar as margens do A4. */
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+
   body * {
     visibility: hidden;
   }
@@ -100,6 +107,26 @@
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
+
+  /* Tabela do Resumo Financeiro cabe folgada em landscape mas ainda apertamos
+     paddings e forçamos quebra de página amigável. */
+  #report-content table {
+    width: 100% !important;
+    table-layout: auto !important;
+    page-break-inside: auto;
+  }
+  #report-content thead {
+    display: table-header-group; /* repete cabeçalho a cada página */
+  }
+  #report-content tr {
+    page-break-inside: avoid;
+  }
+  #report-content th, #report-content td {
+    padding: 4px 6px !important;
+    font-size: 10.5px !important;
+    word-wrap: break-word;
+  }
+
   [data-radix-dialog-overlay] {
     display: none !important;
   }
@@ -116,6 +143,7 @@
   .card-base {
     box-shadow: none !important;
     border: 1px solid #e5e7eb !important;
+    break-inside: avoid;
   }
 }
 
