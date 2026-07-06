@@ -16,6 +16,7 @@ import * as XLSX from "xlsx";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { ImportCompensacoesModal } from "@/components/clientes/ImportCompensacoesModal";
+import { ImportControleModal } from "@/components/clientes/ImportControleModal";
 import { formatCurrencyBR } from "@/lib/clientes-constants";
 import { SEGMENTO_LABELS } from "@/lib/pipeline-constants";
 import { toast } from "sonner";
@@ -44,6 +45,7 @@ export default function ClientesList() {
   const [deleting, setDeleting] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [importControleOpen, setImportControleOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filterSegmento, setFilterSegmento] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -187,9 +189,22 @@ export default function ClientesList() {
         </div>
         <div className="flex gap-2">
           {!isComercial && (
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
-              <Upload className="h-4 w-4 mr-1" /> Importar XLSX
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Upload className="h-4 w-4 mr-1" /> Importar XLSX
+                  <ChevronDown className="w-3 h-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setImportControleOpen(true)}>
+                  Cadastro + créditos (aba Controle)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setImportOpen(true)}>
+                  Compensações mensais
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           {!isComercial && (
             <DropdownMenu>
@@ -566,6 +581,12 @@ export default function ClientesList() {
       <ImportCompensacoesModal
         open={importOpen}
         onOpenChange={setImportOpen}
+        onImported={fetchAll}
+      />
+
+      <ImportControleModal
+        open={importControleOpen}
+        onOpenChange={setImportControleOpen}
         onImported={fetchAll}
       />
     </div>
