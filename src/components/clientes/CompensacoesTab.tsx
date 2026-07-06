@@ -92,7 +92,8 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange }: Props) {
       valor_nf_servico: Number(form.valor_nf_servico) || 0,
       observacao: form.observacao,
       tributo: form.tributo || null,
-    });
+      tributo_enum: "outros",
+    } as any);
     if (error) { toast.error("Erro ao registrar."); return; }
     toast.success("Compensação registrada!");
     const proc = processos.find((p) => p.id === form.processo_tese_id);
