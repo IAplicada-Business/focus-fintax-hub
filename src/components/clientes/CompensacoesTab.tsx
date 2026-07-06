@@ -460,19 +460,77 @@ Equipe Focus.`;
           {!mapaMes ? (
             <p className="text-center text-muted-foreground py-12">Selecione um mês para gerar o mapa tributário.</p>
           ) : (
-            <div id="mapa-tributario-pdf" className="mapa-tributario-report">
-              {/* Cover Page */}
-              <div className="mapa-cover" style={{ background: "#0a1564", color: "white", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pageBreakAfter: "always", padding: "3rem" }}>
-                <p style={{ fontSize: "14px", letterSpacing: "4px", textTransform: "uppercase", marginBottom: "2rem" }}>Grupo Focus</p>
-                <p style={{ fontSize: "18px", marginBottom: "0.5rem" }}>Grupo FOCUS — A Contabilidade do Supermercado</p>
-                <img src={logoFintax} alt="Focus FinTax" style={{ height: "60px", marginBottom: "3rem", filter: "brightness(0) invert(1)" }} />
-                <div style={{ background: "#080f4a", border: "1px solid rgba(255,255,255,0.2)", padding: "1.5rem 3rem", borderRadius: "8px", marginTop: "auto" }}>
-                  <p style={{ fontSize: "22px", fontWeight: "bold", textAlign: "center", letterSpacing: "2px" }}>MAPA TRIBUTÁRIO DAS COMPENSAÇÕES</p>
+            <div
+              id="mapa-tributario-pdf"
+              className="mapa-tributario-report"
+              style={{
+                width: "794px",
+                margin: "0 auto",
+                background: "white",
+                fontFamily: "sans-serif",
+                color: "#111",
+              }}
+            >
+              {/* Letterhead compacto (substitui a capa 100vh) */}
+              <div
+                style={{
+                  background: "#0a1564",
+                  color: "white",
+                  padding: "20px 32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "24px",
+                }}
+              >
+                <img
+                  src={logoFintax}
+                  alt="Focus FinTax"
+                  style={{ height: "36px", filter: "brightness(0) invert(1)" }}
+                />
+                <div style={{ textAlign: "right" }}>
+                  <p style={{ fontSize: "9px", letterSpacing: "3px", textTransform: "uppercase", opacity: 0.75, margin: 0 }}>
+                    Grupo Focus · Focus FinTax
+                  </p>
+                  <p style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "1px", margin: "4px 0 0" }}>
+                    MAPA TRIBUTÁRIO DAS COMPENSAÇÕES
+                  </p>
+                </div>
+              </div>
+
+              {/* Identificação do cliente — logo abaixo do letterhead, sem página em branco */}
+              <div
+                style={{
+                  padding: "20px 32px",
+                  borderBottom: "1px solid #e5e7eb",
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "8px 24px",
+                  fontSize: "12px",
+                }}
+              >
+                <div>
+                  <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Razão Social</p>
+                  <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>{cliente?.empresa || "—"}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>CNPJ</p>
+                  <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>{cliente?.cnpj || "—"}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Competência</p>
+                  <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>{formatMesPT(mapaMes)}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Gerado em</p>
+                  <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>
+                    {new Date().toLocaleDateString("pt-BR")}
+                  </p>
                 </div>
               </div>
 
               {/* Report Pages — one per processo */}
-              {mesProcessos.map((proc) => {
+              {mesProcessos.map((proc, procIdx) => {
                 const procComps = mesComps.filter((c) => c.processo_tese_id === proc.id);
                 const valorComp = procComps.reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
                 const acumulado = getCompensacoesAteOmes(proc.id, mapaMes);
@@ -480,23 +538,34 @@ Equipe Focus.`;
                 const isSub = isSubvencao(proc.tese);
 
                 return (
-                  <div key={proc.id} style={{ pageBreakBefore: "always", padding: "2rem", fontFamily: "sans-serif", fontSize: "13px", lineHeight: "1.6" }}>
-                    {/* Header */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #0a1564", paddingBottom: "12px", marginBottom: "24px" }}>
-                      <div>
-                        <p style={{ fontWeight: "bold", fontSize: "16px", color: "#0a1564" }}>MAPA TRIBUTÁRIO DAS COMPENSAÇÕES</p>
-                        <p style={{ fontSize: "11px", color: "#666" }}>Competência: {formatMesPT(mapaMes)}</p>
-                      </div>
-                      <img src={logoFintax} alt="Focus FinTax" style={{ height: "36px" }} />
+                  <div
+                    key={proc.id}
+                    style={{
+                      // primeiro processo continua na mesma página do letterhead; próximos quebram
+                      pageBreakBefore: procIdx === 0 ? "auto" : "always",
+                      padding: "24px 32px",
+                      fontSize: "12px",
+                      lineHeight: "1.55",
+                    }}
+                  >
+                    {/* Título do processo (substitui o header duplicado) */}
+                    <div
+                      style={{
+                        marginBottom: "18px",
+                        paddingBottom: "8px",
+                        borderBottom: "2px solid #0a1564",
+                      }}
+                    >
+                      <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "2px", color: "#6b7280", margin: 0 }}>
+                        Processo {procIdx + 1} de {mesProcessos.length}
+                      </p>
+                      <p style={{ fontWeight: 700, fontSize: "15px", color: "#0a1564", margin: "2px 0 0" }}>
+                        {proc.nome_exibicao}
+                      </p>
                     </div>
 
                     {/* Section 1 */}
-                    <h3 style={{ fontSize: "13px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>1. IDENTIFICAÇÃO DO CONTRIBUINTE</h3>
-                    <p><strong>Razão Social:</strong> {cliente?.empresa}</p>
-                    <p style={{ marginBottom: "16px" }}><strong>CNPJ:</strong> {cliente?.cnpj}</p>
-
-                    {/* Section 2 */}
-                    <h3 style={{ fontSize: "13px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>2. DADOS GERAIS DO TRABALHO</h3>
+                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>1. DADOS GERAIS DO TRABALHO</h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px" }}>
                       <thead>
                         <tr style={{ background: "#0a1564", color: "white" }}>
@@ -521,8 +590,8 @@ Equipe Focus.`;
                       </tbody>
                     </table>
 
-                    {/* Section 3 */}
-                    <h3 style={{ fontSize: "13px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>3. DÉBITOS COMPENSADOS</h3>
+                    {/* Section 2 */}
+                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>2. DÉBITOS COMPENSADOS</h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px" }}>
                       <thead>
                         <tr style={{ background: "#0a1564", color: "white" }}>
@@ -551,8 +620,8 @@ Equipe Focus.`;
                       </tbody>
                     </table>
 
-                    {/* Section 4 */}
-                    <h3 style={{ fontSize: "13px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>4. CONTROLE DOS CRÉDITOS — 4.1 Créditos Apurados</h3>
+                    {/* Section 3 */}
+                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>3. CONTROLE DOS CRÉDITOS — 3.1 Créditos Apurados</h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px" }}>
                       <thead>
                         <tr style={{ background: "#0a1564", color: "white" }}>
@@ -575,8 +644,8 @@ Equipe Focus.`;
                       </tbody>
                     </table>
 
-                    {/* Section 5 */}
-                    <h3 style={{ fontSize: "13px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>5. RESUMO DE COMPLIANCE FISCAL</h3>
+                    {/* Section 4 */}
+                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>4. RESUMO DE COMPLIANCE FISCAL</h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px" }}>
                       <thead>
                         <tr style={{ background: "#0a1564", color: "white" }}>
@@ -602,9 +671,9 @@ Equipe Focus.`;
                       </tbody>
                     </table>
 
-                    {/* Section 6 */}
-                    <h3 style={{ fontSize: "13px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>6. CONSIDERAÇÕES FINAIS</h3>
-                    <p style={{ fontSize: "12px", textAlign: "justify", marginBottom: "16px" }}>
+                    {/* Section 5 */}
+                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>5. CONSIDERAÇÕES FINAIS</h3>
+                    <p style={{ fontSize: "11px", textAlign: "justify", marginBottom: "16px" }}>
                       O trabalho realizado assegura que: Os créditos foram aproveitados em conformidade com a legislação vigente; As obrigações acessórias foram devidamente retificadas, refletindo a realidade fiscal da empresa; A empresa encontra-se em situação de compliance tributário, com redução de riscos fiscais e segurança jurídica quanto ao aproveitamento dos créditos. Sem mais para o momento, consideramos encerrado o trabalho de auditoria técnica e compliance fiscal, permanecendo à disposição para eventuais fiscalizações, esclarecimentos ou suportes futuros.
                     </p>
 
