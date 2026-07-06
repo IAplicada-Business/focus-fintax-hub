@@ -8,6 +8,7 @@ import { FUNNEL_STAGES_COM, type FunnelRow, type RecentLead, type MonthBar, type
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { CommercialView } from "@/components/dashboard/comercial/CommercialView";
 import { OperationalView } from "@/components/dashboard/operacional/OperationalView";
+import { ExecutivaView } from "@/components/dashboard/executiva/ExecutivaView";
 
 async function fetchDashboardData() {
   const now = new Date();
@@ -184,14 +185,17 @@ export default function Dashboard() {
   };
   const canComercial = canTab("dashboard.comercial");
   const canOperacional = canTab("dashboard.operacional");
+  const canExecutiva = canTab("dashboard.executiva");
 
   const resolveDefault = () => {
-    if (canComercial && canOperacional) {
-      if (role === "gestor_tributario") return "operacional";
-      return localStorage.getItem("dash_tab") ?? "comercial";
-    }
+    const stored = localStorage.getItem("dash_tab");
+    if (stored === "executiva" && canExecutiva) return "executiva";
+    if (stored === "operacional" && canOperacional) return "operacional";
+    if (stored === "comercial" && canComercial) return "comercial";
+    if (role === "gestor_tributario" && canOperacional) return "operacional";
     if (canComercial) return "comercial";
     if (canOperacional) return "operacional";
+    if (canExecutiva) return "executiva";
     return "comercial";
   };
   const [activeTab, setActiveTab] = useState(resolveDefault);
@@ -230,6 +234,7 @@ export default function Dashboard() {
         role={role}
         canComercial={canComercial}
         canOperacional={canOperacional}
+        canExecutiva={canExecutiva}
         activeTab={activeTab}
         switchTab={switchTab}
       />
@@ -247,7 +252,9 @@ export default function Dashboard() {
       )}
 
       <div className="px-7 pt-[18px] pb-9 w-full">
-        {activeTab === "comercial" ? (
+        {activeTab === "executiva" ? (
+          <ExecutivaView navigate={navigate} />
+        ) : activeTab === "comercial" ? (
           <CommercialView
             kpiLoading={kpiLoading} chartLoading={chartLoading}
             comLeads={d?.comLeads ?? 0} comNewWeek={d?.comNewWeek ?? 0} trendDiff={trendDiff}

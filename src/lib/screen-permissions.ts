@@ -32,6 +32,7 @@ export const SCREENS: ScreenDef[] = [
     children: [
       { key: "dashboard.comercial",   label: "Visão Comercial",   defaultRoles: ["admin", "pmo", "comercial"],        defaultReadOnlyRoles: [] },
       { key: "dashboard.operacional", label: "Visão Operacional", defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: [] },
+      { key: "dashboard.executiva",   label: "Visão Executiva",   defaultRoles: ["admin", "pmo"],                      defaultReadOnlyRoles: [] },
     ],
   },
   {
