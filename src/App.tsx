@@ -21,6 +21,7 @@ const Benchmarks = lazy(() => import("@/pages/Benchmarks"));
 const ClientesList = lazy(() => import("@/pages/ClientesList"));
 const ClienteDetail = lazy(() => import("@/pages/ClienteDetail"));
 const MapaCreditos = lazy(() => import("@/pages/MapaCreditos"));
+const CompensacoesLinear = lazy(() => import("@/pages/CompensacoesLinear"));
 const Diagnostico = lazy(() => import("@/pages/Diagnostico"));
 const MotorConfig = lazy(() => import("@/pages/MotorConfig"));
 const Intimacoes = lazy(() => import("@/pages/Intimacoes"));
@@ -78,6 +79,7 @@ const App = () => (
                         <Route path="/clientes" element={<ClientesList />} />
                         <Route path="/clientes/:id" element={<ClienteDetail />} />
                         <Route path="/clientes/:id/mapa-creditos" element={<MapaCreditos />} />
+                        <Route path="/clientes/:id/compensacoes" element={<CompensacoesLinear />} />
                         <Route path="/intimacoes" element={<Intimacoes />} />
                         <Route path="/marketing" element={<MarketingLayout />}>
                           <Route index             element={<MarketingOverview />} />
