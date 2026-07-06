@@ -17,6 +17,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import logoFintax from "@/assets/logo-focus-fintax.svg";
 import { logClienteHistorico } from "@/lib/cliente-historico";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 const TRIBUTO_OPTIONS = ["INSS", "PIS/COFINS", "IRPJ", "CSLL", "Outros"];
 const MESES_PT = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
@@ -46,6 +48,7 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange }: Props) {
   // Mapa Tributário state
   const [mapaOpen, setMapaOpen] = useState(false);
   const [mapaMes, setMapaMes] = useState("");
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   // WhatsApp state
   const [whatsOpen, setWhatsOpen] = useState(false);
@@ -165,6 +168,112 @@ Equipe Focus.`;
     const body = encodeURIComponent(fullWhatsMessage);
     window.open(`mailto:?subject=${subject}&body=${body}`);
     logClienteHistorico(clienteId, "comunicado_enviado", `Comunicado por e-mail — ${mesLabel}`);
+  };
+
+  // ——— Download PDF do Mapa Tributário ———
+  // Renderiza o container inteiro (não só o viewport) via html2canvas +
+  // divide em páginas A4 no jsPDF. Fix do bug do "print viewport" original.
+  const sanitizeFileName = (s: string) =>
+    (s || "cliente")
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-zA-Z0-9_-]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 60);
+
+  const handleDownloadMapaPdf = async () => {
+    const element = document.getElementById("mapa-tributario-pdf") as HTMLElement | null;
+    if (!element || downloadingPdf) return;
+    setDownloadingPdf(true);
+
+    // Neutraliza restrições de altura/overflow dos ancestrais pra capturar
+    // o CONTEÚDO INTEIRO (não só o que cabe na viewport).
+    const modified: { el: HTMLElement; prop: string; prev: string }[] = [];
+    const forceStyle = (el: HTMLElement, prop: string, value: string) => {
+      modified.push({ el, prop, prev: el.style.getPropertyValue(prop) });
+      el.style.setProperty(prop, value, "important");
+    };
+
+    // Ancestrais até o body
+    let node: HTMLElement | null = element;
+    while (node && node !== document.body) {
+      const cs = window.getComputedStyle(node);
+      if (["auto", "scroll", "hidden"].includes(cs.overflow) || ["auto", "scroll", "hidden"].includes(cs.overflowY)) {
+        forceStyle(node, "overflow", "visible");
+        forceStyle(node, "overflow-y", "visible");
+      }
+      if (cs.maxHeight && cs.maxHeight !== "none") forceStyle(node, "max-height", "none");
+      if (cs.height && cs.height.endsWith("vh")) forceStyle(node, "height", "auto");
+      node = node.parentElement;
+    }
+    // O próprio container em auto height também
+    forceStyle(element, "height", "auto");
+    forceStyle(element, "max-height", "none");
+    forceStyle(element, "overflow", "visible");
+
+    try {
+      // Espera 1 tick pro layout recalcular
+      await new Promise((r) => setTimeout(r, 50));
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        allowTaint: false,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
+        height: element.scrollHeight,
+        width: element.scrollWidth,
+      });
+
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidthMm = 210;
+      const pageHeightMm = 297;
+      const imgWidthMm = pageWidthMm;
+      const imgHeightMm = (canvas.height * imgWidthMm) / canvas.width;
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+
+      let heightLeft = imgHeightMm;
+      let position = 0;
+      pdf.addImage(imgData, "JPEG", 0, position, imgWidthMm, imgHeightMm);
+      heightLeft -= pageHeightMm;
+
+      // Multipage: reusa a MESMA imagem, deslocando -pageHeight a cada página
+      while (heightLeft > 0) {
+        position -= pageHeightMm;
+        pdf.addPage();
+        pdf.addImage(imgData, "JPEG", 0, position, imgWidthMm, imgHeightMm);
+        heightLeft -= pageHeightMm;
+      }
+
+      // Rodapé com paginação e data de geração em todas as páginas
+      const pageCount = pdf.getNumberOfPages();
+      const nowStr = new Date().toLocaleDateString("pt-BR");
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(120, 120, 120);
+        pdf.text(`Focus FinTax · Confidencial · Gerado em ${nowStr}`, 10, pageHeightMm - 6);
+        pdf.text(`Página ${i} de ${pageCount}`, pageWidthMm - 32, pageHeightMm - 6);
+      }
+
+      const razao = sanitizeFileName(cliente?.empresa || "");
+      const comp  = mapaMes ? mapaMes.replace(/-/g, "") : new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      pdf.save(`MapaTributario_${razao}_${comp}.pdf`);
+
+      toast.success("PDF gerado com sucesso!");
+      logClienteHistorico(clienteId, "mapa_tributario_exportado", `Mapa Tributário exportado em PDF — competência ${mapaMes ? formatMesPT(mapaMes) : "sem mês"}`);
+    } catch (err) {
+      console.error("Erro ao gerar PDF do Mapa Tributário:", err);
+      toast.error("Erro ao gerar PDF", { description: "Tenta usar o print do navegador como fallback (Ctrl+P)." });
+    } finally {
+      // Restaura estilos originais
+      for (const { el, prop, prev } of modified) {
+        if (prev) el.style.setProperty(prop, prev);
+        else el.style.removeProperty(prop);
+      }
+      setDownloadingPdf(false);
+    }
   };
 
   return (
@@ -334,8 +443,15 @@ Equipe Focus.`;
                 </SelectContent>
               </Select>
               {mapaMes && (
-                <Button variant="outline" size="sm" className="gap-2" onClick={() => window.print()}>
-                  <Printer className="h-4 w-4" /> Baixar PDF
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={handleDownloadMapaPdf}
+                  disabled={downloadingPdf}
+                >
+                  <Printer className="h-4 w-4" />
+                  {downloadingPdf ? "Gerando PDF..." : "Baixar PDF"}
                 </Button>
               )}
             </div>
