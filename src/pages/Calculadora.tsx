@@ -406,6 +406,37 @@ function ResultadoView({
   const fat = dre.faturamento;
   const pdfRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
+  const [interesseSent, setInteresseSent] = useState(false);
+  const [interesseLoading, setInteresseLoading] = useState(false);
+
+  const handleQuerSaberMais = async () => {
+    if (interesseSent || interesseLoading || !lead_id) {
+      // Sem lead_id, só abre o WhatsApp direto
+      window.open(`https://wa.me/5521971655550?text=${encodeURIComponent(
+        `Olá, Focus! Fiz a calculadora da Reforma Tributária e quero saber mais sobre como reduzir o impacto na minha rede. Meu nome: ${nome}, faturamento ~${fmtBRL(fat)}/mês.`
+      )}`, "_blank");
+      return;
+    }
+    setInteresseLoading(true);
+    try {
+      // Marca o lead como "quer_saber_mais" no Pipeline (via edge function)
+      await supabase.functions.invoke("calc-lead-interested", {
+        body: { lead_id },
+      });
+      setInteresseSent(true);
+      toast.success("Um especialista Focus vai entrar em contato!", {
+        description: "Enquanto isso, você pode continuar a conversa no WhatsApp.",
+      });
+    } catch (e) {
+      console.warn("calc-lead-interested falhou (segue pro WhatsApp mesmo assim):", e);
+    } finally {
+      setInteresseLoading(false);
+    }
+    // Sempre abre o WhatsApp também
+    window.open(`https://wa.me/5521971655550?text=${encodeURIComponent(
+      `Olá, Focus! Fiz a calculadora (cadastro ${lead_id}) e quero saber mais. Saldo IBS/CBS estimado: ${fmtBRL(impostoReforma)}/mês.`
+    )}`, "_blank");
+  };
 
   // Impostos atuais estimados (regime real presumido): ~ (PIS+COFINS+ICMS) baseline.
   // Simples proxy: 8-11% do faturamento como carga total antes da Reforma.
@@ -505,6 +536,9 @@ function ResultadoView({
 
   return (
     <div ref={pdfRef} style={{ maxWidth: 1000, margin: "0 auto", display: "grid", gap: 20 }}>
+      {/* CAMADA EDUCATIVA — antes de qualquer número */}
+      <EntendaReformaAccordion />
+
       {/* BLOCO 1 — Card destaque */}
       <div style={{ background: NAVY, color: "white", borderRadius: 20, padding: "40px 32px", textAlign: "center" }}>
         <p style={{ fontSize: 11, letterSpacing: 3, textTransform: "uppercase", opacity: 0.7, marginBottom: 8 }}>
@@ -517,10 +551,14 @@ function ResultadoView({
           {fmtBRL(impostoAtual)}<span style={{ fontSize: 16, opacity: 0.7 }}>/mês em impostos</span>
         </p>
         <p style={{ fontSize: 14, opacity: 0.85, marginBottom: 6 }}>
-          Na Reforma Tributária (2033+) vai pagar
+          Na Reforma Tributária vai pagar
         </p>
         <p style={{ fontSize: 40, fontWeight: 800, color: impostoReforma <= impostoAtual ? "#84e5b3" : GRANADA }}>
           {fmtBRL(impostoReforma)}<span style={{ fontSize: 16, opacity: 0.7 }}>/mês</span>
+        </p>
+        <p style={{ fontSize: 12, opacity: 0.75, marginTop: 8, maxWidth: 520, marginLeft: "auto", marginRight: "auto", lineHeight: 1.55 }}>
+          Este é o valor que sua rede pagaria por mês <strong>se a Reforma já estivesse valendo integralmente</strong>{" "}
+          — cenário 2033+ com IBS+CBS a 28%, ICMS/PIS/COFINS já extintos.
         </p>
         <p style={{ marginTop: 16, fontSize: 14, opacity: 0.9 }}>
           Variação: <strong>{delta > 0 ? "+" : ""}{delta.toFixed(0)}%</strong>
@@ -532,7 +570,11 @@ function ResultadoView({
 
       {/* BLOCO 2 — Comparativo DRE lado a lado */}
       <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 24, boxShadow: "0 20px 50px -20px rgba(0,0,0,.5)" }}>
-        <h3 style={{ fontSize: 18, fontWeight: 700, color: TEXT, marginBottom: 4 }}>DRE — cenário atual vs Reforma</h3>
+        <h3 style={{ fontSize: 18, fontWeight: 700, color: TEXT, marginBottom: 4 }}>
+          DRE
+          <Info text="Demonstrativo de Resultado do Exercício. É a foto mensal de quanto sua rede fatura, quanto paga de custo (CMV), quanto gasta em despesas e quanto sobra depois dos impostos." />
+          {" "}— cenário atual vs Reforma
+        </h3>
         <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 20 }}>Valores mensais estimados sobre R$ {fmtBRL(fat)} de faturamento.</p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
           <DreColuna titulo="Hoje (PIS/COFINS/ICMS)" dre={dre} destaque={impostoAtual} destaqueLabel="Impostos estimados" />
@@ -542,13 +584,36 @@ function ResultadoView({
 
       {/* BLOCO 3 — Detalhamento IBS/CBS */}
       <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 24, boxShadow: "0 20px 50px -20px rgba(0,0,0,.5)" }}>
-        <h3 style={{ fontSize: 18, fontWeight: 700, color: TEXT, marginBottom: 4 }}>Detalhamento IBS/CBS</h3>
-        <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 20 }}>Débito sobre vendas, crédito ampliado e saldo mensal.</p>
+        <h3 style={{ fontSize: 18, fontWeight: 700, color: TEXT, marginBottom: 4 }}>
+          Detalhamento IBS
+          <Info text="IBS = Imposto sobre Bens e Serviços. É o novo imposto estadual/municipal que substitui ICMS e ISS. Alíquota fixada por cada estado/município, com regras nacionais." />
+          {" "}/ CBS
+          <Info text="CBS = Contribuição sobre Bens e Serviços. É o novo imposto federal que substitui PIS e COFINS. Alíquota única no país todo." />
+        </h3>
+        <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 20 }}>
+          Débito sobre vendas, crédito ampliado e saldo mensal.
+        </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 24 }}>
-          <MetricaCard label="Débito total" valor={reforma.debito.total} cor={GRANADA} />
-          <MetricaCard label="Crédito bruto" valor={reforma.credito_bruto.total} cor="#0a8548" />
-          <MetricaCard label="Exclusões" valor={reforma.exclusao.total} cor="#a86400" nota={`${reforma.exclusao.rubricas.length} rubricas`} />
+          <MetricaCard
+            label="Débito total"
+            valor={reforma.debito.total}
+            cor={GRANADA}
+            infoText="É o imposto que você DEVE pagar sobre suas vendas mensais. Calculado aplicando a alíquota IBS+CBS sobre o faturamento, considerando isenções e alíquotas reduzidas de cesta básica."
+          />
+          <MetricaCard
+            label="Crédito bruto"
+            valor={reforma.credito_bruto.total}
+            cor="#0a8548"
+            infoText="É o imposto que você RECUPERA. Diferente de hoje, na Reforma o crédito é ampliado: incide sobre compras, folha (VT/VR/plano), despesas administrativas, vendas e financeiras."
+          />
+          <MetricaCard
+            label="Exclusões"
+            valor={reforma.exclusao.total}
+            cor="#a86400"
+            nota={`${reforma.exclusao.rubricas.length} rubricas`}
+            infoText="Despesas que existem mas NÃO geram crédito na Reforma (ex: brindes, doações, entretenimento). Você paga mas não recupera nada — impacta diretamente o resultado."
+          />
         </div>
 
         <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
@@ -581,8 +646,20 @@ function ResultadoView({
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <MetricaCard label="Split CBS (federal, 31,4%)" valor={Math.abs(reforma.cbs_saldo)} cor={NAVY} nota={reforma.saldo < 0 ? "a pagar" : "a recuperar"} />
-          <MetricaCard label="Split IBS (subnacional, 68,6%)" valor={Math.abs(reforma.ibs_saldo)} cor={NAVY} nota={reforma.saldo < 0 ? "a pagar" : "a recuperar"} />
+          <MetricaCard
+            label="Split CBS (federal, 31,4%)"
+            valor={Math.abs(reforma.cbs_saldo)}
+            cor={NAVY}
+            nota={reforma.saldo < 0 ? "a pagar" : "a recuperar"}
+            infoText="O saldo total é dividido entre União (CBS, ~31,4%) e Estados/Municípios (IBS, ~68,6%). Isso importa porque o crédito de cada esfera é apurado e utilizado separadamente."
+          />
+          <MetricaCard
+            label="Split IBS (subnacional, 68,6%)"
+            valor={Math.abs(reforma.ibs_saldo)}
+            cor={NAVY}
+            nota={reforma.saldo < 0 ? "a pagar" : "a recuperar"}
+            infoText="Parte do imposto que vai pra Estados e Municípios. Substitui ICMS + ISS. Alíquota fica em torno de 19% (varia por estado)."
+          />
         </div>
       </div>
 
@@ -592,19 +669,62 @@ function ResultadoView({
       {/* BLOCO 5 — Timeline transição ICMS */}
       <TimelineIcms />
 
-      {/* CTAs finais */}
+      {/* CTA PRINCIPAL — Quer saber mais? (gancho comercial do Alcir) */}
+      <div style={{
+        background: `linear-gradient(135deg, ${RED} 0%, #b03535 100%)`,
+        borderRadius: 20, padding: "36px 28px", textAlign: "center",
+        boxShadow: "0 24px 60px -20px rgba(208,69,69,.5)",
+        marginTop: 4,
+      }}>
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: "rgba(255,255,255,.75)", marginBottom: 10 }}>
+          Próximo passo
+        </p>
+        <h3 style={{ fontSize: 26, fontWeight: 800, color: "white", marginBottom: 10, lineHeight: 1.2 }}>
+          Quer saber mais?
+        </h3>
+        <p style={{ fontSize: 15, color: "rgba(255,255,255,.85)", marginBottom: 22, maxWidth: 520, marginLeft: "auto", marginRight: "auto", lineHeight: 1.55 }}>
+          Um especialista Focus explica o que a Reforma significa <strong>especificamente</strong> pra sua rede
+          e como reduzir o impacto na prática. Sem custo, sem compromisso.
+        </p>
+        <button
+          onClick={handleQuerSaberMais}
+          disabled={interesseLoading}
+          style={{
+            padding: "16px 32px", borderRadius: 12, border: "none",
+            background: "white", color: RED,
+            fontWeight: 800, fontSize: 15,
+            cursor: interesseLoading ? "wait" : "pointer",
+            boxShadow: "0 8px 24px -4px rgba(0,0,0,.3)",
+            display: "inline-flex", alignItems: "center", gap: 10,
+          }}
+        >
+          {interesseLoading
+            ? "Registrando..."
+            : interesseSent
+            ? "✓ Solicitação enviada · WhatsApp aberto"
+            : "Falar com um especialista Focus →"}
+        </button>
+        <p style={{ fontSize: 11, color: "rgba(255,255,255,.65)", marginTop: 14 }}>
+          Um consultor especializado em varejo/supermercado responde em até 24h úteis.
+        </p>
+      </div>
+
+      {/* FAQ — reduz objeção antes do especialista ligar */}
+      <FaqAccordion onQuerSaberMais={handleQuerSaberMais} />
+
+      {/* CTAs secundários — material pra levar */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 8 }}>
         <button
           onClick={handleDownloadPdf}
           disabled={downloading}
           style={{
-            padding: "14px 20px", borderRadius: 10, border: "none",
-            background: downloading ? "rgba(199,55,55,.6)" : GRANADA, color: "white",
+            padding: "14px 20px", borderRadius: 10, border: `1.5px solid ${BORDER}`,
+            background: CARD, color: TEXT,
             fontWeight: 700, fontSize: 14,
             cursor: downloading ? "wait" : "pointer",
           }}
         >
-          {downloading ? "Gerando PDF..." : "Baixar diagnóstico em PDF"}
+          {downloading ? "Gerando PDF..." : "📄 Baixar diagnóstico em PDF"}
         </button>
         <a
           href={`https://wa.me/5521971655550?text=${encodeURIComponent(
@@ -617,13 +737,181 @@ function ResultadoView({
             textAlign: "center", textDecoration: "none",
           }}
         >
-          Agendar reunião no WhatsApp
+          💬 Agendar reunião no WhatsApp
         </a>
       </div>
 
       <p style={{ fontSize: 11, color: TEXT_MUTED, textAlign: "center", marginTop: 4 }}>
         Estimativa baseada em 12 anos de dados Focus. Diagnóstico definitivo requer análise da DRE real da empresa.
       </p>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Camada educativa — accordion "Entenda a Reforma em 30 segundos"
+// -----------------------------------------------------------------------------
+
+function EntendaReformaAccordion() {
+  const [open, setOpen] = useState(true); // Aberto por padrão — é a razão da nota estar aqui
+  return (
+    <div style={{ background: SURFACE, border: `1px solid rgba(208,69,69,.25)`, borderRadius: 16, overflow: "hidden" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%", padding: "20px 24px", background: "transparent", border: "none",
+          display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer",
+          color: TEXT, textAlign: "left",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 22 }}>📖</span>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: RED, marginBottom: 3 }}>
+              Antes de olhar os números
+            </p>
+            <p style={{ fontSize: 16, fontWeight: 700, color: TEXT }}>Entenda a Reforma em 30 segundos</p>
+          </div>
+        </div>
+        <span style={{ fontSize: 14, color: TEXT_MUTED, fontWeight: 700 }}>{open ? "−" : "+"}</span>
+      </button>
+      {open && (
+        <div style={{ padding: "0 24px 24px", color: TEXT, fontSize: 14, lineHeight: 1.7, borderTop: `1px solid ${BORDER}` }}>
+          <p style={{ marginTop: 18 }}>
+            A <strong>Reforma Tributária</strong> substitui 5 impostos que você paga hoje (PIS, COFINS,
+            ICMS, ISS e IPI) por 2 novos: <strong style={{ color: RED }}>CBS</strong> (federal) e{" "}
+            <strong style={{ color: RED }}>IBS</strong> (estadual/municipal), somando ~28% de alíquota cheia.
+          </p>
+          <p style={{ marginTop: 10 }}>
+            A transição começa em <strong>2027</strong> com alíquota reduzida e vai até{" "}
+            <strong>2033</strong>, quando ICMS/ISS desaparecem por completo.
+          </p>
+          <p style={{ marginTop: 10 }}>
+            A boa notícia: você passa a ter <strong style={{ color: "#84e5b3" }}>crédito ampliado</strong> —
+            recupera imposto sobre compras, folha (VT/VR/plano/uniforme), despesas administrativas,
+            vendas e financeiras. O que você pagava embutido e não recuperava, agora vira crédito.
+          </p>
+          <p style={{ marginTop: 10, fontSize: 13, color: TEXT_MUTED, fontStyle: "italic" }}>
+            Isso não é mais um imposto — é uma substituição. Ganha quem tem cadastro tributário limpo
+            e sistemas prontos pra apurar o crédito correto.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Info tooltip — ícone (?) com hover explicando termo técnico
+// -----------------------------------------------------------------------------
+
+function Info({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      onClick={() => setShow((s) => !s)}
+      style={{ position: "relative", display: "inline-flex", marginLeft: 6, cursor: "help" }}
+    >
+      <span
+        style={{
+          width: 15, height: 15, borderRadius: 999,
+          background: "rgba(232,235,255,.12)", border: `1px solid ${BORDER}`,
+          fontSize: 10, fontWeight: 700, color: TEXT_MUTED,
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          lineHeight: 1,
+        }}
+      >?</span>
+      {show && (
+        <span
+          style={{
+            position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
+            background: "#000", color: "#fff", fontSize: 11, lineHeight: 1.4,
+            padding: "8px 12px", borderRadius: 8, minWidth: 220, maxWidth: 320,
+            boxShadow: "0 8px 24px rgba(0,0,0,.6)", zIndex: 10,
+            fontWeight: 400, whiteSpace: "normal",
+            border: `1px solid ${BORDER}`,
+          }}
+        >
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// FAQ — accordion com 5 perguntas
+// -----------------------------------------------------------------------------
+
+function FaqAccordion({ onQuerSaberMais }: { onQuerSaberMais: () => void }) {
+  const faqs = [
+    {
+      q: "Todos os supermercados vão pagar isso?",
+      a: "Sim — a Reforma vale para toda empresa que apura impostos federais/estaduais no Brasil. O impacto varia por regime (Lucro Real, Presumido, Simples) e por mix de produtos. Alguns itens da cesta básica têm alíquota reduzida ou zero, mas a maioria dos SKUs do supermercado entra na alíquota cheia.",
+    },
+    {
+      q: "Quando começa exatamente?",
+      a: "A transição inicia em 2027 com alíquota-teste de 1%. Entre 2029 e 2032, o ICMS reduz 10 p.p. por ano. Em 2033, ICMS/ISS somem por completo e só sobra IBS+CBS. O regime de Simples Nacional tem tratamento diferenciado — vale confirmar com um especialista.",
+    },
+    {
+      q: "Posso reduzir o impacto na minha rede?",
+      a: "Sim, com 3 movimentos: (1) cadastro tributário limpo — cada SKU precisa estar corretamente classificado pra apurar o crédito certo; (2) revisar contratos com fornecedores pra garantir destaque de crédito; (3) reorganizar despesas de folha/administrativas pra maximizar a base de crédito ampliado. A Focus faz esse trabalho.",
+    },
+    {
+      q: "A Focus faz a implantação?",
+      a: "Sim. O time do Alcir (12 anos de tributário no varejo, R$ 26M recuperados) faz o diagnóstico completo, revisa cadastros, ajusta processos e treina a equipe interna. A implantação leva de 60 a 90 dias e o retorno costuma pagar o projeto no 1º trimestre.",
+    },
+    {
+      q: "O cálculo desta calculadora é preciso?",
+      a: "É uma estimativa baseada em 12 anos de dados Focus do segmento supermercadista e nas alíquotas do texto atual da Lei Complementar 214/25. O número final depende do mix real da sua rede, contratos com fornecedores e classificações tributárias. Um diagnóstico completo requer análise da DRE e SPED reais.",
+    },
+  ];
+  const [openIdx, setOpenIdx] = useState<number | null>(0);
+  return (
+    <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 24 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: RED, marginBottom: 4 }}>
+        Perguntas frequentes
+      </p>
+      <h3 style={{ fontSize: 20, fontWeight: 700, color: TEXT, marginBottom: 4 }}>Ainda tem dúvida?</h3>
+      <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 18 }}>
+        As perguntas que a gente mais escuta de supermercadistas antes de conversar com o especialista.
+      </p>
+      <div style={{ display: "grid", gap: 8 }}>
+        {faqs.map((f, i) => {
+          const open = openIdx === i;
+          return (
+            <div key={i} style={{ border: `1px solid ${BORDER}`, borderRadius: 10, overflow: "hidden", background: CARD }}>
+              <button
+                onClick={() => setOpenIdx(open ? null : i)}
+                style={{
+                  width: "100%", padding: "14px 16px", background: "transparent", border: "none",
+                  color: TEXT, fontSize: 14, fontWeight: 600, textAlign: "left", cursor: "pointer",
+                  display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
+                }}
+              >
+                <span>{f.q}</span>
+                <span style={{ color: TEXT_MUTED, fontSize: 16, fontWeight: 700 }}>{open ? "−" : "+"}</span>
+              </button>
+              {open && (
+                <div style={{ padding: "0 16px 16px", fontSize: 13, lineHeight: 1.65, color: TEXT_MUTED }}>
+                  {f.a}
+                  <button
+                    onClick={onQuerSaberMais}
+                    style={{
+                      marginTop: 12, background: "transparent", border: "none", padding: 0,
+                      color: RED, fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "underline",
+                    }}
+                  >
+                    → Falar com um especialista Focus
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -659,10 +947,13 @@ function LinhaTabela({ label, v, bold, color }: { label: string; v: number; bold
   );
 }
 
-function MetricaCard({ label, valor, cor, nota }: { label: string; valor: number; cor: string; nota?: string }) {
+function MetricaCard({ label, valor, cor, nota, infoText }: { label: string; valor: number; cor: string; nota?: string; infoText?: string }) {
   return (
     <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: 14, background: CARD }}>
-      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: TEXT_MUTED, marginBottom: 6 }}>{label}</p>
+      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: TEXT_MUTED, marginBottom: 6, display: "flex", alignItems: "center" }}>
+        {label}
+        {infoText && <Info text={infoText} />}
+      </p>
       <p style={{ fontSize: 22, fontWeight: 800, color: cor }}>{fmtBRL(valor)}</p>
       {nota && <p style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 2 }}>{nota}</p>}
     </div>
@@ -698,7 +989,10 @@ function ImpactoDepartamentos() {
 
   return (
     <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 24, boxShadow: "0 20px 50px -20px rgba(0,0,0,.5)" }}>
-      <h3 style={{ fontSize: 18, fontWeight: 700, color: TEXT, marginBottom: 4 }}>Impacto por departamento</h3>
+      <h3 style={{ fontSize: 18, fontWeight: 700, color: TEXT, marginBottom: 4 }}>
+        Impacto por departamento
+        <Info text="Cada seção do supermercado tem alíquota IBS+CBS diferente. Cesta básica é isenta ou reduzida, mas seções como bebidas/higiene entram na alíquota cheia (~28%). O IS (Imposto Seletivo) incide sobre cigarros e bebidas alcoólicas." />
+      </h3>
       <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 16 }}>
         Como a Reforma afeta cada seção do supermercado — mudança na alíquota efetiva e impacto no preço final.
       </p>
@@ -761,7 +1055,10 @@ function TimelineIcms() {
   ];
   return (
     <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 24, boxShadow: "0 20px 50px -20px rgba(0,0,0,.5)" }}>
-      <h3 style={{ fontSize: 18, fontWeight: 700, color: TEXT, marginBottom: 4 }}>Timeline de transição do ICMS</h3>
+      <h3 style={{ fontSize: 18, fontWeight: 700, color: TEXT, marginBottom: 4 }}>
+        Timeline de transição do ICMS
+        <Info text="A Reforma não vira do dia pra noite. O ICMS reduz 10 p.p. por ano entre 2029 e 2032, e some totalmente em 2033. Nesse período você tem que rodar OS DOIS regimes em paralelo — precisa preparar o sistema desde já." />
+      </h3>
       <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 20 }}>
         Redução gradativa do ICMS entre 2029 e 2033. IBS/CBS substituem PIS/COFINS/ICMS/ISS.
       </p>
