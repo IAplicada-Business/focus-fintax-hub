@@ -26,8 +26,11 @@ export interface ScreenDef {
  */
 export const SCREENS: ScreenDef[] = [
   {
+    // Role "cliente" fica fora do Dashboard: nenhuma sub-visão libera cliente,
+    // então incluir na raiz só entregaria uma tela sem tabs acessíveis.
+    // Quando existir portal do cliente, criar rota dedicada em vez de reutilizar.
     key: "dashboard", label: "Dashboard", route: "/dashboard",
-    defaultRoles: ["admin", "pmo", "gestor_tributario", "comercial", "cliente"],
+    defaultRoles: ["admin", "pmo", "gestor_tributario", "comercial"],
     defaultReadOnlyRoles: [],
     children: [
       { key: "dashboard.comercial",   label: "Visão Comercial",   defaultRoles: ["admin", "pmo", "comercial"],        defaultReadOnlyRoles: [] },
@@ -36,11 +39,14 @@ export const SCREENS: ScreenDef[] = [
     ],
   },
   {
+    // Gestor tributário fica FORA (nem readonly): RLS de public.leads
+    // só libera admin OU comercial (policy "Admin comercial select leads"),
+    // então incluir gestor como readonly só faria ele ver Pipeline vazio.
     key: "pipeline", label: "Leads", route: "/pipeline",
     defaultRoles: ["admin", "pmo", "comercial"],
-    defaultReadOnlyRoles: ["gestor_tributario"],
+    defaultReadOnlyRoles: [],
     children: [
-      { key: "fila_leads", label: "Fila de Leads", defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: ["gestor_tributario"] },
+      { key: "fila_leads", label: "Fila de Leads", defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: [] },
     ],
   },
   {
