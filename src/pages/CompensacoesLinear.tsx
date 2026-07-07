@@ -18,6 +18,8 @@ import {
   ChevronDown,
   FileText,
   X,
+  Table as TableIcon,
+  Grid3x3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrencyBR } from "@/lib/clientes-constants";
@@ -48,6 +50,16 @@ const TRIBUTO_COLORS: Record<TributoEnum, string> = {
   DCTWEB_trimestral: "bg-amber-100 text-amber-800 border-amber-200",
   outros: "bg-slate-100 text-slate-800 border-slate-200",
 };
+
+// Pivot mês × tributo: agrupa PIS+COFINS numa coluna "PIS/COFINS",
+// INSS_52+INSS_retidos+DCTWEB em "INSS/PREV", IRPJ+CSLL em "IRPJ/CSLL".
+// Colunas exibidas na matriz (ordem canônica da planilha):
+const PIVOT_COLS = [
+  { key: "PIS_COFINS", label: "PIS/COFINS", tribs: ["PIS", "COFINS"] as TributoEnum[], color: "bg-cyan-50 text-cyan-900" },
+  { key: "INSS_PREV",  label: "INSS/Previd.", tribs: ["INSS_52", "INSS_retidos", "DCTWEB_trimestral"] as TributoEnum[], color: "bg-indigo-50 text-indigo-900" },
+  { key: "IRPJ_CSLL",  label: "IRPJ/CSLL", tribs: ["IRPJ_CSLL_agregado"] as TributoEnum[], color: "bg-rose-50 text-rose-900" },
+  { key: "OUTROS",     label: "Outros",    tribs: ["outros"] as TributoEnum[], color: "bg-slate-50 text-slate-900" },
+];
 
 const DCOMP_REGEX = /^\d{5}\.\d{5}\.\d{6}\.\d\.\d\.\d{2}-\d{4}$/;
 
@@ -120,6 +132,13 @@ export default function CompensacoesLinear() {
   const [deleteTarget, setDeleteTarget] = useState<Compensacao | null>(null);
 
   const competenciaFilter = searchParams.get("competencia") || "all";
+  const viewMode = (searchParams.get("view") as "linear" | "pivot") || "linear";
+  const setViewMode = (v: "linear" | "pivot") => {
+    const p = new URLSearchParams(searchParams);
+    if (v === "linear") p.delete("view");
+    else p.set("view", v);
+    setSearchParams(p);
+  };
 
   const fetchAll = useCallback(async () => {
     if (!clienteId) return;
@@ -196,6 +215,46 @@ export default function CompensacoesLinear() {
     }
     return { porTributo, compensado, honorarios };
   }, [compsFiltradas]);
+
+  // Matriz pivot: linhas=meses, colunas=grupos de tributos.
+  // Sempre computada a partir de TODOS os `comps` (o filtro de competência
+  // faz sentido só na visão linear).
+  const pivotData = useMemo(() => {
+    // meses = todos os meses únicos presentes
+    const mesSet = new Set<string>();
+    // cellMap[mes][colKey] = soma valor_compensado
+    const cellMap: Record<string, Record<string, number>> = {};
+    // hasDcomp[mes][colKey] = true se qualquer comp do bucket tem >= 1 DCOMP
+    const hasDcomp: Record<string, Record<string, boolean>> = {};
+
+    for (const c of comps) {
+      const mes = monthKey(c.mes_referencia);
+      mesSet.add(mes);
+      const trib = (c.tributo_enum || c.tributo || "outros") as TributoEnum;
+      const col = PIVOT_COLS.find((p) => p.tribs.includes(trib));
+      const colKey = col?.key ?? "OUTROS";
+      cellMap[mes] ??= {};
+      cellMap[mes][colKey] = (cellMap[mes][colKey] || 0) + Number(c.valor_compensado || 0);
+      hasDcomp[mes] ??= {};
+      const dcCount = (dcompsByCompId[c.id]?.length ?? 0);
+      if (dcCount > 0) hasDcomp[mes][colKey] = true;
+    }
+
+    const mesesOrdenados = Array.from(mesSet).sort();
+    const linhas = mesesOrdenados.map((m) => ({
+      mes: m,
+      valores: Object.fromEntries(PIVOT_COLS.map((p) => [p.key, cellMap[m]?.[p.key] ?? 0])) as Record<string, number>,
+      hasDcomp: Object.fromEntries(PIVOT_COLS.map((p) => [p.key, !!hasDcomp[m]?.[p.key]])) as Record<string, boolean>,
+    }));
+
+    // Totais por coluna + total geral por mês + total da coluna outros
+    const totaisPorCol = Object.fromEntries(
+      PIVOT_COLS.map((p) => [p.key, linhas.reduce((s, l) => s + l.valores[p.key], 0)])
+    ) as Record<string, number>;
+    const totalGeral = Object.values(totaisPorCol).reduce((a, b) => a + b, 0);
+
+    return { linhas, totaisPorCol, totalGeral };
+  }, [comps, dcompsByCompId]);
 
   // ---------------------------------------------------------------------------
   // Mutations
@@ -314,28 +373,49 @@ export default function CompensacoesLinear() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Select
-            value={competenciaFilter}
-            onValueChange={(v) => {
-              const p = new URLSearchParams(searchParams);
-              if (v === "all") p.delete("competencia");
-              else p.set("competencia", v);
-              setSearchParams(p);
-            }}
-          >
-            <SelectTrigger className="w-40 h-8 text-xs">
-              <SelectValue placeholder="Competência" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as competências</SelectItem>
-              {meses.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {format(new Date(m + "-01"), "MMM/yyyy", { locale: ptBR })}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {!readOnly && (
+          {/* Toggle Linear vs Matriz mês × tributo */}
+          <div className="flex items-center rounded-md border bg-background p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setViewMode("linear")}
+              className={`flex items-center gap-1 px-2 py-1 rounded ${viewMode === "linear" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+              title="Visão linear (uma linha por compensação)"
+            >
+              <TableIcon className="h-3 w-3" /> Linear
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("pivot")}
+              className={`flex items-center gap-1 px-2 py-1 rounded ${viewMode === "pivot" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+              title="Matriz mês × tributo"
+            >
+              <Grid3x3 className="h-3 w-3" /> Matriz
+            </button>
+          </div>
+          {viewMode === "linear" && (
+            <Select
+              value={competenciaFilter}
+              onValueChange={(v) => {
+                const p = new URLSearchParams(searchParams);
+                if (v === "all") p.delete("competencia");
+                else p.set("competencia", v);
+                setSearchParams(p);
+              }}
+            >
+              <SelectTrigger className="w-40 h-8 text-xs">
+                <SelectValue placeholder="Competência" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as competências</SelectItem>
+                {meses.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {format(new Date(m + "-01"), "MMM/yyyy", { locale: ptBR })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {!readOnly && viewMode === "linear" && (
             <Button size="sm" onClick={handleAddRow}>
               <Plus className="h-4 w-4 mr-1" /> Nova linha
             </Button>
@@ -343,8 +423,13 @@ export default function CompensacoesLinear() {
         </div>
       </div>
 
+      {/* Matriz mês × tributo — visão consolidada por competência */}
+      {viewMode === "pivot" && (
+        <PivotMatrix data={pivotData} />
+      )}
+
       {/* Totais por tributo */}
-      {compsFiltradas.length > 0 && (
+      {viewMode === "linear" && compsFiltradas.length > 0 && (
         <div className="flex flex-wrap gap-2 text-xs">
           {Object.entries(totais.porTributo).map(([trib, valor]) => (
             <Badge
@@ -359,6 +444,7 @@ export default function CompensacoesLinear() {
       )}
 
       {/* Tabela linear */}
+      {viewMode === "linear" && (
       <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
@@ -551,6 +637,7 @@ export default function CompensacoesLinear() {
           )}
         </Table>
       </div>
+      )}
 
       {/* Delete confirm */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
@@ -636,6 +723,84 @@ function NumberEdit({
       }}
       className="h-7 text-xs text-right"
     />
+  );
+}
+
+function PivotMatrix({
+  data,
+}: {
+  data: {
+    linhas: Array<{ mes: string; valores: Record<string, number>; hasDcomp: Record<string, boolean> }>;
+    totaisPorCol: Record<string, number>;
+    totalGeral: number;
+  };
+}) {
+  if (data.linhas.length === 0) {
+    return (
+      <div className="rounded-md border p-10 text-center text-sm text-muted-foreground">
+        Sem compensações registradas ainda. Adicione linhas pela visão Linear.
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-md border overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow className="text-xs">
+            <TableHead className="w-32">Competência</TableHead>
+            {PIVOT_COLS.map((col) => (
+              <TableHead key={col.key} className={`text-right ${col.color}`}>
+                {col.label}
+              </TableHead>
+            ))}
+            <TableHead className="text-right font-bold">Total do mês</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.linhas.map((linha) => {
+            const totalMes = PIVOT_COLS.reduce((s, c) => s + linha.valores[c.key], 0);
+            return (
+              <TableRow key={linha.mes} className="text-xs">
+                <TableCell className="font-medium">
+                  {format(new Date(linha.mes + "-01"), "MMM/yyyy", { locale: ptBR })}
+                </TableCell>
+                {PIVOT_COLS.map((col) => {
+                  const v = linha.valores[col.key];
+                  return (
+                    <TableCell key={col.key} className="text-right">
+                      {v > 0 ? (
+                        <span className="inline-flex items-center gap-1">
+                          {formatCurrencyBR(v)}
+                          {linha.hasDcomp[col.key] && (
+                            <FileText className="h-3 w-3 text-muted-foreground" aria-label="tem DCOMPs vinculadas" />
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  );
+                })}
+                <TableCell className="text-right font-semibold">
+                  {formatCurrencyBR(totalMes)}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+        <TableFooter>
+          <TableRow className="bg-muted/50 text-xs font-bold">
+            <TableCell>Total por tributo</TableCell>
+            {PIVOT_COLS.map((col) => (
+              <TableCell key={col.key} className="text-right">
+                {formatCurrencyBR(data.totaisPorCol[col.key])}
+              </TableCell>
+            ))}
+            <TableCell className="text-right">{formatCurrencyBR(data.totalGeral)}</TableCell>
+          </TableRow>
+        </TableFooter>
+      </Table>
+    </div>
   );
 }
 
