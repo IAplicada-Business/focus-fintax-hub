@@ -30,26 +30,28 @@ export default function DashboardGestao() {
   }
 
   const tabs: { key: GestaoTab; label: string }[] = [
-    { key: "resumo", label: "Resumo da semana" },
-    { key: "ciclo", label: "Ciclo / SLA" },
+    { key: "resumo", label: "Pulso da semana" },
+    { key: "ciclo", label: "Ciclo & SLA" },
   ];
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-[#f2f3f7] font-sans antialiased">
-      <div className="sticky top-0 z-[100]">
+      <div className="sticky top-0 z-[100] bg-[#f2f3f7]/90 backdrop-blur-sm">
         <div className="h-[52px] px-7 flex items-center justify-between">
-          <div className="flex items-baseline gap-2.5 flex-wrap">
+          <div className="flex items-baseline">
             <span className="text-base font-bold text-navy">
               {greeting()}, {profile?.full_name?.split(" ")[0] || "usuário"}
             </span>
-            <span className="text-xs text-ink-60">Gestão · carteira e processos</span>
-            <span className="text-xs text-ink-60">
+            <span className="text-xs text-ink-60 ml-2.5">
               {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
             </span>
           </div>
           <div className="flex items-center">
             <span className="bg-[rgba(10,21,100,0.08)] border border-[rgba(10,21,100,0.10)] rounded-md px-2.5 py-[3px] font-mono-dm text-[10px] tracking-[1.5px] uppercase text-navy">
               {ROLE_LABELS[role] ?? role}
+            </span>
+            <span className="font-mono-dm text-xs text-ink-60 ml-2.5">
+              {format(new Date(), "HH:mm")}
             </span>
           </div>
         </div>
