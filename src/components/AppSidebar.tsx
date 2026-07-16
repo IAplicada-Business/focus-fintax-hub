@@ -26,7 +26,15 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, screenKey: "dashboard" },
+  {
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: LayoutDashboard,
+    screenKey: "dashboard",
+    children: [
+      { title: "Gestão", url: "/dashboard/gestao", screenKey: "dashboard.gestao" },
+    ],
+  },
   {
     title: "Leads",
     url: "/pipeline",

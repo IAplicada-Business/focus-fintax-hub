@@ -30,6 +30,8 @@ interface Props {
 interface Cliente {
   id: string;
   empresa: string | null;
+  tese_ativa_id?: string | null;
+  status?: string | null;
 }
 
 interface Credito {
@@ -72,6 +74,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
   const [teses, setTeses] = useState<Tese[]>([]);
   const [comps, setComps] = useState<Comp[]>([]);
   const [statusRows, setStatusRows] = useState<StatusRow[]>([]);
+  const [clientesComProcesso, setClientesComProcesso] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -83,14 +86,16 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
         { data: te },
         { data: cm },
         { data: st },
+        { data: procs },
       ] = await Promise.all([
-        supabase.from("clientes").select("id, empresa"),
+        supabase.from("clientes").select("id, empresa, tese_ativa_id, status").eq("status", "ativo"),
         (supabase as any).from("creditos_apurados").select("cliente_id, tese_id, valor_apurado_inicial, incluir_no_calculo"),
         (supabase as any).from("teses_tributarias").select("id, codigo, label, visivel_cliente, incluir_no_calculo"),
         supabase
           .from("compensacoes_mensais")
           .select("cliente_id, mes_referencia, valor_compensado, honorario_valor, valor_nf_servico, tributo_enum, tributo, tese_origem_id"),
         (supabase as any).from("v_clientes_status_compensacao").select("cliente_id, status_principal"),
+        supabase.from("processos_teses").select("cliente_id").limit(10000),
       ]);
       if (cancelled) return;
       setClientes((cli as any) || []);
@@ -98,6 +103,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
       setTeses((te as any) || []);
       setComps((cm as any) || []);
       setStatusRows((st as any) || []);
+      setClientesComProcesso(new Set(((procs as { cliente_id: string }[]) || []).map((p) => p.cliente_id)));
       setLoading(false);
     };
     fetchAll();
@@ -244,6 +250,25 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
     return mesesArr;
   }, [compsNoCalculo]);
 
+  const gapsTese = useMemo(() => {
+    const statusMap = new Map(statusRows.map((s) => [s.cliente_id, s.status_principal]));
+    const semTeseAtiva = clientes
+      .filter((c) => !c.tese_ativa_id)
+      .map((c) => ({
+        id: c.id,
+        empresa: c.empresa || "—",
+        status: statusMap.get(c.id) || "sem_operacao",
+      }));
+    const semProcesso = clientes
+      .filter((c) => !clientesComProcesso.has(c.id))
+      .map((c) => ({
+        id: c.id,
+        empresa: c.empresa || "—",
+        status: statusMap.get(c.id) || "sem_operacao",
+      }));
+    return { semTeseAtiva, semProcesso };
+  }, [clientes, clientesComProcesso, statusRows]);
+
   // Top clientes por crédito
   const topPorCredito = useMemo(() => {
     const clienteMap = new Map(clientes.map((c) => [c.id, c.empresa]));
@@ -380,15 +405,88 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
         </div>
       </Card>
 
+      {/* Gaps de tese / processo — complementa a visão de créditos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-sm font-bold text-navy">Sem tese em uso</h3>
+              <p className="text-[11px] text-ink-35">Clientes ativos sem tese_ativa definida</p>
+            </div>
+            <Badge variant="outline" className="text-xs">
+              {gapsTese.semTeseAtiva.length}
+            </Badge>
+          </div>
+          {gapsTese.semTeseAtiva.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">Todos os ativos têm tese em uso.</p>
+          ) : (
+            <ul className="space-y-1.5 max-h-[200px] overflow-y-auto text-xs">
+              {gapsTese.semTeseAtiva.slice(0, 15).map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-2 border-b border-[rgba(10,21,100,0.06)] pb-1">
+                  <button
+                    type="button"
+                    className="font-medium text-left hover:underline truncate"
+                    onClick={() => _navigate(`/clientes/${c.id}`)}
+                  >
+                    {c.empresa}
+                  </button>
+                  <Badge
+                    variant="outline"
+                    className={`${STATUS_COMPENSACAO_COLORS[c.status as StatusCompensacao] || ""} text-[9px]`}
+                  >
+                    {STATUS_COMPENSACAO_LABELS[c.status as StatusCompensacao] || c.status}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-sm font-bold text-navy">Sem processo / tese cadastrada</h3>
+              <p className="text-[11px] text-ink-35">Ativos sem linha em Processos por Tese</p>
+            </div>
+            <Badge variant="outline" className="text-xs">
+              {gapsTese.semProcesso.length}
+            </Badge>
+          </div>
+          {gapsTese.semProcesso.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">Todos os ativos têm processo cadastrado.</p>
+          ) : (
+            <ul className="space-y-1.5 max-h-[200px] overflow-y-auto text-xs">
+              {gapsTese.semProcesso.slice(0, 15).map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-2 border-b border-[rgba(10,21,100,0.06)] pb-1">
+                  <button
+                    type="button"
+                    className="font-medium text-left hover:underline truncate"
+                    onClick={() => _navigate(`/clientes/${c.id}`)}
+                  >
+                    {c.empresa}
+                  </button>
+                  <Badge
+                    variant="outline"
+                    className={`${STATUS_COMPENSACAO_COLORS[c.status as StatusCompensacao] || ""} text-[9px]`}
+                  >
+                    {STATUS_COMPENSACAO_LABELS[c.status as StatusCompensacao] || c.status}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
       {/* 2 cols: por tese + por tributo */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Por tese */}
         <Card className="p-5">
-          <h3 className="text-sm font-bold text-navy mb-3">Distribuição por tese tributária</h3>
+          <h3 className="text-sm font-bold text-navy mb-1">Distribuição por tese tributária</h3>
+          <p className="text-[11px] text-ink-35 mb-3">Apurado · saldo · utilização na carteira</p>
           {porTese.length === 0 ? (
             <p className="text-xs text-muted-foreground italic">Sem créditos apurados registrados.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {porTese.map((t) => (
                 <div key={t.tese.id} className="text-xs">
                   <div className="flex items-center justify-between gap-2 mb-1">
@@ -412,7 +510,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
                       />
                     </div>
                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {t.clientes} cli · {t.pctUtilizado.toFixed(0)}% util
+                      {t.clientes} cli · saldo {formatCurrencyBR(t.saldo)} · {t.pctUtilizado.toFixed(0)}%
                     </span>
                   </div>
                 </div>
