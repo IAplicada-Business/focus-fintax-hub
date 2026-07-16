@@ -1,3 +1,4 @@
+-- Fix 42P01: aggregações via TEMP TABLE (sem alias agg).
 -- =============================================================================
 -- PASSO 2/2 — views, tese_ativa, promove ICMS, backfill tese_origem_id
 -- Rodar SÓ depois do PASSO 1 ter sucesso (enum ICMS já commitado).
