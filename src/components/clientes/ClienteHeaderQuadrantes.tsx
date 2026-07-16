@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TrendingUp, TrendingDown, PieChart, Layers, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, PieChart, Layers, RefreshCw, Plus } from "lucide-react";
 import { formatCurrencyBR } from "@/lib/clientes-constants";
 import {
   STATUS_COMPENSACAO_LABELS,
@@ -17,6 +17,8 @@ import { ptBR } from "date-fns/locale";
 
 interface Props {
   clienteId: string;
+  /** Abre a aba Processos e o fluxo de adicionar tese (opcionalmente com código pré-selecionado) */
+  onAddTese?: (teseCodigo?: string) => void;
 }
 
 interface CompRow {
@@ -57,7 +59,7 @@ const EMPTY: Dados = {
   possiveisFuturos: 0,
 };
 
-export function ClienteHeaderQuadrantes({ clienteId }: Props) {
+export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
   const [dadosBase, setDadosBase] = useState<Dados>(EMPTY);
   const [comps, setComps] = useState<CompRow[]>([]);
   const [teseIncluir, setTeseIncluir] = useState<Set<string>>(new Set());
@@ -68,6 +70,8 @@ export function ClienteHeaderQuadrantes({ clienteId }: Props) {
   const [teseAtivaLabel, setTeseAtivaLabel] = useState<string | null>(null);
   const [trocaOpen, setTrocaOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [processosCount, setProcessosCount] = useState(0);
+  const [opcoesTese, setOpcoesTese] = useState<{ tese: string; nome_exibicao: string }[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +83,8 @@ export function ClienteHeaderQuadrantes({ clienteId }: Props) {
         { data: view },
         { data: totaisView },
         { data: cli },
+        { count: procCount },
+        { data: motorTeses },
       ] = await Promise.all([
         (supabase as any)
           .from("creditos_apurados")
@@ -99,7 +105,17 @@ export function ClienteHeaderQuadrantes({ clienteId }: Props) {
           .eq("cliente_id", clienteId)
           .maybeSingle(),
         supabase.from("clientes").select("tese_ativa_id").eq("id", clienteId).maybeSingle(),
+        supabase
+          .from("processos_teses")
+          .select("id", { count: "exact", head: true })
+          .eq("cliente_id", clienteId),
+        supabase.from("motor_teses_config").select("tese, nome_exibicao").eq("ativo", true),
       ]);
+
+      if (!cancelled) {
+        setProcessosCount(procCount ?? 0);
+        setOpcoesTese((motorTeses as { tese: string; nome_exibicao: string }[]) || []);
+      }
 
       const ativaId = (cli as any)?.tese_ativa_id ?? null;
       setTeseAtivaId(ativaId);
@@ -291,59 +307,139 @@ export function ClienteHeaderQuadrantes({ clienteId }: Props) {
           }
         />
 
-        <div className="card-base px-4 py-3.5">
+        <div className="card-base px-4 py-3.5 flex flex-col">
           <div className="flex items-center gap-1.5 mb-1.5">
             <TrendingDown className="w-3.5 h-3.5 text-ink-35" />
             <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Status</p>
           </div>
-          {dadosBase.statusPrincipal && dadosBase.statusPrincipal !== "reporto" ? (
-            <Badge
-              variant="outline"
-              className={`${STATUS_COMPENSACAO_COLORS[dadosBase.statusPrincipal]} text-xs mb-2`}
-            >
-              {STATUS_COMPENSACAO_LABELS[dadosBase.statusPrincipal]}
-            </Badge>
+
+          {processosCount === 0 ? (
+            <>
+              <Badge
+                variant="outline"
+                className={`${STATUS_COMPENSACAO_COLORS.sem_operacao} text-xs mb-2 w-fit`}
+              >
+                Sem operação
+              </Badge>
+              <p className="text-[12px] text-foreground font-medium leading-snug">
+                Nenhuma tese cadastrada
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1 mb-3">
+                Adicione uma tese para iniciar o processo e definir o status de compensação.
+              </p>
+              {opcoesTese.length > 0 ? (
+                <div className="flex flex-col gap-1.5 mt-auto">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.8px] text-ink-35">
+                    Adicionar tese
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {opcoesTese.slice(0, 6).map((t) => (
+                      <Button
+                        key={t.tese}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[11px] px-2"
+                        onClick={() => onAddTese?.(t.tese)}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        {t.nome_exibicao}
+                      </Button>
+                    ))}
+                  </div>
+                  {opcoesTese.length > 6 && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="h-7 text-[11px] w-full mt-1"
+                      onClick={() => onAddTese?.()}
+                    >
+                      Ver todas as teses
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 text-[11px] w-full mt-auto"
+                  onClick={() => onAddTese?.()}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Adicionar tese
+                </Button>
+              )}
+            </>
           ) : (
-            <p className="text-xs text-muted-foreground mb-2">—</p>
+            <>
+              {dadosBase.statusPrincipal && dadosBase.statusPrincipal !== "reporto" ? (
+                <Badge
+                  variant="outline"
+                  className={`${STATUS_COMPENSACAO_COLORS[dadosBase.statusPrincipal]} text-xs mb-2 w-fit`}
+                >
+                  {STATUS_COMPENSACAO_LABELS[dadosBase.statusPrincipal]}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs mb-2 w-fit text-muted-foreground">
+                  Em configuração
+                </Badge>
+              )}
+              <div className="flex flex-wrap gap-1 mt-1">
+                {dadosBase.tem_tese_ativa && (
+                  <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 text-[9px]">
+                    Compensação
+                  </Badge>
+                )}
+                {(dadosBase.tem_reporto || dadosBase.possiveisFuturos > 0) && (
+                  <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 text-[9px]">
+                    Possíveis futuros
+                  </Badge>
+                )}
+              </div>
+              {dadosBase.possiveisFuturos > 0 && (
+                <p className="text-[10px] text-muted-foreground mt-2">
+                  Fora do cálculo:{" "}
+                  <strong className="text-foreground">{formatCurrencyBR(dadosBase.possiveisFuturos)}</strong>
+                </p>
+              )}
+              {dadosBase.totalHonorarios > 0 && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Honorários acumulados:{" "}
+                  <strong className="text-foreground">{formatCurrencyBR(dadosBase.totalHonorarios)}</strong>
+                </p>
+              )}
+              <div className="mt-3 pt-2 border-t border-[var(--ink-06)] mt-auto">
+                <p className="text-[10px] text-muted-foreground mb-1">
+                  Tese em uso:{" "}
+                  <strong className="text-foreground">{teseAtivaLabel || "não definida"}</strong>
+                </p>
+                {teseAtivaId || dadosBase.tesesAtivas > 0 ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] w-full"
+                    onClick={() => setTrocaOpen(true)}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    {teseAtivaId ? "Trocar tese em uso" : "Definir tese em uso"}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] w-full"
+                    onClick={() => onAddTese?.()}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Adicionar tese ao cálculo
+                  </Button>
+                )}
+              </div>
+            </>
           )}
-          <div className="flex flex-wrap gap-1 mt-1">
-            {dadosBase.tem_tese_ativa && (
-              <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 text-[9px]">
-                Compensação
-              </Badge>
-            )}
-            {(dadosBase.tem_reporto || dadosBase.possiveisFuturos > 0) && (
-              <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 text-[9px]">
-                Possíveis futuros
-              </Badge>
-            )}
-          </div>
-          {dadosBase.possiveisFuturos > 0 && (
-            <p className="text-[10px] text-muted-foreground mt-2">
-              Fora do cálculo: <strong className="text-foreground">{formatCurrencyBR(dadosBase.possiveisFuturos)}</strong>
-            </p>
-          )}
-          {dadosBase.totalHonorarios > 0 && (
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Honorários acumulados: <strong className="text-foreground">{formatCurrencyBR(dadosBase.totalHonorarios)}</strong>
-            </p>
-          )}
-          <div className="mt-3 pt-2 border-t border-[var(--ink-06)]">
-            <p className="text-[10px] text-muted-foreground mb-1">
-              Tese em uso:{" "}
-              <strong className="text-foreground">{teseAtivaLabel || "não definida"}</strong>
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-[11px] w-full"
-              onClick={() => setTrocaOpen(true)}
-            >
-              <RefreshCw className="h-3 w-3 mr-1" />
-              Trocar tese em uso
-            </Button>
-          </div>
         </div>
       </div>
 

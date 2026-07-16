@@ -101,7 +101,17 @@ export default function ClienteDetail() {
   });
   const [importing, setImporting] = useState(false);
   const [tabKey, setTabKey] = useState(0);
+  const [activeTab, setActiveTab] = useState("processos");
+  const [addTeseSignal, setAddTeseSignal] = useState(0);
+  const [addTesePreset, setAddTesePreset] = useState<string | null>(null);
+  const [headerReload, setHeaderReload] = useState(0);
   const [intimacoesPendentes, setIntimacoesPendentes] = useState(0);
+
+  const requestAddTese = useCallback((teseCodigo?: string) => {
+    setActiveTab("processos");
+    setAddTesePreset(teseCodigo ?? null);
+    setAddTeseSignal((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     if (!cliente?.empresa || !id) return;
@@ -310,21 +320,31 @@ export default function ClienteDetail() {
 
       {/* Main — uses full width */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        {id && <ClienteHeaderQuadrantes clienteId={id} />}
+        {id && (
+          <ClienteHeaderQuadrantes
+            key={headerReload}
+            clienteId={id}
+            onAddTese={requestAddTese}
+          />
+        )}
         {(() => {
-          const canTab = (key: string) => {
-            const p = permissions.find((pp) => pp.screen_key === key);
+          // Quem já entrou em /clientes/:id sempre vê as 3 abas operacionais.
+          // Filtrar por filhos (clientes.processos etc.) escondia "Processos por Tese"
+          // quando user_permissions tinha o filho desligado sem querer.
+          const canParent = (() => {
+            const p = permissions.find((pp) => pp.screen_key === "clientes");
             return !p || p.can_access;
-          };
+          })();
+          if (!canParent) {
+            return <p className="text-sm text-muted-foreground">Sem permissão para ver abas do cliente.</p>;
+          }
           const tabs = [
-            { value: "processos", label: "Processos por Tese", key: "clientes.processos" },
-            { value: "compensacoes", label: "Compensações", key: "clientes.compensacoes" },
-            { value: "resumo", label: "Resumo Financeiro", key: "clientes.resumo" },
-          ].filter((t) => canTab(t.key));
-          if (tabs.length === 0) return <p className="text-sm text-muted-foreground">Nenhuma aba disponível.</p>;
-          const defaultVal = tabs[0].value;
+            { value: "processos", label: "Processos por Tese" },
+            { value: "compensacoes", label: "Compensações" },
+            { value: "resumo", label: "Resumo Financeiro" },
+          ];
           return (
-            <Tabs key={tabKey} defaultValue={defaultVal}>
+            <Tabs key={tabKey} value={activeTab} onValueChange={setActiveTab}>
               <TabsList>
                 {tabs.map((t) => (
                   <TabsTrigger key={t.value} value={t.value}>
@@ -332,25 +352,25 @@ export default function ClienteDetail() {
                   </TabsTrigger>
                 ))}
               </TabsList>
-              {tabs.some((t) => t.value === "processos") && (
-                <TabsContent value="processos">
-                  <ProcessosTesesTab clienteId={id!} compensacoesTotal={compensacoesTotal} />
-                </TabsContent>
-              )}
-              {tabs.some((t) => t.value === "compensacoes") && (
-                <TabsContent value="compensacoes">
-                  <CompensacoesTab
-                    clienteId={id!}
-                    cliente={cliente}
-                    onTotalChange={setCompensacoesTotal}
-                  />
-                </TabsContent>
-              )}
-              {tabs.some((t) => t.value === "resumo") && (
-                <TabsContent value="resumo">
-                  <ResumoFinanceiroTab clienteId={id!} cliente={cliente} />
-                </TabsContent>
-              )}
+              <TabsContent value="processos">
+                <ProcessosTesesTab
+                  clienteId={id!}
+                  compensacoesTotal={compensacoesTotal}
+                  addTeseSignal={addTeseSignal}
+                  presetTese={addTesePreset}
+                  onProcessosChanged={() => setHeaderReload((n) => n + 1)}
+                />
+              </TabsContent>
+              <TabsContent value="compensacoes">
+                <CompensacoesTab
+                  clienteId={id!}
+                  cliente={cliente}
+                  onTotalChange={setCompensacoesTotal}
+                />
+              </TabsContent>
+              <TabsContent value="resumo">
+                <ResumoFinanceiroTab clienteId={id!} cliente={cliente} />
+              </TabsContent>
             </Tabs>
           );
         })()}

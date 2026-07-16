@@ -15,22 +15,34 @@ interface Props {
   clienteId: string;
   existingTeses: string[];
   processo?: any;
+  /** Pré-seleciona tese ao abrir para criação */
+  presetTese?: string | null;
   onSuccess: () => void;
 }
 
-export function ProcessoFormModal({ open, onOpenChange, clienteId, existingTeses, processo, onSuccess }: Props) {
+const EMPTY_FORM = {
+  tese: "",
+  nome_exibicao: "",
+  valor_credito: "",
+  percentual_honorario: "",
+  status_contrato: "aguardando_assinatura",
+  status_processo: "a_iniciar",
+  observacao: "",
+  categoria: "compensacao",
+};
+
+export function ProcessoFormModal({
+  open,
+  onOpenChange,
+  clienteId,
+  existingTeses,
+  processo,
+  presetTese,
+  onSuccess,
+}: Props) {
   const [saving, setSaving] = useState(false);
   const [teses, setTeses] = useState<{ tese: string; nome_exibicao: string }[]>([]);
-  const [form, setForm] = useState({
-    tese: "",
-    nome_exibicao: "",
-    valor_credito: "",
-    percentual_honorario: "",
-    status_contrato: "aguardando_assinatura",
-    status_processo: "a_iniciar",
-    observacao: "",
-    categoria: "compensacao",
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
     supabase.from("motor_teses_config").select("tese, nome_exibicao").eq("ativo", true).then(({ data }) => {
@@ -39,6 +51,7 @@ export function ProcessoFormModal({ open, onOpenChange, clienteId, existingTeses
   }, []);
 
   useEffect(() => {
+    if (!open) return;
     if (processo) {
       setForm({
         tese: processo.tese,
@@ -48,10 +61,24 @@ export function ProcessoFormModal({ open, onOpenChange, clienteId, existingTeses
         status_contrato: processo.status_contrato,
         status_processo: processo.status_processo,
         observacao: processo.observacao || "",
-        categoria: (processo.categoria === "reporto" ? "reporto" : "compensacao"),
+        categoria: processo.categoria === "reporto" ? "reporto" : "compensacao",
       });
+      return;
     }
-  }, [processo]);
+    if (presetTese && teses.length > 0) {
+      const t = teses.find((x) => x.tese === presetTese);
+      const nome = t?.nome_exibicao || presetTese;
+      const isReporto = /reporto/i.test(nome) || /reporto/i.test(presetTese);
+      setForm({
+        ...EMPTY_FORM,
+        tese: presetTese,
+        nome_exibicao: nome,
+        categoria: isReporto ? "reporto" : "compensacao",
+      });
+      return;
+    }
+    setForm(EMPTY_FORM);
+  }, [open, processo, presetTese, teses]);
 
   const update = (field: string, value: string) => setForm((p) => ({ ...p, [field]: value }));
 
