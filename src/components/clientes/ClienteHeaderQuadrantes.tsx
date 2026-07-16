@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { TrendingUp, TrendingDown, PieChart, Layers } from "lucide-react";
 import { formatCurrencyBR } from "@/lib/clientes-constants";
 import {
@@ -15,6 +17,20 @@ interface Props {
   clienteId: string;
 }
 
+interface CompRow {
+  valor_compensado: number | null;
+  valor_nf_servico: number | null;
+  mes_referencia: string;
+  honorario_valor: number | null;
+  tese_origem_id: string | null;
+}
+
+interface CreditoRow {
+  valor_apurado_inicial: number;
+  tese_id: string;
+  incluir_no_calculo: boolean | null;
+}
+
 interface Dados {
   totalApurado: number;
   tesesAtivas: number;
@@ -24,6 +40,7 @@ interface Dados {
   statusPrincipal: StatusCompensacao | null;
   tem_reporto: boolean;
   tem_tese_ativa: boolean;
+  possiveisFuturos: number;
 }
 
 const EMPTY: Dados = {
@@ -35,11 +52,16 @@ const EMPTY: Dados = {
   statusPrincipal: null,
   tem_reporto: false,
   tem_tese_ativa: false,
+  possiveisFuturos: 0,
 };
 
 export function ClienteHeaderQuadrantes({ clienteId }: Props) {
-  const [dados, setDados] = useState<Dados>(EMPTY);
+  const [dadosBase, setDadosBase] = useState<Dados>(EMPTY);
+  const [comps, setComps] = useState<CompRow[]>([]);
+  const [teseIncluir, setTeseIncluir] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [mesInicio, setMesInicio] = useState("");
+  const [mesFim, setMesFim] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -47,53 +69,86 @@ export function ClienteHeaderQuadrantes({ clienteId }: Props) {
       setLoading(true);
       const [
         { data: creditos },
-        { data: comps },
+        { data: compsData },
         { data: view },
+        { data: totaisView },
       ] = await Promise.all([
-        (supabase as any).from("creditos_apurados").select("valor_apurado_inicial, tese_id").eq("cliente_id", clienteId),
+        (supabase as any)
+          .from("creditos_apurados")
+          .select("valor_apurado_inicial, tese_id, incluir_no_calculo")
+          .eq("cliente_id", clienteId),
         supabase
           .from("compensacoes_mensais")
-          .select("valor_compensado, valor_nf_servico, mes_referencia, honorario_valor")
+          .select("valor_compensado, valor_nf_servico, mes_referencia, honorario_valor, tese_origem_id")
           .eq("cliente_id", clienteId),
         (supabase as any)
           .from("v_clientes_status_compensacao")
           .select("status_principal, tem_reporto, tem_tese_ativa, ultima_competencia_compensada")
           .eq("cliente_id", clienteId)
           .maybeSingle(),
+        (supabase as any)
+          .from("v_cliente_totais_calculo")
+          .select("credito_apurado, total_compensado, saldo_restante, possiveis_creditos_futuros, teses_no_calculo")
+          .eq("cliente_id", clienteId)
+          .maybeSingle(),
       ]);
 
       if (cancelled) return;
 
-      const totalApurado = ((creditos as any[]) || []).reduce(
-        (s, c) => s + Number(c.valor_apurado_inicial || 0),
-        0
+      const creditosRows = ((creditos as CreditoRow[]) || []);
+      const incluirIds = new Set(
+        creditosRows.filter((c) => c.incluir_no_calculo !== false).map((c) => c.tese_id)
       );
-      const tesesAtivas = new Set(((creditos as any[]) || []).map((c) => c.tese_id)).size;
+      // Se a coluna ainda não existe / veio null em tudo, fallback: todos
+      const hasFlag = creditosRows.some((c) => c.incluir_no_calculo === true || c.incluir_no_calculo === false);
+      const teseSet = hasFlag
+        ? new Set(creditosRows.filter((c) => c.incluir_no_calculo).map((c) => c.tese_id))
+        : new Set(creditosRows.map((c) => c.tese_id));
 
-      const totalCompensado = ((comps as any[]) || []).reduce(
-        (s, c) => s + Number(c.valor_compensado || 0),
-        0
+      const fromView = totaisView as {
+        credito_apurado?: number;
+        possiveis_creditos_futuros?: number;
+        teses_no_calculo?: number;
+      } | null;
+
+      const totalApurado = fromView?.credito_apurado != null
+        ? Number(fromView.credito_apurado)
+        : creditosRows
+            .filter((c) => !hasFlag || c.incluir_no_calculo)
+            .reduce((s, c) => s + Number(c.valor_apurado_inicial || 0), 0);
+
+      const possiveisFuturos = fromView?.possiveis_creditos_futuros != null
+        ? Number(fromView.possiveis_creditos_futuros)
+        : creditosRows
+            .filter((c) => hasFlag && !c.incluir_no_calculo)
+            .reduce((s, c) => s + Number(c.valor_apurado_inicial || 0), 0);
+
+      const compsRows = ((compsData as CompRow[]) || []);
+      const compsNoCalculo = compsRows.filter(
+        (c) => !c.tese_origem_id || teseSet.has(c.tese_origem_id) || incluirIds.size === 0
       );
-      // Honorário: prefere honorario_valor novo, cai pra valor_nf_servico legado
-      const totalHonorarios = ((comps as any[]) || []).reduce(
+
+      const totalHonorarios = compsNoCalculo.reduce(
         (s, c) => s + Number(c.honorario_valor ?? c.valor_nf_servico ?? 0),
         0
       );
-      // Última competência com valor > 0
-      const compsPagos = ((comps as any[]) || []).filter((c) => Number(c.valor_compensado || 0) > 0);
+      const compsPagos = compsNoCalculo.filter((c) => Number(c.valor_compensado || 0) > 0);
       const ultimaCompetencia = compsPagos.length > 0
         ? compsPagos.reduce((a, b) => (a.mes_referencia > b.mes_referencia ? a : b)).mes_referencia
         : (view as any)?.ultima_competencia_compensada ?? null;
 
-      setDados({
+      setTeseIncluir(teseSet);
+      setComps(compsRows);
+      setDadosBase({
         totalApurado,
-        tesesAtivas,
-        totalCompensado,
+        tesesAtivas: fromView?.teses_no_calculo ?? teseSet.size,
+        totalCompensado: 0, // recalculado com filtro de período
         ultimaCompetencia,
         totalHonorarios,
         statusPrincipal: ((view as any)?.status_principal ?? null) as StatusCompensacao | null,
         tem_reporto: !!(view as any)?.tem_reporto,
         tem_tese_ativa: !!(view as any)?.tem_tese_ativa,
+        possiveisFuturos,
       });
       setLoading(false);
     };
@@ -101,8 +156,30 @@ export function ClienteHeaderQuadrantes({ clienteId }: Props) {
     return () => { cancelled = true; };
   }, [clienteId]);
 
-  const saldo = dados.totalApurado - dados.totalCompensado;
-  const pctUtilizado = dados.totalApurado > 0 ? (dados.totalCompensado / dados.totalApurado) * 100 : 0;
+  const totalCompensadoPeriodo = useMemo(() => {
+    return comps
+      .filter((c) => {
+        if (c.tese_origem_id && teseIncluir.size > 0 && !teseIncluir.has(c.tese_origem_id)) {
+          return false;
+        }
+        const mes = (c.mes_referencia || "").slice(0, 7);
+        if (mesInicio && mes < mesInicio) return false;
+        if (mesFim && mes > mesFim) return false;
+        return true;
+      })
+      .reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
+  }, [comps, teseIncluir, mesInicio, mesFim]);
+
+  const saldo = dadosBase.totalApurado - totalCompensadoPeriodo;
+  const pctUtilizado = dadosBase.totalApurado > 0
+    ? (totalCompensadoPeriodo / dadosBase.totalApurado) * 100
+    : 0;
+
+  const periodoLabel = mesInicio || mesFim
+    ? `${mesInicio || "…"} → ${mesFim || "…"}`
+    : dadosBase.ultimaCompetencia
+      ? `Última: ${format(new Date(dadosBase.ultimaCompetencia), "MMM/yyyy", { locale: ptBR })}`
+      : "Sem compensações";
 
   if (loading) {
     return (
@@ -115,97 +192,126 @@ export function ClienteHeaderQuadrantes({ clienteId }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-      {/* Q1 — Crédito Apurado */}
-      <Quadrante
-        label="Crédito Apurado"
-        icon={<Layers className="w-3.5 h-3.5" />}
-        valor={formatCurrencyBR(dados.totalApurado)}
-        cor="var(--navy)"
-        rodape={
-          dados.tesesAtivas > 0
-            ? `${dados.tesesAtivas} tese${dados.tesesAtivas > 1 ? "s" : ""} com crédito`
-            : "Sem créditos apurados"
-        }
-      />
-
-      {/* Q2 — Total Compensado */}
-      <Quadrante
-        label="Total Compensado"
-        icon={<TrendingUp className="w-3.5 h-3.5" />}
-        valor={formatCurrencyBR(dados.totalCompensado)}
-        cor="var(--dash-green)"
-        rodape={
-          dados.ultimaCompetencia
-            ? `Última: ${format(new Date(dados.ultimaCompetencia), "MMM/yyyy", { locale: ptBR })}`
-            : "Sem compensações"
-        }
-      />
-
-      {/* Q3 — Saldo */}
-      <Quadrante
-        label="Saldo Restante"
-        icon={<PieChart className="w-3.5 h-3.5" />}
-        valor={formatCurrencyBR(saldo)}
-        cor={saldo > 0 ? "var(--navy)" : "var(--ink-35)"}
-        rodape={
-          dados.totalApurado > 0
-            ? `${pctUtilizado.toFixed(1)}% do apurado utilizado`
-            : "—"
-        }
-        extra={
-          dados.totalApurado > 0 && (
-            <div className="mt-2 h-1 rounded-full bg-[var(--ink-06)] overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{ width: `${Math.min(pctUtilizado, 100)}%`, background: "var(--dash-green)" }}
-              />
-            </div>
-          )
-        }
-      />
-
-      {/* Q4 — Status + trilhas */}
-      <div className="card-base px-4 py-3.5">
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <TrendingDown className="w-3.5 h-3.5 text-ink-35" />
-          <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Status</p>
+    <div className="space-y-3 mb-6">
+      {/* Filtro de período — total compensado flexível (Review Fox 08/jul) */}
+      <div className="flex flex-wrap items-end gap-3 card-base px-4 py-3">
+        <div className="space-y-1">
+          <Label className="text-[10px] uppercase tracking-[0.8px] text-ink-35">Compensado de</Label>
+          <Input
+            type="month"
+            className="h-8 w-40 text-xs"
+            value={mesInicio}
+            onChange={(e) => setMesInicio(e.target.value)}
+          />
         </div>
-        {dados.statusPrincipal ? (
-          <Badge
-            variant="outline"
-            className={`${STATUS_COMPENSACAO_COLORS[dados.statusPrincipal]} text-xs mb-2`}
+        <div className="space-y-1">
+          <Label className="text-[10px] uppercase tracking-[0.8px] text-ink-35">até</Label>
+          <Input
+            type="month"
+            className="h-8 w-40 text-xs"
+            value={mesFim}
+            onChange={(e) => setMesFim(e.target.value)}
+          />
+        </div>
+        {(mesInicio || mesFim) && (
+          <button
+            type="button"
+            className="text-xs text-primary underline pb-1.5"
+            onClick={() => { setMesInicio(""); setMesFim(""); }}
           >
-            {STATUS_COMPENSACAO_LABELS[dados.statusPrincipal]}
-          </Badge>
-        ) : (
-          <p className="text-xs text-muted-foreground">—</p>
+            Limpar período
+          </button>
         )}
-        <div className="flex flex-wrap gap-1 mt-1">
-          {dados.tem_tese_ativa && (
-            <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 text-[9px]">
-              Compensação
+        <p className="text-[11px] text-ink-35 pb-1.5 ml-auto">
+          Totais usam só teses marcadas no cálculo (padrão: Insumos + Subvenção)
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <Quadrante
+          label="Crédito Apurado"
+          icon={<Layers className="w-3.5 h-3.5" />}
+          valor={formatCurrencyBR(dadosBase.totalApurado)}
+          cor="var(--navy)"
+          rodape={
+            dadosBase.tesesAtivas > 0
+              ? `${dadosBase.tesesAtivas} tese${dadosBase.tesesAtivas > 1 ? "s" : ""} no cálculo`
+              : "Sem créditos no cálculo"
+          }
+        />
+
+        <Quadrante
+          label="Total Compensado"
+          icon={<TrendingUp className="w-3.5 h-3.5" />}
+          valor={formatCurrencyBR(totalCompensadoPeriodo)}
+          cor="var(--dash-green)"
+          rodape={periodoLabel}
+        />
+
+        <Quadrante
+          label="Saldo Restante"
+          icon={<PieChart className="w-3.5 h-3.5" />}
+          valor={formatCurrencyBR(saldo)}
+          cor={saldo > 0 ? "var(--navy)" : "var(--ink-35)"}
+          rodape={
+            dadosBase.totalApurado > 0
+              ? `${pctUtilizado.toFixed(1)}% do apurado utilizado`
+              : "—"
+          }
+          extra={
+            dadosBase.totalApurado > 0 && (
+              <div className="mt-2 h-1 rounded-full bg-[var(--ink-06)] overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${Math.min(pctUtilizado, 100)}%`, background: "var(--dash-green)" }}
+                />
+              </div>
+            )
+          }
+        />
+
+        <div className="card-base px-4 py-3.5">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <TrendingDown className="w-3.5 h-3.5 text-ink-35" />
+            <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Status</p>
+          </div>
+          {dadosBase.statusPrincipal && dadosBase.statusPrincipal !== "reporto" ? (
+            <Badge
+              variant="outline"
+              className={`${STATUS_COMPENSACAO_COLORS[dadosBase.statusPrincipal]} text-xs mb-2`}
+            >
+              {STATUS_COMPENSACAO_LABELS[dadosBase.statusPrincipal]}
             </Badge>
+          ) : (
+            <p className="text-xs text-muted-foreground mb-2">—</p>
           )}
-          {dados.tem_reporto && (
-            <Badge variant="outline" className="bg-purple-50 text-purple-800 border-purple-200 text-[9px]">
-              Reporto
-            </Badge>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {dadosBase.tem_tese_ativa && (
+              <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 text-[9px]">
+                Compensação
+              </Badge>
+            )}
+            {(dadosBase.tem_reporto || dadosBase.possiveisFuturos > 0) && (
+              <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 text-[9px]">
+                Possíveis futuros
+              </Badge>
+            )}
+          </div>
+          {dadosBase.possiveisFuturos > 0 && (
+            <p className="text-[10px] text-muted-foreground mt-2">
+              Fora do cálculo: <strong className="text-foreground">{formatCurrencyBR(dadosBase.possiveisFuturos)}</strong>
+            </p>
+          )}
+          {dadosBase.totalHonorarios > 0 && (
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Honorários acumulados: <strong className="text-foreground">{formatCurrencyBR(dadosBase.totalHonorarios)}</strong>
+            </p>
           )}
         </div>
-        {dados.totalHonorarios > 0 && (
-          <p className="text-[10px] text-muted-foreground mt-2">
-            Honorários acumulados: <strong className="text-foreground">{formatCurrencyBR(dados.totalHonorarios)}</strong>
-          </p>
-        )}
       </div>
     </div>
   );
 }
-
-// -----------------------------------------------------------------------------
-// Sub-componente card
-// -----------------------------------------------------------------------------
 
 function Quadrante({
   label,

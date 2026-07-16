@@ -122,11 +122,11 @@ export function ProcessoFormModal({ open, onOpenChange, clienteId, existingTeses
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="compensacao">Compensação</SelectItem>
-                <SelectItem value="reporto">Reporto</SelectItem>
+                <SelectItem value="reporto">Possíveis futuros (Reporto)</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-[11px] text-muted-foreground">
-              Reporto = regime PIS/COFINS acumulado (dinâmica diferente da compensação administrativa).
+              Possíveis futuros / Reporto ficam fora do cálculo automático (Insumos + Subvenção).
             </p>
           </div>
           <div className="space-y-1.5">

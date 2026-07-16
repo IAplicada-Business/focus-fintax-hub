@@ -23,7 +23,21 @@ interface LinhaMapa {
   valor_apurado_inicial: number;
   total_compensado: number;
   saldo_final: number;
+  incluir_no_calculo?: boolean;
+  status_utilizacao?: "utilizado" | "em_uso" | "a_utilizar" | null;
 }
+
+const STATUS_LABEL: Record<string, string> = {
+  utilizado: "Já utilizado",
+  em_uso: "Em uso",
+  a_utilizar: "A utilizar",
+};
+
+const STATUS_STYLE: Record<string, string> = {
+  utilizado: "bg-emerald-100 text-emerald-800",
+  em_uso: "bg-amber-100 text-amber-800",
+  a_utilizar: "bg-slate-100 text-slate-700",
+};
 
 interface Cliente {
   id: string;
@@ -76,8 +90,8 @@ export default function MapaCreditos() {
         (a, b) => (ORDEM_TESES[a.tese_codigo] ?? 99) - (ORDEM_TESES[b.tese_codigo] ?? 99)
       );
       setLinhas(rows);
-      // Default filter = todas
-      setTeseFiltroSet(new Set(rows.map((r) => r.tese_codigo)));
+      // Default: esconde REPORTO do filtro (fora do cálculo Fox)
+      setTeseFiltroSet(new Set(rows.filter((r) => r.tese_codigo !== "REPORTO").map((r) => r.tese_codigo)));
       setLoading(false);
     };
     fetch();
@@ -89,7 +103,12 @@ export default function MapaCreditos() {
   );
 
   const totais = useMemo(() => {
-    return linhasVisiveis.reduce(
+    // Totais do rodapé = só teses incluídas no cálculo financeiro
+    const forTotals = linhasVisiveis.filter((r) => {
+      if (typeof r.incluir_no_calculo === "boolean") return r.incluir_no_calculo;
+      return r.tese_codigo === "INSUMOS" || r.tese_codigo === "SUBVENCAO";
+    });
+    return forTotals.reduce(
       (acc, r) => ({
         apurado: acc.apurado + Number(r.valor_apurado_inicial || 0),
         compensado: acc.compensado + Number(r.total_compensado || 0),
@@ -106,6 +125,21 @@ export default function MapaCreditos() {
       else next.add(code);
       return next;
     });
+  };
+
+  const toggleIncluirCalculo = async (teseId: string, next: boolean) => {
+    setLinhas((prev) => prev.map((l) => (l.tese_id === teseId ? { ...l, incluir_no_calculo: next } : l)));
+    const { error } = await (supabase as any)
+      .from("creditos_apurados")
+      .update({ incluir_no_calculo: next, atualizado_em: new Date().toISOString() })
+      .eq("cliente_id", clienteId)
+      .eq("tese_id", teseId);
+    if (error) {
+      toast.error("Não foi possível salvar o checkbox. Rode a migration SQL no Lovable.");
+      setLinhas((prev) => prev.map((l) => (l.tese_id === teseId ? { ...l, incluir_no_calculo: !next } : l)));
+    } else {
+      toast.success(next ? "Tese incluída no cálculo" : "Tese removida do cálculo");
+    }
   };
 
   const teseCodesUnicos = useMemo(
@@ -353,7 +387,9 @@ export default function MapaCreditos() {
             <Table>
               <TableHeader>
                 <TableRow style={{ background: "#0a1564" }}>
+                  <TableHead style={{ color: "white", fontSize: "11px" }}>No cálculo</TableHead>
                   <TableHead style={{ color: "white", fontSize: "11px" }}>Tese Tributária</TableHead>
+                  <TableHead style={{ color: "white", fontSize: "11px" }}>Status</TableHead>
                   <TableHead style={{ color: "white", fontSize: "11px", textAlign: "right" }}>Crédito Inicial Apurado</TableHead>
                   <TableHead style={{ color: "white", fontSize: "11px", textAlign: "right" }}>Valor Compensado</TableHead>
                   <TableHead style={{ color: "white", fontSize: "11px", textAlign: "right" }}>Saldo Final</TableHead>
@@ -364,24 +400,47 @@ export default function MapaCreditos() {
                   const pctUtilizado = l.valor_apurado_inicial > 0
                     ? (Number(l.total_compensado) / Number(l.valor_apurado_inicial)) * 100
                     : 0;
+                  const incluido = typeof l.incluir_no_calculo === "boolean"
+                    ? l.incluir_no_calculo
+                    : l.tese_codigo === "INSUMOS" || l.tese_codigo === "SUBVENCAO";
+                  const statusKey = l.status_utilizacao
+                    || (Number(l.total_compensado) <= 0 ? "a_utilizar" : Number(l.saldo_final) <= 0 ? "utilizado" : "em_uso");
                   return (
                     <TableRow
                       key={l.tese_id}
                       style={{
                         background: i % 2 === 0 ? "#f9fafb" : "white",
                         borderBottom: "1px solid #eee",
+                        opacity: incluido ? 1 : 0.55,
                       }}
                     >
+                      <TableCell style={{ padding: "8px 10px" }} className="print:hidden">
+                        <Checkbox
+                          checked={incluido}
+                          onCheckedChange={(v) => toggleIncluirCalculo(l.tese_id, !!v)}
+                          disabled={l.tese_codigo === "REPORTO"}
+                        />
+                      </TableCell>
                       <TableCell style={{ fontSize: "12px", padding: "8px 10px" }}>
                         <div style={{ fontWeight: 600, color: "#0a1564" }}>{l.tese_label}</div>
                         <div style={{ fontSize: "10px", color: "#6b7280" }}>
                           {l.tese_codigo}
-                          {!l.visivel_cliente && (
-                            <span style={{ marginLeft: "8px", padding: "1px 6px", borderRadius: "4px", background: "#f3e8ff", color: "#7e22ce" }}>
+                          {l.tese_codigo === "REPORTO" && (
+                            <span style={{ marginLeft: "8px", padding: "1px 6px", borderRadius: "4px", background: "#f1f5f9", color: "#475569" }}>
+                              possíveis futuros
+                            </span>
+                          )}
+                          {!l.visivel_cliente && l.tese_codigo !== "REPORTO" && (
+                            <span style={{ marginLeft: "8px", padding: "1px 6px", borderRadius: "4px", background: "#f1f5f9", color: "#475569" }}>
                               interno
                             </span>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell style={{ padding: "8px 10px" }}>
+                        <span className={`inline-flex rounded px-2 py-0.5 text-[10px] font-semibold ${STATUS_STYLE[statusKey] || STATUS_STYLE.a_utilizar}`}>
+                          {STATUS_LABEL[statusKey] || statusKey}
+                        </span>
                       </TableCell>
                       <TableCell style={{ fontSize: "12px", textAlign: "right", padding: "8px 10px", fontWeight: 500 }}>
                         {formatCurrencyBR(Number(l.valor_apurado_inicial))}
@@ -407,8 +466,8 @@ export default function MapaCreditos() {
               </TableBody>
               <TableFooter>
                 <TableRow style={{ background: "#e0e7ff", fontWeight: 700 }}>
-                  <TableCell style={{ fontSize: "13px", padding: "10px", color: "#0a1564" }}>
-                    TOTAL GERAL
+                  <TableCell colSpan={3} style={{ fontSize: "13px", padding: "10px", color: "#0a1564" }}>
+                    TOTAL NO CÁLCULO
                   </TableCell>
                   <TableCell style={{ fontSize: "13px", textAlign: "right", padding: "10px", color: "#0a1564" }}>
                     {formatCurrencyBR(totais.apurado)}

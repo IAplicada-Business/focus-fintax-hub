@@ -79,7 +79,7 @@ export function ProcessosTesesTab({ clienteId, compensacoesTotal }: Props) {
     <div className="space-y-4">
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Crédito Assinado</p><p className="text-lg font-bold">{formatCurrencyBR(totalCreditoAssinado)}</p></CardContent></Card>
+        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Possíveis créditos</p><p className="text-lg font-bold">{formatCurrencyBR(totalCreditoAssinado)}</p></CardContent></Card>
         <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Honorários</p><p className="text-lg font-bold">{formatCurrencyBR(totalHonorarios)}</p></CardContent></Card>
         <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">A Compensar</p><p className="text-lg font-bold">{formatCurrencyBR(totalACompensar)}</p></CardContent></Card>
         <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Já Compensado</p><p className="text-lg font-bold">{formatCurrencyBR(compensacoesTotal)}</p></CardContent></Card>
@@ -131,8 +131,8 @@ export function ProcessosTesesTab({ clienteId, compensacoesTotal }: Props) {
                   <div className="flex items-center gap-2">
                     <span>{p.nome_exibicao}</span>
                     {p.categoria === "reporto" && (
-                      <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-[10px]">
-                        Reporto
+                      <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 text-[10px]">
+                        Possíveis futuros
                       </Badge>
                     )}
                   </div>

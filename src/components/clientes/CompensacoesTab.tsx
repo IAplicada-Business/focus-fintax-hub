@@ -35,12 +35,15 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange }: Props) {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [filterTese, setFilterTese] = useState("all");
+  const [mesInicio, setMesInicio] = useState("");
+  const [mesFim, setMesFim] = useState("");
   const [form, setForm] = useState({
     processo_tese_id: "",
     mes_referencia: "",
     valor_compensado: "",
     status_pagamento: "pendente",
     valor_nf_servico: "",
+    honorario_percentual: "",
     observacao: "",
     tributo: "",
   });
@@ -72,8 +75,24 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange }: Props) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const filtered = filterTese === "all" ? compensacoes : compensacoes.filter((c) => c.processo_tese_id === filterTese);
+  const filtered = compensacoes.filter((c) => {
+    if (filterTese !== "all" && c.processo_tese_id !== filterTese) return false;
+    const mes = (c.mes_referencia as string).slice(0, 7);
+    if (mesInicio && mes < mesInicio) return false;
+    if (mesFim && mes > mesFim) return false;
+    return true;
+  });
   const totalFiltered = filtered.reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
+  const totalHonorariosFiltered = filtered.reduce(
+    (s, c) => s + Number(c.honorario_valor ?? c.valor_nf_servico ?? 0),
+    0
+  );
+
+  const selectedProc = processos.find((p) => p.id === form.processo_tese_id);
+  const percHonorario = form.honorario_percentual !== ""
+    ? Number(form.honorario_percentual) / 100
+    : Number(selectedProc?.percentual_honorario || 0);
+  const honorarioAuto = Math.round(Number(form.valor_compensado || 0) * percHonorario * 100) / 100;
 
   // Available months
   const availableMonths = [...new Set(compensacoes.map((c) => (c.mes_referencia as string).slice(0, 7)))].sort().reverse();
@@ -83,13 +102,19 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange }: Props) {
       toast.error("Processo e mês são obrigatórios.");
       return;
     }
+    const valorComp = Number(form.valor_compensado) || 0;
+    const honorarioValor = form.valor_nf_servico !== ""
+      ? Number(form.valor_nf_servico) || 0
+      : honorarioAuto;
     const { error } = await supabase.from("compensacoes_mensais").insert({
       cliente_id: clienteId,
       processo_tese_id: form.processo_tese_id,
       mes_referencia: form.mes_referencia + "-01",
-      valor_compensado: Number(form.valor_compensado) || 0,
+      valor_compensado: valorComp,
       status_pagamento: form.status_pagamento,
-      valor_nf_servico: Number(form.valor_nf_servico) || 0,
+      valor_nf_servico: honorarioValor,
+      honorario_valor: honorarioValor,
+      honorario_percentual: percHonorario || null,
       observacao: form.observacao,
       tributo: form.tributo || null,
       tributo_enum: "outros",
@@ -97,9 +122,9 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange }: Props) {
     if (error) { toast.error("Erro ao registrar."); return; }
     toast.success("Compensação registrada!");
     const proc = processos.find((p) => p.id === form.processo_tese_id);
-    logClienteHistorico(clienteId, "compensacao_adicionada", `Compensação ${form.mes_referencia} — ${proc?.nome_exibicao || ""}: ${formatCurrencyBR(Number(form.valor_compensado) || 0)}`);
+    logClienteHistorico(clienteId, "compensacao_adicionada", `Compensação ${form.mes_referencia} — ${proc?.nome_exibicao || ""}: ${formatCurrencyBR(valorComp)}`);
     setModalOpen(false);
-    setForm({ processo_tese_id: "", mes_referencia: "", valor_compensado: "", status_pagamento: "pendente", valor_nf_servico: "", observacao: "", tributo: "" });
+    setForm({ processo_tese_id: "", mes_referencia: "", valor_compensado: "", status_pagamento: "pendente", valor_nf_servico: "", honorario_percentual: "", observacao: "", tributo: "" });
     fetchData();
   };
 
@@ -280,13 +305,35 @@ Equipe Focus.`;
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <Select value={filterTese} onValueChange={setFilterTese}>
-          <SelectTrigger className="w-48"><SelectValue placeholder="Filtrar por tese" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as teses</SelectItem>
-            {processos.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_exibicao}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={filterTese} onValueChange={setFilterTese}>
+            <SelectTrigger className="w-48"><SelectValue placeholder="Filtrar por tese" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as teses</SelectItem>
+              {processos.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_exibicao}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Input
+            type="month"
+            className="h-9 w-36 text-xs"
+            value={mesInicio}
+            onChange={(e) => setMesInicio(e.target.value)}
+            title="Período início"
+          />
+          <span className="text-xs text-muted-foreground">até</span>
+          <Input
+            type="month"
+            className="h-9 w-36 text-xs"
+            value={mesFim}
+            onChange={(e) => setMesFim(e.target.value)}
+            title="Período fim"
+          />
+          {(mesInicio || mesFim) && (
+            <button type="button" className="text-xs text-primary underline" onClick={() => { setMesInicio(""); setMesFim(""); }}>
+              Limpar
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => { setMapaMes(""); setMapaOpen(true); }}>
             <FileText className="h-4 w-4 mr-1" /> Mapa Tributário
@@ -305,27 +352,31 @@ Equipe Focus.`;
             <TableHead>Tese</TableHead>
             <TableHead>Tributo</TableHead>
             <TableHead>Valor Compensado</TableHead>
+            <TableHead>%</TableHead>
             <TableHead>Pagamento</TableHead>
-            <TableHead>NF Serviço</TableHead>
+            <TableHead>Honorários</TableHead>
             <TableHead>Obs.</TableHead>
             <TableHead className="w-10"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {loading ? (
-            <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+            <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
           ) : filtered.length === 0 ? (
-            <TableRow><TableCell colSpan={8}><EmptyState icon={<FileText size={20} className="text-ink-35" />} title="Nenhuma compensação registrada" subtitle="Clique em + Nova Compensação para começar." /></TableCell></TableRow>
+            <TableRow><TableCell colSpan={9}><EmptyState icon={<FileText size={20} className="text-ink-35" />} title="Nenhuma compensação registrada" subtitle="Clique em + Nova Compensação para começar." /></TableCell></TableRow>
           ) : filtered.map((c) => {
             const sp = getStatusPagamentoConfig(c.status_pagamento);
+            const perc = Number((c as any).honorario_percentual ?? 0);
+            const percLabel = perc > 0 ? `${(perc * 100).toFixed(perc * 100 % 1 === 0 ? 0 : 1)}%` : "—";
             return (
               <TableRow key={c.id}>
                 <TableCell>{format(new Date(c.mes_referencia), "MMM/yyyy", { locale: ptBR })}</TableCell>
                 <TableCell>{c.processos_teses?.nome_exibicao || "—"}</TableCell>
                 <TableCell className="text-xs">{(c as any).tributo || "—"}</TableCell>
                 <TableCell className="font-medium">{formatCurrencyBR(Number(c.valor_compensado || 0))}</TableCell>
+                <TableCell className="text-xs">{percLabel}</TableCell>
                 <TableCell><Badge variant="outline" className={sp.color}>{sp.label}</Badge></TableCell>
-                <TableCell>{formatCurrencyBR(Number(c.valor_nf_servico || 0))}</TableCell>
+                <TableCell>{formatCurrencyBR(Number((c as any).honorario_valor ?? c.valor_nf_servico ?? 0))}</TableCell>
                 <TableCell className="text-xs text-muted-foreground max-w-32 truncate">{c.observacao || "—"}</TableCell>
                 <TableCell>
                   <AlertDialog>
@@ -368,9 +419,12 @@ Equipe Focus.`;
         {filtered.length > 0 && (
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={3} className="font-medium">Total</TableCell>
+              <TableCell colSpan={3} className="font-medium">Total do período</TableCell>
               <TableCell className="font-bold">{formatCurrencyBR(totalFiltered)}</TableCell>
-              <TableCell colSpan={4}></TableCell>
+              <TableCell></TableCell>
+              <TableCell></TableCell>
+              <TableCell className="font-bold">{formatCurrencyBR(totalHonorariosFiltered)}</TableCell>
+              <TableCell colSpan={2}></TableCell>
             </TableRow>
           </TableFooter>
         )}
@@ -383,7 +437,19 @@ Equipe Focus.`;
           <div className="grid gap-4 py-2">
             <div className="space-y-1.5">
               <Label>Processo / Tese *</Label>
-              <Select value={form.processo_tese_id} onValueChange={(v) => setForm((p) => ({ ...p, processo_tese_id: v }))}>
+              <Select
+                value={form.processo_tese_id}
+                onValueChange={(v) => {
+                  const proc = processos.find((p) => p.id === v);
+                  const perc = Number(proc?.percentual_honorario || 0) * 100;
+                  setForm((p) => ({
+                    ...p,
+                    processo_tese_id: v,
+                    honorario_percentual: perc > 0 ? String(perc) : p.honorario_percentual,
+                    valor_nf_servico: "",
+                  }));
+                }}
+              >
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>{processos.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_exibicao}</SelectItem>)}</SelectContent>
               </Select>
@@ -398,6 +464,18 @@ Equipe Focus.`;
                 <Input type="number" value={form.valor_compensado} onChange={(e) => setForm((p) => ({ ...p, valor_compensado: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
+                <Label>% Honorário</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  placeholder={selectedProc ? String((Number(selectedProc.percentual_honorario || 0) * 100).toFixed(1)) : "ex: 15"}
+                  value={form.honorario_percentual}
+                  onChange={(e) => setForm((p) => ({ ...p, honorario_percentual: e.target.value, valor_nf_servico: "" }))}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
                 <Label>Tributo</Label>
                 <Select value={form.tributo} onValueChange={(v) => setForm((p) => ({ ...p, tributo: v === "__none__" ? "" : v }))}>
                   <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
@@ -407,17 +485,24 @@ Equipe Focus.`;
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1.5">
+                <Label>Status Pagamento</Label>
+                <Select value={form.status_pagamento} onValueChange={(v) => setForm((p) => ({ ...p, status_pagamento: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{STATUS_PAGAMENTO.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Status Pagamento</Label>
-              <Select value={form.status_pagamento} onValueChange={(v) => setForm((p) => ({ ...p, status_pagamento: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{STATUS_PAGAMENTO.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Valor NF de Serviço (R$)</Label>
-              <Input type="number" value={form.valor_nf_servico} onChange={(e) => setForm((p) => ({ ...p, valor_nf_servico: e.target.value }))} />
+              <Label>Honorários / NF Serviço (R$)</Label>
+              <Input
+                type="number"
+                value={form.valor_nf_servico !== "" ? form.valor_nf_servico : (form.valor_compensado ? String(honorarioAuto) : "")}
+                onChange={(e) => setForm((p) => ({ ...p, valor_nf_servico: e.target.value }))}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Calculado automaticamente: valor × {(percHonorario * 100).toFixed(1)}% = {formatCurrencyBR(honorarioAuto)}
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label>Observação</Label>

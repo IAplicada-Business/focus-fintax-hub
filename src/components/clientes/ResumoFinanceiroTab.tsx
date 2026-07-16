@@ -149,8 +149,8 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
             </Badge>
           )}
           {temReporto && (
-            <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-[10px]">
-              Reporto
+            <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 text-[10px]">
+              Possíveis futuros
             </Badge>
           )}
         </div>

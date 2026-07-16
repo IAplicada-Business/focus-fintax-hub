@@ -411,9 +411,12 @@ export type Database = {
           criado_em: string
           data_apuracao: string | null
           id: string
+          incluir_no_calculo: boolean
           observacoes: string | null
+          status_utilizacao: string | null
           tese_id: string
           valor_apurado_inicial: number
+          valor_compensado_manual: number | null
         }
         Insert: {
           atualizado_em?: string
@@ -421,9 +424,12 @@ export type Database = {
           criado_em?: string
           data_apuracao?: string | null
           id?: string
+          incluir_no_calculo?: boolean
           observacoes?: string | null
+          status_utilizacao?: string | null
           tese_id: string
           valor_apurado_inicial: number
+          valor_compensado_manual?: number | null
         }
         Update: {
           atualizado_em?: string
@@ -431,9 +437,12 @@ export type Database = {
           criado_em?: string
           data_apuracao?: string | null
           id?: string
+          incluir_no_calculo?: boolean
           observacoes?: string | null
+          status_utilizacao?: string | null
           tese_id?: string
           valor_apurado_inicial?: number
+          valor_compensado_manual?: number | null
         }
         Relationships: [
           {
@@ -1572,6 +1581,7 @@ export type Database = {
           codigo: Database["public"]["Enums"]["tese_tributaria"]
           criado_em: string
           id: string
+          incluir_no_calculo: boolean
           label: string
           visivel_cliente: boolean
         }
@@ -1581,6 +1591,7 @@ export type Database = {
           codigo: Database["public"]["Enums"]["tese_tributaria"]
           criado_em?: string
           id?: string
+          incluir_no_calculo?: boolean
           label: string
           visivel_cliente?: boolean
         }
@@ -1590,8 +1601,21 @@ export type Database = {
           codigo?: Database["public"]["Enums"]["tese_tributaria"]
           criado_em?: string
           id?: string
+          incluir_no_calculo?: boolean
           label?: string
           visivel_cliente?: boolean
+        }
+        Relationships: []
+      }
+      v_cliente_totais_calculo: {
+        Row: {
+          cliente_id: string | null
+          credito_apurado: number | null
+          possiveis_creditos_futuros: number | null
+          saldo_restante: number | null
+          teses_fora_calculo: number | null
+          teses_no_calculo: number | null
+          total_compensado: number | null
         }
         Relationships: []
       }
@@ -1665,7 +1689,9 @@ export type Database = {
       v_mapa_creditos: {
         Row: {
           cliente_id: string | null
+          incluir_no_calculo: boolean | null
           saldo_final: number | null
+          status_utilizacao: string | null
           tese_codigo: Database["public"]["Enums"]["tese_tributaria"] | null
           tese_id: string | null
           tese_label: string | null
