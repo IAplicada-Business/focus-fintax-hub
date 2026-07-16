@@ -29,14 +29,31 @@ export interface ProcessoNovo {
   criado_em: string;
 }
 
+export interface ClienteMovimentoSemana {
+  id: string;
+  empresa: string;
+  valor: number;
+  lancamentos: number;
+}
+
+export interface ClienteAtencao {
+  id: string;
+  empresa: string;
+  dias: number;
+  status: string;
+  saldo: number;
+}
+
 export interface ResumoSemanalData {
   desde: string;
   comps: CompensacaoSemana[];
   totalCompensado: number;
+  clientesEmMovimento: number;
+  topClientes: ClienteMovimentoSemana[];
   historico: HistoricoSemana[];
   processosNovos: ProcessoNovo[];
   intimacoesNovas: number;
-  clientesSemMovimento: { id: string; empresa: string; dias: number; status: string }[];
+  clientesSemMovimento: ClienteAtencao[];
 }
 
 export type EtapaCiclo =
@@ -183,11 +200,26 @@ export async function fetchResumoSemanal(): Promise<ResumoSemanalData> {
     ]),
   );
 
-  // Clientes com saldo e sem compensação/histórico na semana
-  const movedIds = new Set([
-    ...compsMapped.map((c) => c.cliente_id),
-    ...historicoMapped.map((h) => h.cliente_id),
-  ]);
+  // Top clientes por volume compensado na semana (agregado)
+  const byCliente = new Map<string, ClienteMovimentoSemana>();
+  for (const c of compsMapped) {
+    const prev = byCliente.get(c.cliente_id);
+    if (prev) {
+      prev.valor += c.valor_compensado;
+      prev.lancamentos += 1;
+    } else {
+      byCliente.set(c.cliente_id, {
+        id: c.cliente_id,
+        empresa: c.empresa,
+        valor: c.valor_compensado,
+        lancamentos: 1,
+      });
+    }
+  }
+  const topClientes = [...byCliente.values()].sort((a, b) => b.valor - a.valor).slice(0, 8);
+
+  // Clientes com saldo e sem compensação na semana → fila de atenção
+  const movedIds = new Set(compsMapped.map((c) => c.cliente_id));
   const clientesSemMovimento = ((clientes as any[]) || [])
     .filter((c) => (saldoMap.get(c.id) || 0) > 1000 && !movedIds.has(c.id))
     .map((c) => ({
@@ -195,14 +227,17 @@ export async function fetchResumoSemanal(): Promise<ResumoSemanalData> {
       empresa: c.empresa || "—",
       dias: daysBetween(c.atualizado_em || c.criado_em),
       status: statusMap.get(c.id) || "sem_operacao",
+      saldo: saldoMap.get(c.id) || 0,
     }))
-    .sort((a, b) => b.dias - a.dias)
-    .slice(0, 12);
+    .sort((a, b) => b.saldo - a.saldo || b.dias - a.dias)
+    .slice(0, 10);
 
   return {
     desde,
     comps: compsMapped,
     totalCompensado: compsMapped.reduce((s, c) => s + c.valor_compensado, 0),
+    clientesEmMovimento: byCliente.size,
+    topClientes,
     historico: historicoMapped,
     processosNovos: processosMapped,
     intimacoesNovas: intimacoesNovas ?? 0,
