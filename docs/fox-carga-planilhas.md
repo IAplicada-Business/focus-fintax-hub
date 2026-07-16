@@ -29,6 +29,7 @@ Abas ignoradas (mesmo critério do import da UI): Controle (como fluxo), Fluxo d
 ## Observações
 
 - Honorário grava só no **primeiro tributo** de cada linha da planilha (evita inflar soma no dashboard).
+- `%` honorário normalizado para fração (`20` → `0.20`) — coluna `numeric(4,4)` exige valor &lt; 1.
 - `tese_origem_id` fica NULL (igual ao import da UI). Os KPIs do mapa continuam usando `valor_compensado_manual` do Detalhamento até alguém vincular a tese.
 - Parser aceita variante `novo_icms` (jun/26+: INSS | RETIDOS | PIS | COFINS | ICMS).
 
