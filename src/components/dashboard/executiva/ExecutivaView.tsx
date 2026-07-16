@@ -36,6 +36,7 @@ interface Credito {
   cliente_id: string;
   tese_id: string;
   valor_apurado_inicial: number;
+  incluir_no_calculo?: boolean | null;
 }
 
 interface Tese {
@@ -43,6 +44,7 @@ interface Tese {
   codigo: string;
   label: string;
   visivel_cliente: boolean;
+  incluir_no_calculo?: boolean | null;
 }
 
 interface Comp {
@@ -83,8 +85,8 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
         { data: st },
       ] = await Promise.all([
         supabase.from("clientes").select("id, empresa"),
-        (supabase as any).from("creditos_apurados").select("cliente_id, tese_id, valor_apurado_inicial"),
-        (supabase as any).from("teses_tributarias").select("id, codigo, label, visivel_cliente"),
+        (supabase as any).from("creditos_apurados").select("cliente_id, tese_id, valor_apurado_inicial, incluir_no_calculo"),
+        (supabase as any).from("teses_tributarias").select("id, codigo, label, visivel_cliente, incluir_no_calculo"),
         supabase
           .from("compensacoes_mensais")
           .select("cliente_id, mes_referencia, valor_compensado, honorario_valor, valor_nf_servico, tributo_enum, tributo, tese_origem_id"),
@@ -106,9 +108,28 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
   // Agregações
   // ---------------------------------------------------------------------------
 
+  const teseIncluirIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const t of teses) {
+      const incl = (t as any).incluir_no_calculo;
+      if (incl === true || (incl == null && (t.codigo === "INSUMOS" || t.codigo === "SUBVENCAO"))) {
+        ids.add(t.id);
+      }
+    }
+    return ids;
+  }, [teses]);
+
+  const creditosNoCalculo = useMemo(() => {
+    return creditos.filter((c) => {
+      const flag = (c as any).incluir_no_calculo;
+      if (typeof flag === "boolean") return flag;
+      return teseIncluirIds.has(c.tese_id);
+    });
+  }, [creditos, teseIncluirIds]);
+
   const totalApurado = useMemo(
-    () => creditos.reduce((s, c) => s + Number(c.valor_apurado_inicial || 0), 0),
-    [creditos]
+    () => creditosNoCalculo.reduce((s, c) => s + Number(c.valor_apurado_inicial || 0), 0),
+    [creditosNoCalculo]
   );
   const totalCompensado = useMemo(
     () => comps.reduce((s, c) => s + Number(c.valor_compensado || 0), 0),
@@ -126,7 +147,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
   const pctUtilizado = totalApurado > 0 ? (totalCompensado / totalApurado) * 100 : 0;
   const economiaLiquida = totalCompensado - totalHonorarios;
 
-  // Contagem por status
+  // Contagem por status — Reporto fora dos cards principais (Review Fox)
   const contagemStatus = useMemo(() => {
     const c: Record<StatusCompensacao, number> = {
       compensando: 0,
@@ -136,7 +157,10 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
       encerrado: 0,
       sem_operacao: 0,
     };
-    for (const r of statusRows) c[r.status_principal]++;
+    for (const r of statusRows) {
+      if (r.status_principal === "reporto") continue;
+      c[r.status_principal]++;
+    }
     return c;
   }, [statusRows]);
 
@@ -147,9 +171,10 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
       string,
       { tese: Tese; apurado: number; compensado: number; clientes: Set<string> }
     > = {};
-    for (const c of creditos) {
+    for (const c of creditosNoCalculo) {
       const t = teseMap.get(c.tese_id);
       if (!t) continue;
+      if (t.codigo === "REPORTO") continue;
       if (!agg[c.tese_id]) agg[c.tese_id] = { tese: t, apurado: 0, compensado: 0, clientes: new Set() };
       agg[c.tese_id].apurado += Number(c.valor_apurado_inicial || 0);
       agg[c.tese_id].clientes.add(c.cliente_id);
@@ -172,7 +197,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
         pctUtilizado: v.apurado > 0 ? (v.compensado / v.apurado) * 100 : 0,
       }))
       .sort((a, b) => b.apurado - a.apurado);
-  }, [creditos, comps, teses]);
+  }, [creditosNoCalculo, comps, teses]);
 
   // Distribuição por tributo (das compensações)
   const porTributo = useMemo(() => {
@@ -217,7 +242,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
   const topPorCredito = useMemo(() => {
     const clienteMap = new Map(clientes.map((c) => [c.id, c.empresa]));
     const agg: Record<string, { apurado: number; compensado: number }> = {};
-    for (const c of creditos) {
+    for (const c of creditosNoCalculo) {
       if (!agg[c.cliente_id]) agg[c.cliente_id] = { apurado: 0, compensado: 0 };
       agg[c.cliente_id].apurado += Number(c.valor_apurado_inicial || 0);
     }
@@ -235,7 +260,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
       }))
       .sort((a, b) => b.apurado - a.apurado)
       .slice(0, 10);
-  }, [creditos, comps, clientes]);
+  }, [creditosNoCalculo, comps, clientes]);
 
   // ---------------------------------------------------------------------------
   // Render
