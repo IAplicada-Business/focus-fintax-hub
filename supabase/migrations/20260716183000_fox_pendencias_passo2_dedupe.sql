@@ -87,21 +87,15 @@ UPDATE public.compensacoes_mensais keep
 SET
   valor_compensado = COALESCE(keep.valor_compensado, 0) + COALESCE.extra_valor,
   honorario_valor = COALESCE(keep.honorario_valor, 0) + COALESCE.extra_hon,
-  nfse_valor = COALESCE(keep.nfse_valor, COALESCE(COALESCE(keep.nfse_valor, 0) + COALESCE.extra_nfse, keep.nfse_valor)),
-  lancado_mapa = keep.lancado_mapa OR COALESCE(agg.extra_mapa, false),
-  observacao = CASE
-    WHEN keep.observacao IS NULL OR keep.observacao = '' THEN agg.extra_obs
-    WHEN agg.extra_obs IS NULL OR agg.extra_obs = '' THEN keep.observacao
-    ELSE keep.observacao || ' | ' || agg.extra_obs
-  END
+  nfse_valor = COALESCE(keep.nfse_valor, 0) + agg.extra_nfse,
+  lancado_mapa = keep.lancado_mapa OR COALESCE(agg.extra_mapa, false)
 FROM (
   SELECT
     t.keep_id,
     SUM(COALESCE(cm.valor_compensado, 0)) AS extra_valor,
     SUM(COALESCE(cm.honorario_valor, 0)) AS extra_hon,
     SUM(COALESCE(cm.nfse_valor, 0)) AS extra_nfse,
-    BOOL_OR(COALESCE(cm.lancado_mapa, false)) AS extra_mapa,
-    string_agg(DISTINCT NULLIF(cm.observacao, ''), ' | ') AS extra_obs
+    BOOL_OR(COALESCE(cm.lancado_mapa, false)) AS extra_mapa
   FROM tmp_dup_drop t
   JOIN public.compensacoes_mensais cm ON cm.id = t.drop_id
   GROUP BY t.keep_id
