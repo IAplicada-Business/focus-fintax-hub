@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { compactCurrency } from "@/components/dashboard/dashboard-utils";
@@ -11,17 +12,22 @@ import {
 import { SkeletonKpi } from "../SkeletonKpi";
 import { useCountUp } from "@/hooks/useCountUp";
 import { Badge } from "@/components/ui/badge";
-import { Target, ArrowRight, AlertTriangle } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 export function ResumoSemanalTab() {
   const navigate = useNavigate();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["dashboard-gestao-resumo"],
     queryFn: fetchResumoSemanal,
     staleTime: 30_000,
   });
 
-  if (isLoading || !data) {
+  const saldoParadoTotal = useMemo(
+    () => (data?.clientesSemMovimento ?? []).reduce((s, c) => s + c.saldo, 0),
+    [data],
+  );
+
+  if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[0, 1, 2].map((i) => (
@@ -31,8 +37,27 @@ export function ResumoSemanalTab() {
     );
   }
 
+  if (isError || !data) {
+    return (
+      <div className="card-base px-5 py-10 text-center space-y-3">
+        <p className="text-sm font-semibold text-navy">Não foi possível carregar o pulso da semana</p>
+        <p className="text-xs text-ink-35">
+          {(error as Error)?.message || "Tente novamente em instantes."}
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="text-xs font-semibold text-navy underline"
+        >
+          Tentar de novo
+        </button>
+      </div>
+    );
+  }
+
   const atencao = data.clientesSemMovimento.length;
   const maxTop = Math.max(...data.topClientes.map((c) => c.valor), 1);
+  const maxSaldo = Math.max(...data.clientesSemMovimento.map((c) => c.saldo), 1);
 
   return (
     <div className="space-y-4">
@@ -58,177 +83,160 @@ export function ResumoSemanalTab() {
         </div>
       )}
 
-      {/* Fila de decisão — quem está parado com saldo */}
-      <div className="animate-slide-up delay-2 bg-[rgba(200,0,30,0.04)] border border-[rgba(200,0,30,0.18)] rounded-2xl overflow-hidden">
-        <div className="px-4 py-2.5 bg-[rgba(200,0,30,0.08)] border-b border-[rgba(200,0,30,0.15)] flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <Target className="w-3.5 h-3.5 text-dash-red flex-shrink-0" />
-            <span className="text-[11px] font-bold tracking-[0.8px] uppercase text-dash-red truncate">
-              Precisam de ação — saldo sem movimento na semana
+      {/* Faixa de contexto — compacta, sem card vazio */}
+      <div className="animate-slide-up delay-2 flex flex-wrap items-center gap-x-5 gap-y-2 px-1 text-xs text-ink-60">
+        <span>
+          <strong className="text-navy">{atencao}</strong> com saldo parado
+          {atencao > 0 && (
+            <>
+              {" "}
+              · <strong className="text-dash-red">{compactCurrency(saldoParadoTotal)}</strong> parado
+            </>
+          )}
+        </span>
+        <span className="text-ink-35">·</span>
+        <span>
+          <strong className="text-navy">{data.clientesEmMovimento}</strong> em movimento esta semana
+        </span>
+        {data.processosNovos.length > 0 && (
+          <>
+            <span className="text-ink-35">·</span>
+            <span>
+              <strong className="text-navy">{data.processosNovos.length}</strong> tese(s) nova(s)
             </span>
-          </div>
-          <span className="text-[11px] font-mono-dm text-dash-red/80 shrink-0">
-            {atencao} cliente{atencao !== 1 ? "s" : ""}
-          </span>
-        </div>
-
-        {atencao === 0 ? (
-          <p className="px-5 py-8 text-sm text-ink-35 text-center">
-            Nenhum cliente com saldo parado — carteira em movimento.
-          </p>
-        ) : (
-          <div className="flex gap-3 overflow-x-auto px-4 py-3">
-            {data.clientesSemMovimento.map((c) => {
-              const st = c.status as StatusCompensacao;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => navigate(`/clientes/${c.id}`)}
-                  className="flex-shrink-0 w-[200px] rounded-xl p-3 text-left transition-all duration-200 hover:-translate-y-0.5"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, rgba(200,0,30,0.06) 0%, rgba(200,0,30,0.03) 100%)",
-                    border: "1px solid rgba(200,0,30,0.15)",
-                    boxShadow: "0 2px 8px rgba(200,0,30,0.08)",
-                  }}
-                >
-                  <p className="text-xs font-bold text-ink truncate">{c.empresa}</p>
-                  <p className="font-display text-xl font-bold text-dash-red mt-1">
-                    {compactCurrency(c.saldo)}
-                  </p>
-                  <div className="flex items-center justify-between mt-1.5 gap-1">
-                    <p className="text-[10px] text-ink-35">{c.dias}d sem update</p>
-                    {STATUS_COMPENSACAO_LABELS[st] && (
-                      <Badge
-                        variant="outline"
-                        className={`${STATUS_COMPENSACAO_COLORS[st]} text-[9px] px-1.5 py-0`}
-                      >
-                        {STATUS_COMPENSACAO_LABELS[st]}
-                      </Badge>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          </>
         )}
       </div>
 
-      {/* O que moveu — ranking compacto, não tabela bruta */}
-      <div className="animate-slide-up delay-3 grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
-        <div className="card-base p-5">
-          <div className="flex items-center justify-between mb-4">
+      {/* Duas colunas densas — lista vertical, sem scroll lateral */}
+      <div className="animate-slide-up delay-3 grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <section className="card-base overflow-hidden">
+          <div className="px-5 pt-4 pb-3 border-b border-[rgba(10,21,100,0.06)] flex items-end justify-between gap-3">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[1.6px] text-ink-35">
-                Quem moveu a carteira
+              <p className="text-[10px] font-bold uppercase tracking-[1.6px] text-dash-red">
+                Prioridade
               </p>
               <h3 className="font-display text-lg font-bold text-navy mt-0.5">
-                Top compensações da semana
+                Saldo sem movimento
+              </h3>
+            </div>
+            <span className="text-[11px] font-mono-dm text-ink-35 shrink-0">
+              {atencao} cliente{atencao !== 1 ? "s" : ""}
+            </span>
+          </div>
+
+          {atencao === 0 ? (
+            <p className="px-5 py-8 text-sm text-ink-35 text-center">
+              Nenhum cliente com saldo parado — carteira em movimento.
+            </p>
+          ) : (
+            <ul className="divide-y divide-[rgba(10,21,100,0.06)]">
+              {data.clientesSemMovimento.map((c, i) => {
+                const st = c.status as StatusCompensacao;
+                return (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/clientes/${c.id}`)}
+                      className="w-full px-5 py-3 text-left hover:bg-[rgba(200,0,30,0.03)] transition-colors group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-5 text-[11px] font-mono-dm text-ink-35 shrink-0">
+                          {i + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <p className="text-sm font-semibold text-ink truncate group-hover:underline">
+                              {c.empresa}
+                            </p>
+                            {STATUS_COMPENSACAO_LABELS[st] && (
+                              <Badge
+                                variant="outline"
+                                className={`${STATUS_COMPENSACAO_COLORS[st]} text-[9px] px-1.5 py-0 shrink-0`}
+                              >
+                                {STATUS_COMPENSACAO_LABELS[st]}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="mt-1.5 h-1 rounded-full bg-[rgba(200,0,30,0.08)] overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-dash-red/70"
+                              style={{ width: `${Math.max(6, (c.saldo / maxSaldo) * 100)}%` }}
+                            />
+                          </div>
+                          <p className="text-[10px] text-ink-35 mt-1">{c.dias}d sem atualização</p>
+                        </div>
+                        <p className="font-display text-base font-bold text-dash-red shrink-0 tabular-nums">
+                          {compactCurrency(c.saldo)}
+                        </p>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        <section className="card-base overflow-hidden">
+          <div className="px-5 pt-4 pb-3 border-b border-[rgba(10,21,100,0.06)] flex items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[1.6px] text-ink-35">
+                Movimento
+              </p>
+              <h3 className="font-display text-lg font-bold text-navy mt-0.5">
+                Top da semana
               </h3>
             </div>
             <Link
               to="/clientes"
-              className="text-[11px] font-semibold text-navy/70 hover:text-navy flex items-center gap-1"
+              className="text-[11px] font-semibold text-navy/70 hover:text-navy flex items-center gap-1 shrink-0"
             >
               Carteira <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
 
           {data.topClientes.length === 0 ? (
-            <p className="text-sm text-ink-35 py-6 text-center">
+            <p className="px-5 py-8 text-sm text-ink-35 text-center">
               Sem compensações lançadas nos últimos 7 dias.
             </p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="divide-y divide-[rgba(10,21,100,0.06)]">
               {data.topClientes.map((c, i) => (
                 <li key={c.id}>
                   <button
                     type="button"
                     onClick={() => navigate(`/clientes/${c.id}`)}
-                    className="w-full text-left group"
+                    className="w-full px-5 py-3 text-left hover:bg-[rgba(10,21,100,0.03)] transition-colors group"
                   >
-                    <div className="flex items-baseline justify-between gap-3 mb-1">
-                      <span className="text-xs font-semibold text-ink truncate group-hover:underline">
-                        <span className="text-ink-35 font-mono-dm mr-2">{i + 1}</span>
-                        {c.empresa}
+                    <div className="flex items-center gap-3">
+                      <span className="w-5 text-[11px] font-mono-dm text-ink-35 shrink-0">
+                        {i + 1}
                       </span>
-                      <span className="font-display text-sm font-bold text-navy shrink-0">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-ink truncate group-hover:underline">
+                          {c.empresa}
+                        </p>
+                        <div className="mt-1.5 h-1 rounded-full bg-[rgba(10,21,100,0.06)] overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-navy/75"
+                            style={{ width: `${Math.max(6, (c.valor / maxTop) * 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-ink-35 mt-1">
+                          {c.lancamentos} lançamento{c.lancamentos > 1 ? "s" : ""}
+                        </p>
+                      </div>
+                      <p className="font-display text-base font-bold text-navy shrink-0 tabular-nums">
                         {formatCurrencyBR(c.valor)}
-                      </span>
+                      </p>
                     </div>
-                    <div className="h-1.5 rounded-full bg-[rgba(10,21,100,0.06)] overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-navy/80 transition-all"
-                        style={{ width: `${Math.max(4, (c.valor / maxTop) * 100)}%` }}
-                      />
-                    </div>
-                    <p className="text-[10px] text-ink-35 mt-1">
-                      {c.lancamentos} lançamento{c.lancamentos > 1 ? "s" : ""}
-                    </p>
                   </button>
                 </li>
               ))}
             </ul>
           )}
-        </div>
-
-        <div className="card-base p-5 flex flex-col">
-          <p className="text-[10px] font-bold uppercase tracking-[1.6px] text-ink-35">
-            Leitura rápida
-          </p>
-          <h3 className="font-display text-lg font-bold text-navy mt-0.5 mb-4">
-            O que olhar agora
-          </h3>
-          <ul className="space-y-3 flex-1">
-            <InsightRow
-              tone={atencao > 0 ? "alert" : "ok"}
-              title={
-                atencao > 0
-                  ? `${atencao} com saldo parado`
-                  : "Nenhum saldo parado na semana"
-              }
-              detail={
-                atencao > 0
-                  ? "Priorize quem tem maior saldo na fila acima."
-                  : "Carteira ativa — mantenha o ritmo de lançamentos."
-              }
-            />
-            <InsightRow
-              tone={data.totalCompensado > 0 ? "ok" : "muted"}
-              title={
-                data.totalCompensado > 0
-                  ? `${compactCurrency(data.totalCompensado)} compensados`
-                  : "Sem volume compensado"
-              }
-              detail={
-                data.clientesEmMovimento > 0
-                  ? `${data.clientesEmMovimento} cliente(s) com lançamento.`
-                  : "Confira se o fluxo da semana já foi importado."
-              }
-            />
-            {data.processosNovos.length > 0 && (
-              <InsightRow
-                tone="ok"
-                title={`${data.processosNovos.length} tese(s) novas`}
-                detail="Novos processos entraram na esteira esta semana."
-              />
-            )}
-            {data.intimacoesNovas > 0 && (
-              <InsightRow
-                tone="alert"
-                title={`${data.intimacoesNovas} intimação(ões)`}
-                detail="Tratar prazo antes de virar risco fiscal."
-              />
-            )}
-          </ul>
-          <Link
-            to="/dashboard"
-            className="mt-4 text-[11px] font-semibold text-navy/70 hover:text-navy inline-flex items-center gap-1"
-          >
-            Ir ao Dashboard operacional <ArrowRight className="w-3 h-3" />
-          </Link>
-        </div>
+        </section>
       </div>
     </div>
   );
@@ -293,35 +301,5 @@ function KpiStrip({
         </div>
       ))}
     </div>
-  );
-}
-
-function InsightRow({
-  tone,
-  title,
-  detail,
-}: {
-  tone: "alert" | "ok" | "muted";
-  title: string;
-  detail: string;
-}) {
-  const dot =
-    tone === "alert"
-      ? "bg-dash-red"
-      : tone === "ok"
-        ? "bg-dash-green"
-        : "bg-ink-35";
-  return (
-    <li className="flex gap-3 items-start">
-      {tone === "alert" ? (
-        <AlertTriangle className="w-3.5 h-3.5 text-dash-red mt-0.5 shrink-0" />
-      ) : (
-        <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${dot}`} />
-      )}
-      <div>
-        <p className="text-sm font-semibold text-ink leading-snug">{title}</p>
-        <p className="text-xs text-ink-35 mt-0.5">{detail}</p>
-      </div>
-    </li>
   );
 }

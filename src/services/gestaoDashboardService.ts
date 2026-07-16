@@ -95,8 +95,10 @@ const ETAPA_LABEL: Record<EtapaCiclo, string> = {
 
 export { ETAPA_LABEL };
 
-function daysBetween(from: string | Date, to: Date = new Date()) {
+function daysBetween(from: string | Date | null | undefined, to: Date = new Date()) {
+  if (from == null || from === "") return 0;
   const a = typeof from === "string" ? new Date(from).getTime() : from.getTime();
+  if (!Number.isFinite(a)) return 0;
   return Math.max(0, Math.floor((to.getTime() - a) / MS_DAY));
 }
 
