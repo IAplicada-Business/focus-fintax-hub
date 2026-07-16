@@ -124,7 +124,8 @@ type Detalhe = {
   incluir: boolean;
 };
 
-const detalhes: Detalhe[] = [];
+// Consolida duplicatas do Detalhamento (ex.: Rocinha ICMS_ST em 2 linhas)
+const detalheAgg = new Map<string, Detalhe & { legenda: string | null }>();
 for (let i = 0; i < detalheRows.length; i++) {
   const row = detalheRows[i] || [];
   const empresa = row[0];
@@ -133,19 +134,41 @@ for (let i = 0; i < detalheRows.length; i++) {
   if (!cnpj || !tese || !empresa || String(empresa).toLowerCase().includes("razão")) continue;
   const inicial = typeof row[3] === "number" ? row[3] : Number(row[3]) || 0;
   const compensado = typeof row[4] === "number" ? row[4] : Number(row[4]) || 0;
-  const saldo = typeof row[5] === "number" ? row[5] : Number(row[5]) || inicial - compensado;
   const legenda = row[8] != null ? String(row[8]) : null;
-  detalhes.push({
-    cnpj,
-    empresa: String(empresa).trim(),
-    tese,
-    inicial,
-    compensado,
-    saldo,
-    status: mapStatus(legenda, inicial, compensado, saldo),
-    incluir: tese === "INSUMOS" || tese === "SUBVENCAO",
-  });
+  const key = `${cnpj}|${tese}`;
+  const prev = detalheAgg.get(key);
+  if (prev) {
+    prev.inicial += inicial;
+    prev.compensado += compensado;
+    prev.saldo = prev.inicial - prev.compensado;
+    if (legenda) prev.legenda = legenda;
+  } else {
+    detalheAgg.set(key, {
+      cnpj,
+      empresa: String(empresa).trim(),
+      tese,
+      inicial,
+      compensado,
+      saldo: inicial - compensado,
+      status: "a_utilizar",
+      incluir: tese === "INSUMOS" || tese === "SUBVENCAO",
+      legenda,
+    });
+  }
 }
+const detalhes: Detalhe[] = [...detalheAgg.values()].map((d) => {
+  const status = mapStatus(d.legenda, d.inicial, d.compensado, d.saldo);
+  return {
+    cnpj: d.cnpj,
+    empresa: d.empresa,
+    tese: d.tese,
+    inicial: d.inicial,
+    compensado: d.compensado,
+    saldo: d.saldo,
+    status,
+    incluir: d.incluir,
+  };
+});
 
 // Clientes: Controle (Financeiro) + Detalhamento + Fluxo
 const clientes = new Map<
@@ -278,7 +301,19 @@ function chunkValues(rows: string[], size = 60): string[][] {
   return out;
 }
 
-const credCtrlVals = credControle.map(
+// Dedupa créditos Controle por (cnpj, tese) — soma valores se repetir
+const credCtrlMap = new Map<string, CredRow>();
+for (const r of credControle) {
+  const k = `${r.cnpj}|${r.tese}`;
+  const prev = credCtrlMap.get(k);
+  if (prev) {
+    prev.valor += r.valor;
+    if (!prev.data && r.data) prev.data = r.data;
+  } else {
+    credCtrlMap.set(k, { ...r });
+  }
+}
+const credCtrlVals = [...credCtrlMap.values()].map(
   (r) =>
     `(${esc(r.cnpj)}, ${esc(r.tese)}, ${num(r.valor)}::numeric, ${
       r.data ? `${esc(r.data)}::date` : "NULL"
@@ -523,9 +558,9 @@ WHERE NOT EXISTS (
     AND cm.tese_origem_id IS NULL
 );
 
--- DCOMPs vinculadas às compensações carregadas
+-- DCOMPs vinculadas às compensações carregadas (DISTINCT evita 21000)
 INSERT INTO public.dcomps (compensacao_id, numero_declaracao)
-SELECT cm.id, d.numero
+SELECT DISTINCT cm.id, d.numero
 FROM tmp_comp_carga t
 JOIN public.clientes c ON regexp_replace(c.cnpj, '\\D', '', 'g') = t.cnpj
 JOIN public.compensacoes_mensais cm

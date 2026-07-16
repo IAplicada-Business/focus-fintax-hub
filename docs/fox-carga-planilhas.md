@@ -22,7 +22,7 @@ Abas ignoradas (mesmo critério do import da UI): Controle (como fluxo), Fluxo d
 
 - 51 clientes
 - 70 créditos da aba Controle (Financeiro)
-- 59 linhas do Detalhamento
+- 58 linhas do Detalhamento (Rocinha ICMS_ST consolidado de 2 linhas → 1)
 - 188 linhas de fluxo → 319 lançamentos (cliente × competência × tributo)
 - 7 linhas de fluxo sem CNPJ (não entram)
 

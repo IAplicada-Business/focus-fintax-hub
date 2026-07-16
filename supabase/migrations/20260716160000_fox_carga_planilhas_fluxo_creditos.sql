@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Focus FinTax — carga direta das planilhas (sem importação pela UI)
--- Gerado em: 2026-07-16T14:59:38.291Z
+-- Gerado em: 2026-07-16T15:25:06.901Z
 -- Fontes:
 --   Controle_creditos_FFinTax - Atualizado Sistema.xlsx
 --     abas: Detalhamento por Cliente (+ Resumo ignorado)
@@ -1038,8 +1038,7 @@ WITH lookup AS (
 ('30140610000151', 'INSUMOS', 2407515.09::numeric, true::boolean),
 ('30140610000151', 'SUBVENCAO', 3376449.69::numeric, true::boolean),
 ('23672895000106', 'SUBVENCAO', 956644.91::numeric, true::boolean),
-('23672895000106', 'ICMS_ST', 250360.00::numeric, false::boolean),
-('23672895000106', 'ICMS_ST', 222988.26::numeric, false::boolean),
+('23672895000106', 'ICMS_ST', 473348.26::numeric, false::boolean),
 ('30285758000184', 'INSUMOS', 110745.40::numeric, true::boolean),
 ('22546657000191', 'SUBVENCAO', 664997.86::numeric, true::boolean),
 ('30807561000168', 'INSUMOS', 100560.00::numeric, true::boolean),
@@ -1115,7 +1114,6 @@ WITH lookup AS (
 ('30140610000151', 'SUBVENCAO', 363956.55::numeric, 'em_uso', true::boolean),
 ('23672895000106', 'SUBVENCAO', 0.00::numeric, 'a_utilizar', true::boolean),
 ('23672895000106', 'ICMS_ST', 237095.22::numeric, 'em_uso', false::boolean),
-('23672895000106', 'ICMS_ST', 0.00::numeric, 'a_utilizar', false::boolean),
 ('30285758000184', 'INSUMOS', 63474.94::numeric, 'em_uso', true::boolean),
 ('22546657000191', 'SUBVENCAO', 480260.00::numeric, 'em_uso', true::boolean),
 ('30807561000168', 'INSUMOS', 63345.58::numeric, 'em_uso', true::boolean),
@@ -1677,9 +1675,9 @@ WHERE NOT EXISTS (
     AND cm.tese_origem_id IS NULL
 );
 
--- DCOMPs vinculadas às compensações carregadas
+-- DCOMPs vinculadas às compensações carregadas (DISTINCT evita 21000)
 INSERT INTO public.dcomps (compensacao_id, numero_declaracao)
-SELECT cm.id, d.numero
+SELECT DISTINCT cm.id, d.numero
 FROM tmp_comp_carga t
 JOIN public.clientes c ON regexp_replace(c.cnpj, '\D', '', 'g') = t.cnpj
 JOIN public.compensacoes_mensais cm
