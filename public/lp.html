@@ -316,15 +316,17 @@ section{position:relative}
 .step-title{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.012em}
 .step-desc{font-size:13.5px;color:var(--text-mut);line-height:1.65;max-width:none}
 
-/* ────────────────────────────────── PLATAFORMA */
-.section-plat{padding:var(--py) 0;background:var(--bg);text-align:left;position:relative;overflow:hidden}
+/* ────────────────────────────────── PLATAFORMA — banda de métricas centralizada */
+.section-plat{padding:var(--py) 0;background:var(--bg);text-align:center;position:relative;overflow:hidden}
 .section-plat::before{display:none}
-.plat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:64px;position:relative;z-index:1;background:var(--line);border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden}
-.plat-item{padding:48px 32px;background:var(--bg);transition:background var(--t) var(--ease)}
+.section-plat .section-header{margin-bottom:clamp(36px,4vw,56px);max-width:none;text-align:center}
+.section-plat .section-title{max-width:22rem;margin-left:auto;margin-right:auto;margin-bottom:0;text-wrap:balance}
+.plat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:0;position:relative;z-index:1;background:var(--line);border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;max-width:100%}
+.plat-item{padding:clamp(36px,4vw,56px) clamp(20px,3vw,40px);background:var(--bg);transition:background var(--t) var(--ease);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 .plat-item:hover{background:var(--card)}
 .plat-num{font-size:clamp(3rem,6vw,4.5rem);font-weight:300;color:var(--text);line-height:1;background:none;-webkit-text-fill-color:initial;letter-spacing:var(--tracking-tighter);font-feature-settings:"tnum"}
 .plat-num sup{font-size:24px;color:var(--red-soft);vertical-align:super;font-weight:300}
-.plat-label{font-size:13px;color:var(--text-mut);margin-top:14px;line-height:1.55;letter-spacing:.02em}
+.plat-label{font-size:13px;color:var(--text-mut);margin-top:14px;line-height:1.55;letter-spacing:.02em;max-width:16rem}
 
 /* ────────────────────────────────── ALCIR */
 .section-alcir{padding:var(--py) 0;background:var(--bg)}
@@ -692,13 +694,13 @@ section{position:relative}
 <!-- PLATAFORMA (navy-dark) -->
 <section class="section-plat">
   <div class="container">
-    <div class="section-header" style="margin-bottom:0;max-width:22ch">
-      <h2 class="section-title light">O que tecnologia de ponta mais<br>15 anos de varejo produz</h2>
+    <div class="section-header">
+      <h2 class="section-title light">O que tecnologia de ponta mais <em>15&nbsp;anos de varejo</em> produz</h2>
     </div>
     <div class="plat-grid">
-      <div class="plat-item reveal stagger"><div class="plat-num">100<sup>+</sup></div><div class="plat-label">obrigações fiscais<br>auditadas por cliente</div></div>
-      <div class="plat-item reveal stagger"><div class="plat-num">43</div><div class="plat-label">teses tributárias<br>aplicadas na análise</div></div>
-      <div class="plat-item reveal stagger"><div class="plat-num">74</div><div class="plat-label">painéis de análise<br>profunda gerados</div></div>
+      <div class="plat-item reveal stagger"><div class="plat-num">100<sup>+</sup></div><div class="plat-label">obrigações fiscais auditadas por cliente</div></div>
+      <div class="plat-item reveal stagger"><div class="plat-num">43</div><div class="plat-label">teses tributárias aplicadas na análise</div></div>
+      <div class="plat-item reveal stagger"><div class="plat-num">74</div><div class="plat-label">painéis de análise profunda gerados</div></div>
     </div>
   </div>
 </section>
