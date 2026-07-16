@@ -36,6 +36,8 @@ export const SCREENS: ScreenDef[] = [
       { key: "dashboard.comercial",   label: "Visão Comercial",   defaultRoles: ["admin", "pmo", "comercial"],        defaultReadOnlyRoles: [] },
       { key: "dashboard.operacional", label: "Visão Operacional", defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: [] },
       { key: "dashboard.executiva",   label: "Visão Executiva",   defaultRoles: ["admin", "pmo"],                      defaultReadOnlyRoles: [] },
+      // Gestão: clientes/teses/ciclo — não é funil de leads
+      { key: "dashboard.gestao",      label: "Gestão",            defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: [] },
     ],
   },
   {
@@ -132,6 +134,7 @@ export function routeToScreenKey(path: string): string | null {
   if (path.startsWith("/intimacoes")) return "intimacoes";
   if (path.startsWith("/marketing")) return "marketing";
   if (path.startsWith("/usuarios")) return "usuarios";
+  if (path.startsWith("/dashboard/gestao")) return "dashboard.gestao";
   if (path.startsWith("/dashboard")) return "dashboard";
   return null;
 }
