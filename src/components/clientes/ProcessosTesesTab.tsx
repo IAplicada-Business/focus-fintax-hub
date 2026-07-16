@@ -38,10 +38,22 @@ export function ProcessosTesesTab({ clienteId, compensacoesTotal }: Props) {
   useEffect(() => { fetchProcessos(); }, [fetchProcessos]);
 
   const handleInlineUpdate = (id: string, field: string, value: string | number) => {
-    setProcessos((prev) => prev.map((p) => p.id === id ? { ...p, [field]: value } : p));
+    let honorarioCalc: number | null = null;
+    setProcessos((prev) => prev.map((p) => {
+      if (p.id !== id) return p;
+      const next = { ...p, [field]: value };
+      if (field === "percentual_honorario" || field === "valor_credito") {
+        const perc = Number(field === "percentual_honorario" ? value : next.percentual_honorario || 0);
+        const credito = Number(field === "valor_credito" ? value : next.valor_credito || 0);
+        honorarioCalc = Math.round(credito * perc * 100) / 100;
+        next.valor_honorario = honorarioCalc;
+      }
+      return next;
+    }));
     if (debounceTimers.current[id]) clearTimeout(debounceTimers.current[id]);
     debounceTimers.current[id] = setTimeout(async () => {
       const updateData: Record<string, any> = { [field]: value, atualizado_em: new Date().toISOString() };
+      if (honorarioCalc != null) updateData.valor_honorario = honorarioCalc;
       const { error } = await supabase
         .from("processos_teses")
         .update(updateData as any)

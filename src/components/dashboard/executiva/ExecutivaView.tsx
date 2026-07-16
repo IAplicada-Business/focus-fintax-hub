@@ -127,21 +127,27 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
     });
   }, [creditos, teseIncluirIds]);
 
+  const compsNoCalculo = useMemo(() => {
+    // Alinha compensado ao mesmo recorte do crédito apurado (Fox)
+    if (teseIncluirIds.size === 0) return comps;
+    return comps.filter((c) => !c.tese_origem_id || teseIncluirIds.has(c.tese_origem_id));
+  }, [comps, teseIncluirIds]);
+
   const totalApurado = useMemo(
     () => creditosNoCalculo.reduce((s, c) => s + Number(c.valor_apurado_inicial || 0), 0),
     [creditosNoCalculo]
   );
   const totalCompensado = useMemo(
-    () => comps.reduce((s, c) => s + Number(c.valor_compensado || 0), 0),
-    [comps]
+    () => compsNoCalculo.reduce((s, c) => s + Number(c.valor_compensado || 0), 0),
+    [compsNoCalculo]
   );
   const totalHonorarios = useMemo(
     () =>
-      comps.reduce(
+      compsNoCalculo.reduce(
         (s, c) => s + Number(c.honorario_valor ?? c.valor_nf_servico ?? 0),
         0
       ),
-    [comps]
+    [compsNoCalculo]
   );
   const saldoRestante = totalApurado - totalCompensado;
   const pctUtilizado = totalApurado > 0 ? (totalCompensado / totalApurado) * 100 : 0;
@@ -179,10 +185,10 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
       agg[c.tese_id].apurado += Number(c.valor_apurado_inicial || 0);
       agg[c.tese_id].clientes.add(c.cliente_id);
     }
-    for (const c of comps) {
+    for (const c of compsNoCalculo) {
       if (!c.tese_origem_id) continue;
       const t = teseMap.get(c.tese_origem_id);
-      if (!t) continue;
+      if (!t || t.codigo === "REPORTO") continue;
       if (!agg[c.tese_origem_id]) agg[c.tese_origem_id] = { tese: t, apurado: 0, compensado: 0, clientes: new Set() };
       agg[c.tese_origem_id].compensado += Number(c.valor_compensado || 0);
       agg[c.tese_origem_id].clientes.add(c.cliente_id);
@@ -197,12 +203,12 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
         pctUtilizado: v.apurado > 0 ? (v.compensado / v.apurado) * 100 : 0,
       }))
       .sort((a, b) => b.apurado - a.apurado);
-  }, [creditosNoCalculo, comps, teses]);
+  }, [creditosNoCalculo, compsNoCalculo, teses]);
 
-  // Distribuição por tributo (das compensações)
+  // Distribuição por tributo (das compensações no cálculo)
   const porTributo = useMemo(() => {
     const agg: Record<string, { compensado: number; clientes: Set<string> }> = {};
-    for (const c of comps) {
+    for (const c of compsNoCalculo) {
       const t = c.tributo_enum || c.tributo || "outros";
       if (!agg[t]) agg[t] = { compensado: 0, clientes: new Set() };
       agg[t].compensado += Number(c.valor_compensado || 0);
@@ -211,7 +217,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
     return Object.entries(agg)
       .map(([tributo, v]) => ({ tributo, compensado: v.compensado, clientes: v.clientes.size }))
       .sort((a, b) => b.compensado - a.compensado);
-  }, [comps]);
+  }, [compsNoCalculo]);
 
   // Timeline: últimos 12 meses
   const chartMensal = useMemo(() => {
@@ -228,7 +234,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
       });
     }
     const idx = new Map(mesesArr.map((m, i) => [m.key, i]));
-    for (const c of comps) {
+    for (const c of compsNoCalculo) {
       const k = c.mes_referencia.slice(0, 7);
       const i = idx.get(k);
       if (i === undefined) continue;
@@ -236,7 +242,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
       mesesArr[i].honorarios += Number(c.honorario_valor ?? c.valor_nf_servico ?? 0);
     }
     return mesesArr;
-  }, [comps]);
+  }, [compsNoCalculo]);
 
   // Top clientes por crédito
   const topPorCredito = useMemo(() => {
@@ -246,7 +252,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
       if (!agg[c.cliente_id]) agg[c.cliente_id] = { apurado: 0, compensado: 0 };
       agg[c.cliente_id].apurado += Number(c.valor_apurado_inicial || 0);
     }
-    for (const c of comps) {
+    for (const c of compsNoCalculo) {
       if (!agg[c.cliente_id]) agg[c.cliente_id] = { apurado: 0, compensado: 0 };
       agg[c.cliente_id].compensado += Number(c.valor_compensado || 0);
     }
@@ -260,7 +266,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
       }))
       .sort((a, b) => b.apurado - a.apurado)
       .slice(0, 10);
-  }, [creditosNoCalculo, comps, clientes]);
+  }, [creditosNoCalculo, compsNoCalculo, clientes]);
 
   // ---------------------------------------------------------------------------
   // Render

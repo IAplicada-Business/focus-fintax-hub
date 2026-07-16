@@ -24,7 +24,7 @@ export type StatusCompensacao = (typeof STATUS_COMPENSACAO_VALUES)[number];
 export const STATUS_COMPENSACAO_LABELS: Record<StatusCompensacao, string> = {
   compensando: "Compensando",
   prevista: "Prevista",
-  reporto: "Reporto",
+  reporto: "Possíveis futuros",
   judicial: "Judicial",
   encerrado: "Encerrado",
   sem_operacao: "Sem operação",
@@ -33,7 +33,7 @@ export const STATUS_COMPENSACAO_LABELS: Record<StatusCompensacao, string> = {
 export const STATUS_COMPENSACAO_COLORS: Record<StatusCompensacao, string> = {
   compensando: "bg-emerald-100 text-emerald-800 border-emerald-200",
   prevista: "bg-blue-100 text-blue-800 border-blue-200",
-  reporto: "bg-purple-100 text-purple-800 border-purple-200",
+  reporto: "bg-slate-100 text-slate-700 border-slate-200",
   judicial: "bg-rose-100 text-rose-800 border-rose-200",
   encerrado: "bg-slate-100 text-slate-700 border-slate-200",
   sem_operacao: "bg-neutral-100 text-neutral-600 border-neutral-200",
