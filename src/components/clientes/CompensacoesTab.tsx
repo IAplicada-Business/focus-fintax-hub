@@ -151,12 +151,29 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange }: Props) {
   // ——— WhatsApp helpers ———
   const whatsComps = whatsMes ? compensacoes.filter((c) => (c.mes_referencia as string).startsWith(whatsMes)) : [];
 
+  const resolveHonorario = (comp: any, proc: any) => {
+    // Prefere valor já salvo (evita retrabalho / divergência do comunicado)
+    if (comp.honorario_valor != null && Number(comp.honorario_valor) > 0) {
+      return Number(comp.honorario_valor);
+    }
+    if (comp.valor_nf_servico != null && Number(comp.valor_nf_servico) > 0) {
+      return Number(comp.valor_nf_servico);
+    }
+    const perc = Number(comp.honorario_percentual ?? proc?.percentual_honorario ?? 0);
+    return Math.round(Number(comp.valor_compensado || 0) * perc * 100) / 100;
+  };
+
+  const resolvePercLabel = (comp: any, proc: any) => {
+    const perc = Number(comp.honorario_percentual ?? proc?.percentual_honorario ?? 0);
+    return `${(perc * 100).toFixed(perc * 100 % 1 === 0 ? 0 : 1)}%`;
+  };
+
   const buildWhatsMessage = (comp: any, proc: any) => {
-    const honorario = Math.round(Number(comp.valor_compensado || 0) * Number(proc.percentual_honorario || 0) * 100) / 100;
+    const honorario = resolveHonorario(comp, proc);
     const economia = Number(comp.valor_compensado || 0) - honorario;
     const tributo = getTributo(comp);
     const mesLabel = formatMesPT(whatsMes);
-    const percLabel = `${((Number(proc.percentual_honorario || 0)) * 100).toFixed(0)}%`;
+    const percLabel = resolvePercLabel(comp, proc);
 
     return `${cliente?.empresa || ""} ${cliente?.cnpj || ""}
 Prestação de serviços de COMPLIANCE TRIBUTÁRIO – ${proc.nome_exibicao}
@@ -179,7 +196,7 @@ Equipe Focus.`;
 
   const totalHonorarios = whatsComps.reduce((s, comp) => {
     const proc = processos.find((p) => p.id === comp.processo_tese_id);
-    return s + Math.round(Number(comp.valor_compensado || 0) * Number(proc?.percentual_honorario || 0) * 100) / 100;
+    return s + resolveHonorario(comp, proc);
   }, 0);
 
   const handleCopy = async () => {
@@ -798,14 +815,42 @@ Equipe Focus.`;
                 <div className="rounded border bg-muted/20 p-3 max-h-[300px] overflow-auto">
                   <pre className="whitespace-pre-wrap text-xs font-mono">{fullWhatsMessage}</pre>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button className="flex-1 gap-2 text-white" style={{ background: "#25D366" }} onClick={handleCopy}>
                     <Copy className="h-4 w-4" /> Copiar mensagem
                   </Button>
                   <Button variant="outline" className="flex-1 gap-2" onClick={handleEmail}>
                     <Mail className="h-4 w-4" /> Enviar por E-mail
                   </Button>
+                  <Button
+                    variant="secondary"
+                    className="w-full gap-2"
+                    onClick={async () => {
+                      // Marca competência como lançada no mapa / emitida (fila do Paulo)
+                      const ids = whatsComps.map((c) => c.id);
+                      if (ids.length === 0) return;
+                      const { error } = await (supabase.from("compensacoes_mensais") as any)
+                        .update({ lancado_mapa: true })
+                        .in("id", ids);
+                      if (error) {
+                        toast.error("Não foi possível marcar como emitido.");
+                        return;
+                      }
+                      logClienteHistorico(
+                        clienteId,
+                        "comunicado_enviado",
+                        `Competência ${formatMesPT(whatsMes)} marcada como emitida/lançada no mapa (${ids.length} linhas)`
+                      );
+                      toast.success("Competência marcada como emitida");
+                      fetchData();
+                    }}
+                  >
+                    Marcar competência como emitida
+                  </Button>
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Use “Marcar como emitida” depois de enviar o WhatsApp/PDF — alimenta o acompanhamento do Paulo sem retrabalho.
+                </p>
               </>
             )}
 

@@ -99,31 +99,41 @@ async function fetchDashboardData() {
   const motorTesesAtivas = tesesRes.count ?? 0;
 
   // ═══ OPERATIONAL ═══
-  const [clientesRes, allCompRes, allProcRes, totalAtivosRes] = await Promise.all([
+  // Fox Review: saldos/gráficos usam v_cliente_totais_calculo (só Insumos+Subvenção)
+  // e processos sem categoria reporto — evita inflar com REPORTO.
+  const [clientesRes, allCompRes, allProcRes, totalAtivosRes, totaisRes] = await Promise.all([
     supabase.from("clientes").select("id, empresa", { count: "exact" }).eq("status", "ativo").limit(5000),
-    supabase.from("compensacoes_mensais").select("valor_compensado, valor_nf_servico, mes_referencia, cliente_id").limit(5000),
-    supabase.from("processos_teses").select("id, cliente_id, valor_credito, percentual_honorario, valor_honorario").limit(5000),
+    supabase.from("compensacoes_mensais").select("valor_compensado, valor_nf_servico, honorario_valor, mes_referencia, cliente_id, tese_origem_id").limit(5000),
+    supabase.from("processos_teses").select("id, cliente_id, valor_credito, percentual_honorario, valor_honorario, categoria").limit(5000),
     supabase.from("clientes").select("id", { count: "exact", head: true }).eq("status", "ativo"),
+    (supabase as any).from("v_cliente_totais_calculo").select("cliente_id, credito_apurado, total_compensado, saldo_restante").limit(5000),
   ]);
   const clientes = clientesRes.data ?? [];
   const allComp = allCompRes.data ?? [];
-  const allProc = allProcRes.data ?? [];
+  const allProc = (allProcRes.data ?? []).filter((p: any) => p.categoria !== "reporto");
+  const totaisCalc = (totaisRes.data ?? []) as { cliente_id: string; credito_apurado: number; total_compensado: number; saldo_restante: number }[];
 
   const clientesComCompensacao = new Set(allComp.filter(c => Number(c.valor_compensado ?? 0) > 0).map(c => c.cliente_id));
   const opClientes = clientesComCompensacao.size;
   const opTotalAtivos = totalAtivosRes.count ?? 0;
 
-  const opCompensado = allComp.reduce((s, c) => s + Number(c.valor_compensado ?? 0), 0);
-  const opHonorarios = allComp.reduce((s, c) => s + Number(c.valor_nf_servico ?? 0), 0);
-  const totalCredito = allProc.reduce((s, p) => s + Number(p.valor_credito ?? 0), 0);
-  const opSaldo = totalCredito - opCompensado;
+  const opCompensado = totaisCalc.length > 0
+    ? totaisCalc.reduce((s, t) => s + Number(t.total_compensado ?? 0), 0)
+    : allComp.reduce((s, c) => s + Number(c.valor_compensado ?? 0), 0);
+  const opHonorarios = allComp.reduce((s, c) => s + Number((c as any).honorario_valor ?? c.valor_nf_servico ?? 0), 0);
+  const totalCredito = totaisCalc.length > 0
+    ? totaisCalc.reduce((s, t) => s + Number(t.credito_apurado ?? 0), 0)
+    : allProc.reduce((s, p) => s + Number(p.valor_credito ?? 0), 0);
+  const opSaldo = totaisCalc.length > 0
+    ? totaisCalc.reduce((s, t) => s + Number(t.saldo_restante ?? 0), 0)
+    : totalCredito - opCompensado;
 
   const monthMapComp: Record<string, number> = {};
   const monthMapHon: Record<string, number> = {};
   allComp.forEach(c => {
     const m = String(c.mes_referencia).slice(0, 7);
     monthMapComp[m] = (monthMapComp[m] ?? 0) + Number(c.valor_compensado ?? 0);
-    monthMapHon[m] = (monthMapHon[m] ?? 0) + Number(c.valor_nf_servico ?? 0);
+    monthMapHon[m] = (monthMapHon[m] ?? 0) + Number((c as any).honorario_valor ?? c.valor_nf_servico ?? 0);
   });
   const sortedMonths = Object.keys(monthMapComp).sort().slice(-6);
   const monthlyBars: MonthBar[] = sortedMonths.map(m => ({
@@ -138,15 +148,26 @@ async function fetchDashboardData() {
   const honByClient: Record<string, number> = {};
   allComp.forEach(c => {
     compByClient[c.cliente_id] = (compByClient[c.cliente_id] ?? 0) + Number(c.valor_compensado ?? 0);
-    honByClient[c.cliente_id] = (honByClient[c.cliente_id] ?? 0) + Number(c.valor_nf_servico ?? 0);
+    honByClient[c.cliente_id] = (honByClient[c.cliente_id] ?? 0) + Number((c as any).honorario_valor ?? c.valor_nf_servico ?? 0);
   });
   const creditByClient: Record<string, number> = {};
-  allProc.forEach(p => { creditByClient[p.cliente_id] = (creditByClient[p.cliente_id] ?? 0) + Number(p.valor_credito ?? 0); });
+  if (totaisCalc.length > 0) {
+    totaisCalc.forEach((t) => { creditByClient[t.cliente_id] = Number(t.credito_apurado ?? 0); });
+  } else {
+    allProc.forEach(p => { creditByClient[p.cliente_id] = (creditByClient[p.cliente_id] ?? 0) + Number(p.valor_credito ?? 0); });
+  }
+  // Prefer view saldo when available
+  const saldoByClient: Record<string, number> = {};
+  totaisCalc.forEach((t) => { saldoByClient[t.cliente_id] = Number(t.saldo_restante ?? 0); });
   const allClientIds = [...new Set([...Object.keys(compByClient), ...Object.keys(creditByClient)])];
   const rankings: ClientRank[] = allClientIds.map(id => ({
     id, empresa: clienteMap[id] ?? "—",
-    compensado: compByClient[id] ?? 0, honorarios: honByClient[id] ?? 0,
-    identificado: creditByClient[id] ?? 0, saldo: (creditByClient[id] ?? 0) - (compByClient[id] ?? 0),
+    compensado: totaisCalc.length > 0
+      ? Number(totaisCalc.find((t) => t.cliente_id === id)?.total_compensado ?? compByClient[id] ?? 0)
+      : (compByClient[id] ?? 0),
+    honorarios: honByClient[id] ?? 0,
+    identificado: creditByClient[id] ?? 0,
+    saldo: saldoByClient[id] ?? ((creditByClient[id] ?? 0) - (compByClient[id] ?? 0)),
   }));
   const topCompensado = [...rankings].sort((a, b) => b.compensado - a.compensado).slice(0, 8);
   const topSaldo = [...rankings].sort((a, b) => b.saldo - a.saldo).filter(r => r.saldo > 0).slice(0, 8);

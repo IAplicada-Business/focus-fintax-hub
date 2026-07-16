@@ -44,10 +44,21 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
     fetchData();
   }, [clienteId]);
 
+  // Fox: gráficos/KPIs do cliente excluem Reporto (possíveis futuros) para não assustar
   const assinados = processos.filter((p) => p.status_contrato === "assinado");
-  const totalIdentificado = assinados.reduce((s, p) => s + Number(p.valor_credito || 0), 0);
-  const totalCompensado = compensacoes.reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
-  const totalHonorarios = compensacoes.reduce((s, c) => s + Number(c.valor_nf_servico || 0), 0);
+  const assinadosCalculo = assinados.filter((p) => p.categoria !== "reporto");
+  const processoIdsCalculo = new Set(assinadosCalculo.map((p) => p.id));
+  const compsCalculo = compensacoes.filter(
+    (c) => !c.processo_tese_id || processoIdsCalculo.has(c.processo_tese_id) ||
+      (c.processos_teses as any)?.categoria !== "reporto"
+  );
+
+  const totalIdentificado = assinadosCalculo.reduce((s, p) => s + Number(p.valor_credito || 0), 0);
+  const totalCompensado = compsCalculo.reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
+  const totalHonorarios = compsCalculo.reduce(
+    (s, c) => s + Number(c.honorario_valor ?? c.valor_nf_servico ?? 0),
+    0
+  );
   const economiaLiquida = totalCompensado - totalHonorarios;
   const saldoRestante = totalIdentificado - totalCompensado;
   const pctUtilizado = totalIdentificado > 0 ? Math.round((totalCompensado / totalIdentificado) * 100) : 0;
@@ -58,14 +69,14 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
   const temReporto = trilhas.has("reporto");
   const temCompensacao = trilhas.has("compensacao");
 
-  // Chart data grouped by month
+  // Chart data grouped by month — só teses do cálculo
   const porMes: Record<string, { compensado: number; honorarios: number }> = {};
-  compensacoes.forEach((c) => {
+  compsCalculo.forEach((c) => {
     const mes = c.mes_referencia?.slice(0, 7);
     if (!mes) return;
     if (!porMes[mes]) porMes[mes] = { compensado: 0, honorarios: 0 };
     porMes[mes].compensado += Number(c.valor_compensado || 0);
-    porMes[mes].honorarios += Number(c.valor_nf_servico || 0);
+    porMes[mes].honorarios += Number(c.honorario_valor ?? c.valor_nf_servico ?? 0);
   });
   const chartData = Object.entries(porMes)
     .sort(([a], [b]) => a.localeCompare(b))
@@ -253,10 +264,10 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
       <div className="card-base overflow-hidden">
         <div className="px-5 pt-3.5 pb-2.5 border-b border-[var(--dash-border)]">
           <span className="text-[11px] font-bold tracking-[0.8px] uppercase text-[var(--navy)]">
-            Histórico de compensações ({compensacoes.length})
+            Histórico de compensações ({compsCalculo.length})
           </span>
         </div>
-        {compensacoes.length > 0 ? (
+        {compsCalculo.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
@@ -266,8 +277,8 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {compensacoes.map((c) => {
-                const hon = Number(c.valor_nf_servico || 0);
+              {compsCalculo.map((c) => {
+                const hon = Number(c.honorario_valor ?? c.valor_nf_servico ?? 0);
                 const eco = Number(c.valor_compensado || 0) - hon;
                 const mesLabel = c.mes_referencia
                   ? new Date(c.mes_referencia).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
