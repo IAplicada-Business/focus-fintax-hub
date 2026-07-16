@@ -32,7 +32,7 @@ const SLA_DIAS: Partial<Record<EtapaCiclo, number>> = {
 export function CicloSlaTab() {
   const navigate = useNavigate();
   const [filtroEtapa, setFiltroEtapa] = useState<EtapaCiclo | "atrasados">("atrasados");
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["dashboard-gestao-ciclo"],
     queryFn: fetchCicloSla,
     staleTime: 30_000,
@@ -57,7 +57,13 @@ export function CicloSlaTab() {
     return data.clientes.filter((c) => c.etapa === filtroEtapa);
   }, [data, filtroEtapa]);
 
-  if (isLoading || !data) {
+  // Hooks sempre na mesma ordem (antes de qualquer return)
+  const noPrazo = data ? Math.max(0, data.clientes.length - data.atrasados) : 0;
+  const animAtrasados = useCountUp(data?.atrasados ?? 0);
+  const animNoPrazo = useCountUp(noPrazo);
+  const tempoComp = data?.tempoMedioDias.compensando ?? null;
+
+  if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[0, 1, 2].map((i) => (
@@ -67,10 +73,23 @@ export function CicloSlaTab() {
     );
   }
 
-  const noPrazo = data.clientes.length - data.atrasados;
-  const animAtrasados = useCountUp(data.atrasados);
-  const animNoPrazo = useCountUp(Math.max(0, noPrazo));
-  const tempoComp = data.tempoMedioDias.compensando;
+  if (isError || !data) {
+    return (
+      <div className="card-base px-5 py-10 text-center space-y-3">
+        <p className="text-sm font-semibold text-navy">Não foi possível carregar o Ciclo & SLA</p>
+        <p className="text-xs text-ink-35">
+          {(error as Error)?.message || "Tente novamente em instantes."}
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="text-xs font-semibold text-navy underline"
+        >
+          Tentar de novo
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

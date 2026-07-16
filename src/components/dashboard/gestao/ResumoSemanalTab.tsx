@@ -16,7 +16,7 @@ import { ArrowRight } from "lucide-react";
 
 export function ResumoSemanalTab() {
   const navigate = useNavigate();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["dashboard-gestao-resumo"],
     queryFn: fetchResumoSemanal,
     staleTime: 30_000,
@@ -27,12 +27,30 @@ export function ResumoSemanalTab() {
     [data],
   );
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[0, 1, 2].map((i) => (
           <SkeletonKpi key={i} />
         ))}
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <div className="card-base px-5 py-10 text-center space-y-3">
+        <p className="text-sm font-semibold text-navy">Não foi possível carregar o pulso da semana</p>
+        <p className="text-xs text-ink-35">
+          {(error as Error)?.message || "Tente novamente em instantes."}
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="text-xs font-semibold text-navy underline"
+        >
+          Tentar de novo
+        </button>
       </div>
     );
   }
