@@ -20,7 +20,16 @@ import { logClienteHistorico } from "@/lib/cliente-historico";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
-const TRIBUTO_OPTIONS = ["INSS", "PIS/COFINS", "IRPJ", "CSLL", "Outros"];
+const TRIBUTO_OPTIONS = ["INSS", "INSS_retidos", "PIS", "COFINS", "ICMS", "IRPJ/CSLL", "Outros"];
+const TRIBUTO_TO_ENUM: Record<string, string> = {
+  INSS: "INSS_52",
+  INSS_retidos: "INSS_retidos",
+  PIS: "PIS",
+  COFINS: "COFINS",
+  ICMS: "ICMS",
+  "IRPJ/CSLL": "IRPJ_CSLL_agregado",
+  Outros: "outros",
+};
 const MESES_PT = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 
 interface Props {
@@ -106,6 +115,11 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange }: Props) {
     const honorarioValor = form.valor_nf_servico !== ""
       ? Number(form.valor_nf_servico) || 0
       : honorarioAuto;
+    const { data: cli } = await supabase
+      .from("clientes")
+      .select("tese_ativa_id")
+      .eq("id", clienteId)
+      .maybeSingle();
     const { error } = await supabase.from("compensacoes_mensais").insert({
       cliente_id: clienteId,
       processo_tese_id: form.processo_tese_id,
@@ -117,7 +131,8 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange }: Props) {
       honorario_percentual: percHonorario || null,
       observacao: form.observacao,
       tributo: form.tributo || null,
-      tributo_enum: "outros",
+      tributo_enum: (TRIBUTO_TO_ENUM[form.tributo] || "outros") as any,
+      tese_origem_id: (cli as any)?.tese_ativa_id ?? null,
     } as any);
     if (error) { toast.error("Erro ao registrar."); return; }
     toast.success("Compensação registrada!");
