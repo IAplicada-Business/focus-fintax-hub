@@ -316,11 +316,11 @@ section{position:relative}
 .step-title{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.012em}
 .step-desc{font-size:13.5px;color:var(--text-mut);line-height:1.65;max-width:none}
 
-/* ────────────────────────────────── PLATAFORMA — banda de métricas centralizada */
-.section-plat{padding:var(--py) 0;background:var(--bg);text-align:center;position:relative;overflow:hidden}
+/* ────────────────────────────────── PLATAFORMA — título lateral (padrão das dobras), métricas em banda */
+.section-plat{padding:var(--py) 0;background:var(--bg);text-align:left;position:relative;overflow:hidden}
 .section-plat::before{display:none}
-.section-plat .section-header{margin-bottom:clamp(36px,4vw,56px);max-width:none;text-align:center}
-.section-plat .section-title{max-width:22rem;margin-left:auto;margin-right:auto;margin-bottom:0;text-wrap:balance}
+.section-plat .section-header{margin-bottom:clamp(36px,4vw,56px);max-width:none;text-align:left}
+.section-plat .section-title{max-width:none;margin:0;text-wrap:pretty;white-space:normal}
 .plat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:0;position:relative;z-index:1;background:var(--line);border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;max-width:100%}
 .plat-item{padding:clamp(36px,4vw,56px) clamp(20px,3vw,40px);background:var(--bg);transition:background var(--t) var(--ease);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 .plat-item:hover{background:var(--card)}
