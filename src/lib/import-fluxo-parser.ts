@@ -42,7 +42,7 @@ export type TributoEnum =
   | "DCTWEB_trimestral"
   | "outros";
 
-export type VarianteFluxo = "antigo" | "transicao" | "novo";
+export type VarianteFluxo = "antigo" | "transicao" | "novo" | "novo_icms";
 
 export interface TributoLancado {
   tributo: TributoEnum;
@@ -163,20 +163,40 @@ function parseHeaders(rows: any[][]): HeaderMap | null {
   const cnpj = row2.indexOf("cnpj");
   if (empresas < 0 || cnpj < 0) return null;
 
-  // Detecta variante por presença de RETIDOS / DCTF WEB / INSS puro
+  // Detecta variante por presença de RETIDOS / DCTF WEB / INSS puro / ICMS
   const hasRetidos = row3.some((h) => h === "retidos");
   const hasDctfWeb = row3.some((h) => h.startsWith("dctf web"));
   const hasInss = row3.some((h) => h === "inss");
+  const hasIcms = row3.some((h) => h === "icms");
+  const inssCount = row3.filter((h) => h === "inss").length;
 
   let variante: VarianteFluxo;
-  if (hasRetidos) variante = "novo";
+  // jun/2026+: INSS | RETIDOS | PIS | COFINS | ICMS | TOTAL (um único INSS, sem subtotal)
+  if (hasRetidos && (hasIcms || inssCount === 1)) variante = "novo_icms";
+  else if (hasRetidos) variante = "novo";
   else if (hasDctfWeb) variante = "transicao";
   else if (hasInss) variante = "antigo";
   else return null;
 
   // Constrói mapping de colunas de tributo por variante
   const cols_tributo: HeaderMap["cols_tributo"] = [];
-  if (variante === "novo") {
+  if (variante === "novo_icms") {
+    // Formato jun/26+: INSS | RETIDOS | PIS | COFINS | ICMS | TOTAL | MAPA
+    for (let c = 0; c < row3.length; c++) {
+      const h = row3[c];
+      if (h === "inss") cols_tributo.push({ tributo: "INSS_52", col: c });
+      else if (h === "retidos") cols_tributo.push({ tributo: "INSS_retidos", col: c });
+      else if (h === "pis") cols_tributo.push({ tributo: "PIS", col: c });
+      else if (h === "cofins") cols_tributo.push({ tributo: "COFINS", col: c });
+      else if (h === "icms")
+        cols_tributo.push({
+          tributo: "outros",
+          col: c,
+          observacao_agregacao: "ICMS — importado do formato novo_icms (fluxo jun/26+)",
+        });
+      else if (h === "irpj csll") cols_tributo.push({ tributo: "IRPJ_CSLL_agregado", col: c });
+    }
+  } else if (variante === "novo") {
     // Formato novo: pula INSS(total) e PIS/COFINS(total) — são subtotals
     // R3: (empresa)(cnpj) INSS INSS RETIDOS PIS/COFINS PIS COFINS IRPJ CSLL TOTAL MAPA ...
     // Precisa distinguir "INSS(total)" da "INSS(base)": ambos são "inss".
