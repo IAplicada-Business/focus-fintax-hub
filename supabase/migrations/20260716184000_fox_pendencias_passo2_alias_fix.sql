@@ -1,4 +1,4 @@
--- Superseded logic also in 20260716184000; kept in sync with docs passo2.
+-- Fix 42P01: evita subquery alias agg com COALESCE no UPDATE FROM (Lovable).
 -- =============================================================================
 -- PASSO 2/2 — views, tese_ativa, promove ICMS, backfill tese_origem_id
 -- Rodar SÓ depois do PASSO 1 ter sucesso (enum ICMS já commitado).
