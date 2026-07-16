@@ -261,9 +261,23 @@ export default function CompensacoesLinear() {
   // ---------------------------------------------------------------------------
 
   const patchRow = async (id: string, patch: Partial<Compensacao>) => {
+    // Auto-calcula honorário ao mudar valor ou % (Review Fox — sem retrabalho)
+    let finalPatch: Partial<Compensacao> = { ...patch };
+    if ("valor_compensado" in patch || "honorario_percentual" in patch) {
+      const current = comps.find((c) => c.id === id);
+      const valor = Number(
+        ("valor_compensado" in patch ? patch.valor_compensado : current?.valor_compensado) ?? 0
+      );
+      const perc = Number(
+        ("honorario_percentual" in patch ? patch.honorario_percentual : current?.honorario_percentual) ?? 0
+      );
+      if (!("honorario_valor" in patch)) {
+        finalPatch.honorario_valor = Math.round(valor * perc * 100) / 100;
+      }
+    }
     // Optimistic update
-    setComps((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-    const { error } = await (supabase.from("compensacoes_mensais") as any).update(patch).eq("id", id);
+    setComps((prev) => prev.map((c) => (c.id === id ? { ...c, ...finalPatch } : c)));
+    const { error } = await (supabase.from("compensacoes_mensais") as any).update(finalPatch).eq("id", id);
     if (error) {
       toast.error("Erro ao salvar", { description: error.message });
       fetchAll();

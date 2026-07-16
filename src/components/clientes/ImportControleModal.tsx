@@ -151,12 +151,15 @@ export function ImportControleModal({ open, onOpenChange, onImported }: Props) {
       for (const c of linha.creditos) {
         const teseId = teseIdByCode.get(c.tese);
         if (!teseId) continue;
+        // Padrão Fox: só INSUMOS/SUBVENCAO entram no cálculo; REPORTO fica fora
+        const incluirNoCalculo = c.tese === "INSUMOS" || c.tese === "SUBVENCAO";
         const { error } = await (supabase.from("creditos_apurados") as any).upsert(
           {
             cliente_id: clienteId,
             tese_id: teseId,
             valor_apurado_inicial: c.valor,
             data_apuracao: linha.data_apuracao?.toISOString().slice(0, 10) ?? null,
+            incluir_no_calculo: incluirNoCalculo,
           },
           { onConflict: "cliente_id,tese_id" }
         );
