@@ -27,6 +27,19 @@ function numOrNull(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "NULL";
   return Number(n).toFixed(2);
 }
+/** honorario_percentual é numeric(4,4) → exige |v| < 1 (ex.: 0.20 = 20%). */
+function normalizePct(p: number | null | undefined): number | null {
+  if (p == null || !Number.isFinite(p)) return null;
+  let v = Number(p);
+  if (Math.abs(v) > 1) v = v / 100;
+  if (Math.abs(v) >= 1) v = Math.sign(v) * 0.9999;
+  return v;
+}
+function pctOrNull(n: number | null | undefined): string {
+  const v = normalizePct(n);
+  if (v == null) return "NULL";
+  return v.toFixed(4);
+}
 function isoDate(d: Date | null | undefined): string {
   if (!d || !(d instanceof Date) || Number.isNaN(d.getTime())) return "NULL";
   return esc(d.toISOString().slice(0, 10)) + "::date";
@@ -460,7 +473,7 @@ for (const c of fluxo.compensacoes) {
     let pct: number | null = null;
     if (!honorarioAplicado && c.honorario_valor != null && c.honorario_valor > 0) {
       honorario = c.honorario_valor;
-      pct = c.honorario_percentual;
+      pct = normalizePct(c.honorario_percentual);
       honorarioAplicado = true;
     }
     const existing = compMap.get(key);
@@ -494,7 +507,7 @@ const compVals = [...compMap.values()].map((r) => {
       : `ARRAY[${r.dcomps.map((d) => esc(d)).join(",")}]::text[]`;
   return `(${esc(r.cnpj)}, ${esc(r.mes)}::date, ${esc(r.tributo)}, ${num(r.valor)}, ${numOrNull(
     r.honorario,
-  )}, ${numOrNull(r.pct)}, ${r.mapa ? "true" : "false"}, ${
+  )}, ${pctOrNull(r.pct)}, ${r.mapa ? "true" : "false"}, ${
     r.venc ? `${esc(r.venc)}::date` : "NULL"
   }, ${numOrNull(r.nfse)}, ${esc(r.obs)}, ${dcompsSql})`;
 });
