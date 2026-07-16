@@ -1,3 +1,4 @@
+-- Migration: passo2 com dedupe/merge (fix UNIQUE 23505).
 -- =============================================================================
 -- PASSO 2/2 — views, tese_ativa, promove ICMS, backfill tese_origem_id
 -- Rodar SÓ depois do PASSO 1 ter sucesso (enum ICMS já commitado).

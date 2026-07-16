@@ -9,6 +9,9 @@ O Postgres não deixa usar o enum `ICMS` na mesma execução em que ele é criad
 1. `docs/sql/fox_pendencias_aprovadas_passo1_icms_enum.sql` → Run  
 2. `docs/sql/fox_pendencias_aprovadas_passo2.sql` → Run  
 
+
+> Se o passo 2 falhar com `23505 unique_key`, use a versão atual do `passo2` (consolida órfãs antes do backfill).
+
 O passo 2 faz: `security_invoker` nas views, `tese_ativa_id`, promove ICMS, backfill `tese_origem_id`.
 
 ## UI
