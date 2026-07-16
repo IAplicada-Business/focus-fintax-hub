@@ -35,6 +35,7 @@ const TRIBUTOS_ENUM = [
   "INSS_retidos",
   "PIS",
   "COFINS",
+  "ICMS",
   "IRPJ_CSLL_agregado",
   "DCTWEB_trimestral",
   "outros",
@@ -46,17 +47,17 @@ const TRIBUTO_COLORS: Record<TributoEnum, string> = {
   INSS_retidos: "bg-purple-100 text-purple-800 border-purple-200",
   PIS: "bg-cyan-100 text-cyan-800 border-cyan-200",
   COFINS: "bg-cyan-100 text-cyan-800 border-cyan-200",
+  ICMS: "bg-emerald-100 text-emerald-800 border-emerald-200",
   IRPJ_CSLL_agregado: "bg-rose-100 text-rose-800 border-rose-200",
   DCTWEB_trimestral: "bg-amber-100 text-amber-800 border-amber-200",
   outros: "bg-slate-100 text-slate-800 border-slate-200",
 };
 
-// Pivot mês × tributo: agrupa PIS+COFINS numa coluna "PIS/COFINS",
-// INSS_52+INSS_retidos+DCTWEB em "INSS/PREV", IRPJ+CSLL em "IRPJ/CSLL".
-// Colunas exibidas na matriz (ordem canônica da planilha):
+// Pivot mês × tributo: agrupa PIS+COFINS, INSS/PREV, ICMS, IRPJ/CSLL.
 const PIVOT_COLS = [
   { key: "PIS_COFINS", label: "PIS/COFINS", tribs: ["PIS", "COFINS"] as TributoEnum[], color: "bg-cyan-50 text-cyan-900" },
   { key: "INSS_PREV",  label: "INSS/Previd.", tribs: ["INSS_52", "INSS_retidos", "DCTWEB_trimestral"] as TributoEnum[], color: "bg-indigo-50 text-indigo-900" },
+  { key: "ICMS",       label: "ICMS",      tribs: ["ICMS"] as TributoEnum[], color: "bg-emerald-50 text-emerald-900" },
   { key: "IRPJ_CSLL",  label: "IRPJ/CSLL", tribs: ["IRPJ_CSLL_agregado"] as TributoEnum[], color: "bg-rose-50 text-rose-900" },
   { key: "OUTROS",     label: "Outros",    tribs: ["outros"] as TributoEnum[], color: "bg-slate-50 text-slate-900" },
 ];
@@ -304,6 +305,12 @@ export default function CompensacoesLinear() {
       ? `${competenciaFilter}-01`
       : `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-01`;
 
+    const { data: cli } = await supabase
+      .from("clientes")
+      .select("tese_ativa_id")
+      .eq("id", clienteId)
+      .maybeSingle();
+
     const payload: any = {
       cliente_id: clienteId,
       mes_referencia: primeiroDoMes,
@@ -311,6 +318,7 @@ export default function CompensacoesLinear() {
       valor_compensado: 0,
       lancado_mapa: false,
       status_pagamento_honorario: "pendente",
+      tese_origem_id: (cli as any)?.tese_ativa_id ?? null,
     };
     const { data, error } = await (supabase.from("compensacoes_mensais") as any).insert(payload).select("*").single();
     if (error || !data) {

@@ -438,12 +438,19 @@ function ResultadoView({
     )}`, "_blank");
   };
 
-  // Impostos atuais estimados (regime real presumido): ~ (PIS+COFINS+ICMS) baseline.
-  // Simples proxy: 8-11% do faturamento como carga total antes da Reforma.
+  // Baseline "hoje" = proxy só de PIS+COFINS+ICMS (consumo).
+  // IRPJ e CSLL (contribuição social sobre o lucro) NÃO entram neste comparativo —
+  // eles permanecem após a Reforma e não devem inflar a economia estimada (Alcir / 225k).
   const cargaAtualPct = regime === "real" ? 0.115 : regime === "presumido" ? 0.09 : 0.06;
   const impostoAtual = fat * cargaAtualPct;
   const impostoReforma = reforma.saldo_a_pagar; // negativo/zero = a receber; positivo = a pagar
   const delta = ((impostoReforma - impostoAtual) / Math.max(impostoAtual, 1)) * 100;
+  // Cenário de comparação (transparência): se alguém somasse IR+CSLL (~8% Lucro Real proxy)
+  // no "hoje", a economia ficaria artificialmente maior — isso é o erro dos R$ 225 mil.
+  const irCsllProxyPct = regime === "real" ? 0.08 : regime === "presumido" ? 0.034 : 0;
+  const impostoAtualComIrCsll = fat * (cargaAtualPct + irCsllProxyPct);
+  const deltaComIrCsll = ((impostoReforma - impostoAtualComIrCsll) / Math.max(impostoAtualComIrCsll, 1)) * 100;
+  const divergenciaMensalEstimada = Math.max(0, impostoAtualComIrCsll - impostoAtual);
 
   const sanitizeFileName = (s: string) =>
     (s || "cliente")
@@ -558,7 +565,8 @@ function ResultadoView({
         </p>
         <p style={{ fontSize: 12, opacity: 0.75, marginTop: 8, maxWidth: 520, marginLeft: "auto", marginRight: "auto", lineHeight: 1.55 }}>
           Este é o valor que sua rede pagaria por mês <strong>se a Reforma já estivesse valendo integralmente</strong>{" "}
-          — cenário 2033+ com IBS+CBS a 28%, ICMS/PIS/COFINS já extintos.
+          — cenário 2033+ com IBS+CBS a 28%, ICMS/PIS/COFINS já extintos.{" "}
+          <strong>IRPJ e CSLL ficam de fora</strong> deste comparativo (continuam existindo após a Reforma).
         </p>
         <p style={{ marginTop: 16, fontSize: 14, opacity: 0.9 }}>
           Variação: <strong>{delta > 0 ? "+" : ""}{delta.toFixed(0)}%</strong>
@@ -566,6 +574,32 @@ function ResultadoView({
             <span style={{ marginLeft: 8, color: "#84e5b3" }}>· Economia potencial anual: {fmtBRL((impostoAtual - impostoReforma) * 12)}</span>
           )}
         </p>
+      </div>
+
+      {/* Cenário de comparação — evita confundir com IR/CSLL (pendente validação Mariana/Alcir) */}
+      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 20, boxShadow: "0 20px 50px -20px rgba(0,0,0,.5)" }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: TEXT, marginBottom: 6 }}>
+          O que entra no cálculo (e o que não entra)
+        </h3>
+        <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 12, lineHeight: 1.55 }}>
+          Comparativo correto: <strong>hoje = PIS+COFINS+ICMS</strong> vs <strong>Reforma = IBS+CBS</strong>.
+          Se o “hoje” incluir IRPJ + CSLL, a economia fica inflada (~{fmtBRL(divergenciaMensalEstimada)}/mês neste exemplo
+          — ordem de grandeza do apontamento de R$ 225 mil).
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
+          <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: 12 }}>
+            <p style={{ fontWeight: 700, color: TEXT, marginBottom: 4 }}>Usado no diagnóstico</p>
+            <p style={{ color: TEXT_MUTED }}>Hoje: {fmtBRL(impostoAtual)}/mês</p>
+            <p style={{ color: TEXT_MUTED }}>Reforma: {fmtBRL(impostoReforma)}/mês</p>
+            <p style={{ color: TEXT, marginTop: 4 }}>Δ {delta > 0 ? "+" : ""}{delta.toFixed(0)}%</p>
+          </div>
+          <div style={{ border: `1px dashed ${BORDER}`, borderRadius: 10, padding: 12, opacity: 0.85 }}>
+            <p style={{ fontWeight: 700, color: TEXT, marginBottom: 4 }}>Se incluísse IR+CSLL (errado)</p>
+            <p style={{ color: TEXT_MUTED }}>Hoje: {fmtBRL(impostoAtualComIrCsll)}/mês</p>
+            <p style={{ color: TEXT_MUTED }}>Reforma: {fmtBRL(impostoReforma)}/mês</p>
+            <p style={{ color: TEXT, marginTop: 4 }}>Δ {deltaComIrCsll > 0 ? "+" : ""}{deltaComIrCsll.toFixed(0)}% — não usar</p>
+          </div>
+        </div>
       </div>
 
       {/* BLOCO 2 — Comparativo DRE lado a lado */}
