@@ -2,8 +2,9 @@
 -- PASSO 2/2 — views, tese_ativa, promove ICMS, backfill tese_origem_id
 -- Rodar SÓ depois do PASSO 1 ter sucesso (enum ICMS já commitado).
 --
--- Idempotente. Trata UNIQUE (cliente, mês, tributo, tese): consolida órfãs
--- (tese_origem_id NULL) e, no backfill, faz MERGE em vez de UPDATE cego.
+-- Idempotente. Consolida órfãs e faz MERGE no backfill (evita UNIQUE 23505).
+-- Aggregações vão para TEMP TABLE (evita alias "agg" que o Lovable/PG
+-- interpretou como tabela "coalesce" → erro 42P01).
 -- =============================================================================
 
 BEGIN;
@@ -45,7 +46,6 @@ WHERE c.id = sub.cliente_id
   AND c.tese_ativa_id IS NULL;
 
 -- 3a) Consolida órfãs duplicadas (mesmo cliente+mês+tributo, tese NULL)
---     PG permite várias NULL no UNIQUE; ao amarrar a mesma tese elas colidem.
 CREATE TEMP TABLE tmp_dup_keep ON COMMIT DROP AS
 SELECT DISTINCT ON (cliente_id, mes_referencia, tributo_enum)
   id AS keep_id,
@@ -66,7 +66,6 @@ JOIN tmp_dup_keep k
 WHERE cm.tese_origem_id IS NULL
   AND cm.id <> k.keep_id;
 
--- Move DCOMPs das linhas que vão sumir
 UPDATE public.dcomps d
 SET compensacao_id = t.keep_id
 FROM tmp_dup_drop t
@@ -81,31 +80,31 @@ DELETE FROM public.dcomps d
 USING tmp_dup_drop t
 WHERE d.compensacao_id = t.drop_id;
 
--- Soma valores na linha que fica
-UPDATE public.compensacoes_mensais keep
+CREATE TEMP TABLE tmp_dup_sums ON COMMIT DROP AS
+SELECT
+  t.keep_id,
+  SUM(COALESCE(cm.valor_compensado, 0)) AS extra_valor,
+  SUM(COALESCE(cm.honorario_valor, 0)) AS extra_hon,
+  SUM(COALESCE(cm.nfse_valor, 0)) AS extra_nfse,
+  BOOL_OR(COALESCE(cm.lancado_mapa, false)) AS extra_mapa
+FROM tmp_dup_drop t
+JOIN public.compensacoes_mensais cm ON cm.id = t.drop_id
+GROUP BY t.keep_id;
+
+UPDATE public.compensacoes_mensais AS k
 SET
-  valor_compensado = COALESCE(keep.valor_compensado, 0) + COALESCE.extra_valor,
-  honorario_valor = COALESCE(keep.honorario_valor, 0) + COALESCE.extra_hon,
-  nfse_valor = COALESCE(keep.nfse_valor, 0) + agg.extra_nfse,
-  lancado_mapa = keep.lancado_mapa OR COALESCE(agg.extra_mapa, false)
-FROM (
-  SELECT
-    t.keep_id,
-    SUM(COALESCE(cm.valor_compensado, 0)) AS extra_valor,
-    SUM(COALESCE(cm.honorario_valor, 0)) AS extra_hon,
-    SUM(COALESCE(cm.nfse_valor, 0)) AS extra_nfse,
-    BOOL_OR(COALESCE(cm.lancado_mapa, false)) AS extra_mapa
-  FROM tmp_dup_drop t
-  JOIN public.compensacoes_mensais cm ON cm.id = t.drop_id
-  GROUP BY t.keep_id
-) agg
-WHERE keep.id = agg.keep_id;
+  valor_compensado = COALESCE(k.valor_compensado, 0) + s.extra_valor,
+  honorario_valor = COALESCE(k.honorario_valor, 0) + s.extra_hon,
+  nfse_valor = COALESCE(k.nfse_valor, 0) + s.extra_nfse,
+  lancado_mapa = k.lancado_mapa OR COALESCE(s.extra_mapa, false)
+FROM tmp_dup_sums AS s
+WHERE k.id = s.keep_id;
 
 DELETE FROM public.compensacoes_mensais cm
 USING tmp_dup_drop t
 WHERE cm.id = t.drop_id;
 
--- 3b) Promove ICMS (outros → ICMS). Se já existir ICMS órfã no mesmo mês, merge.
+-- 3b) Promove ICMS (outros → ICMS)
 CREATE TEMP TABLE tmp_icms_promo ON COMMIT DROP AS
 SELECT id
 FROM public.compensacoes_mensais
@@ -116,13 +115,12 @@ WHERE tributo_enum = 'outros'
     OR observacao ILIKE '%ICMS — importado do formato%'
   );
 
--- Linhas que podem ser promovidas sem colidir com outra órfã ICMS
-UPDATE public.compensacoes_mensais cm
+UPDATE public.compensacoes_mensais AS cm
 SET tributo_enum = 'ICMS'::public.tributo,
     tributo = 'ICMS'
 WHERE cm.id IN (SELECT id FROM tmp_icms_promo)
   AND NOT EXISTS (
-    SELECT 1 FROM public.compensacoes_mensais x
+    SELECT 1 FROM public.compensacoes_mensais AS x
     WHERE x.cliente_id = cm.cliente_id
       AND x.mes_referencia = cm.mes_referencia
       AND x.tributo_enum = 'ICMS'::public.tributo
@@ -130,11 +128,10 @@ WHERE cm.id IN (SELECT id FROM tmp_icms_promo)
       AND x.id <> cm.id
   );
 
--- Linhas que colidiriam: merge na ICMS existente e apaga a 'outros'
 CREATE TEMP TABLE tmp_icms_merge ON COMMIT DROP AS
 SELECT cm.id AS from_id, x.id AS to_id
-FROM public.compensacoes_mensais cm
-JOIN public.compensacoes_mensais x
+FROM public.compensacoes_mensais AS cm
+JOIN public.compensacoes_mensais AS x
   ON x.cliente_id = cm.cliente_id
  AND x.mes_referencia = cm.mes_referencia
  AND x.tributo_enum = 'ICMS'::public.tributo
@@ -143,37 +140,42 @@ JOIN public.compensacoes_mensais x
 WHERE cm.id IN (SELECT id FROM tmp_icms_promo)
   AND cm.tributo_enum = 'outros';
 
-UPDATE public.dcomps d
+UPDATE public.dcomps AS d
 SET compensacao_id = t.to_id
-FROM tmp_icms_merge t
+FROM tmp_icms_merge AS t
 WHERE d.compensacao_id = t.from_id
   AND NOT EXISTS (
-    SELECT 1 FROM public.dcomps x
+    SELECT 1 FROM public.dcomps AS x
     WHERE x.compensacao_id = t.to_id AND x.numero_declaracao = d.numero_declaracao
   );
-DELETE FROM public.dcomps d USING tmp_icms_merge t WHERE d.compensacao_id = t.from_id;
 
-UPDATE public.compensacoes_mensais dest
+DELETE FROM public.dcomps AS d
+USING tmp_icms_merge AS t
+WHERE d.compensacao_id = t.from_id;
+
+CREATE TEMP TABLE tmp_icms_sums ON COMMIT DROP AS
+SELECT
+  t.to_id,
+  SUM(COALESCE(cm.valor_compensado, 0)) AS extra_valor,
+  SUM(COALESCE(cm.honorario_valor, 0)) AS extra_hon,
+  BOOL_OR(COALESCE(cm.lancado_mapa, false)) AS extra_mapa
+FROM tmp_icms_merge AS t
+JOIN public.compensacoes_mensais AS cm ON cm.id = t.from_id
+GROUP BY t.to_id;
+
+UPDATE public.compensacoes_mensais AS dest
 SET
-  valor_compensado = COALESCE(dest.valor_compensado, 0) + COALESCE.v,
-  honorario_valor = COALESCE(dest.honorario_valor, 0) + COALESCE.h,
-  lancado_mapa = dest.lancado_mapa OR COALESCE(agg.m, false)
-FROM (
-  SELECT t.to_id,
-         SUM(COALESCE(cm.valor_compensado, 0)) AS v,
-         SUM(COALESCE(cm.honorario_valor, 0)) AS h,
-         BOOL_OR(COALESCE(cm.lancado_mapa, false)) AS m
-  FROM tmp_icms_merge t
-  JOIN public.compensacoes_mensais cm ON cm.id = t.from_id
-  GROUP BY t.to_id
-) agg
-WHERE dest.id = agg.to_id;
+  valor_compensado = COALESCE(dest.valor_compensado, 0) + s.extra_valor,
+  honorario_valor = COALESCE(dest.honorario_valor, 0) + s.extra_hon,
+  lancado_mapa = dest.lancado_mapa OR COALESCE(s.extra_mapa, false)
+FROM tmp_icms_sums AS s
+WHERE dest.id = s.to_id;
 
-DELETE FROM public.compensacoes_mensais cm
-USING tmp_icms_merge t
+DELETE FROM public.compensacoes_mensais AS cm
+USING tmp_icms_merge AS t
 WHERE cm.id = t.from_id;
 
--- 4) Backfill tese_origem_id — FIFO + MERGE se a chave já existir
+-- 4) Backfill tese_origem_id — FIFO
 CREATE TEMP TABLE tmp_alloc (
   compensacao_id uuid PRIMARY KEY,
   tese_id uuid NOT NULL
@@ -252,62 +254,67 @@ BEGIN
   END LOOP;
 END $$;
 
--- 4a) MERGE: órfã cujo (cliente,mês,tributo,tese) já existe → soma e apaga órfã
+-- 4a) MERGE se a chave (cliente,mês,tributo,tese) já existir
 CREATE TEMP TABLE tmp_merge_target ON COMMIT DROP AS
 SELECT
   a.compensacao_id AS from_id,
   exist.id AS to_id
 FROM tmp_alloc a
-JOIN public.compensacoes_mensais orphan ON orphan.id = a.compensacao_id
-JOIN public.compensacoes_mensais exist
+JOIN public.compensacoes_mensais AS orphan ON orphan.id = a.compensacao_id
+JOIN public.compensacoes_mensais AS exist
   ON exist.cliente_id = orphan.cliente_id
  AND exist.mes_referencia = orphan.mes_referencia
  AND exist.tributo_enum = orphan.tributo_enum
  AND exist.tese_origem_id = a.tese_id
  AND exist.id <> orphan.id;
 
-UPDATE public.dcomps d
+UPDATE public.dcomps AS d
 SET compensacao_id = t.to_id
-FROM tmp_merge_target t
+FROM tmp_merge_target AS t
 WHERE d.compensacao_id = t.from_id
   AND NOT EXISTS (
-    SELECT 1 FROM public.dcomps x
+    SELECT 1 FROM public.dcomps AS x
     WHERE x.compensacao_id = t.to_id AND x.numero_declaracao = d.numero_declaracao
   );
-DELETE FROM public.dcomps d USING tmp_merge_target t WHERE d.compensacao_id = t.from_id;
 
-UPDATE public.compensacoes_mensais dest
+DELETE FROM public.dcomps AS d
+USING tmp_merge_target AS t
+WHERE d.compensacao_id = t.from_id;
+
+CREATE TEMP TABLE tmp_merge_sums ON COMMIT DROP AS
+SELECT
+  t.to_id,
+  SUM(COALESCE(cm.valor_compensado, 0)) AS extra_valor,
+  SUM(COALESCE(cm.honorario_valor, 0)) AS extra_hon,
+  BOOL_OR(COALESCE(cm.lancado_mapa, false)) AS extra_mapa
+FROM tmp_merge_target AS t
+JOIN public.compensacoes_mensais AS cm ON cm.id = t.from_id
+GROUP BY t.to_id;
+
+UPDATE public.compensacoes_mensais AS dest
 SET
-  valor_compensado = COALESCE(dest.valor_compensado, 0) + COALESCE.v,
-  honorario_valor = COALESCE(dest.honorario_valor, 0) + COALESCE.h,
-  lancado_mapa = dest.lancado_mapa OR COALESCE(agg.m, false)
-FROM (
-  SELECT t.to_id,
-         SUM(COALESCE(cm.valor_compensado, 0)) AS v,
-         SUM(COALESCE(cm.honorario_valor, 0)) AS h,
-         BOOL_OR(COALESCE(cm.lancado_mapa, false)) AS m
-  FROM tmp_merge_target t
-  JOIN public.compensacoes_mensais cm ON cm.id = t.from_id
-  GROUP BY t.to_id
-) agg
-WHERE dest.id = agg.to_id;
+  valor_compensado = COALESCE(dest.valor_compensado, 0) + s.extra_valor,
+  honorario_valor = COALESCE(dest.honorario_valor, 0) + s.extra_hon,
+  lancado_mapa = dest.lancado_mapa OR COALESCE(s.extra_mapa, false)
+FROM tmp_merge_sums AS s
+WHERE dest.id = s.to_id;
 
-DELETE FROM public.compensacoes_mensais cm
-USING tmp_merge_target t
+DELETE FROM public.compensacoes_mensais AS cm
+USING tmp_merge_target AS t
 WHERE cm.id = t.from_id;
 
-DELETE FROM tmp_alloc a
-USING tmp_merge_target t
+DELETE FROM tmp_alloc AS a
+USING tmp_merge_target AS t
 WHERE a.compensacao_id = t.from_id;
 
 -- 4b) UPDATE seguro nas órfãs restantes
-UPDATE public.compensacoes_mensais cm
+UPDATE public.compensacoes_mensais AS cm
 SET tese_origem_id = a.tese_id
-FROM tmp_alloc a
+FROM tmp_alloc AS a
 WHERE cm.id = a.compensacao_id
   AND cm.tese_origem_id IS NULL
   AND NOT EXISTS (
-    SELECT 1 FROM public.compensacoes_mensais x
+    SELECT 1 FROM public.compensacoes_mensais AS x
     WHERE x.cliente_id = cm.cliente_id
       AND x.mes_referencia = cm.mes_referencia
       AND x.tributo_enum = cm.tributo_enum
