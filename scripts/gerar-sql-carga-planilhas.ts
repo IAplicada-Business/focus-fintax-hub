@@ -388,7 +388,8 @@ SET valor_apurado_inicial = EXCLUDED.valor_apurado_inicial,
 
 const detComp = detalhes.map(
   (d) =>
-    `(${esc(d.cnpj)}, ${esc(d.tese)}, ${num(d.compensado)}::numeric, ${esc(d.status)}, ${d.incluir}::boolean)`,
+    // REPORTO nunca vira compensado (possíveis futuros) — evita saldo negativo no mapa
+    `(${esc(d.cnpj)}, ${esc(d.tese)}, ${num(d.tese === "REPORTO" ? 0 : d.compensado)}::numeric, ${esc(d.status)}, ${d.incluir}::boolean)`,
 );
 for (const chunk of chunkValues(detComp)) {
   parts.push(`WITH lookup AS (

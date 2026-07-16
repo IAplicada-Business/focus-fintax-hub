@@ -44,14 +44,15 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
     fetchData();
   }, [clienteId]);
 
-  // Fox: gráficos/KPIs do cliente excluem Reporto (possíveis futuros) para não assustar
+  // Fox: gráficos/KPIs do cliente excluem Reporto (possíveis futuros) — nunca entra em compensado
   const assinados = processos.filter((p) => p.status_contrato === "assinado");
   const assinadosCalculo = assinados.filter((p) => p.categoria !== "reporto");
   const processoIdsCalculo = new Set(assinadosCalculo.map((p) => p.id));
-  const compsCalculo = compensacoes.filter(
-    (c) => !c.processo_tese_id || processoIdsCalculo.has(c.processo_tese_id) ||
-      (c.processos_teses as any)?.categoria !== "reporto"
-  );
+  const compsCalculo = compensacoes.filter((c) => {
+    if ((c.processos_teses as any)?.categoria === "reporto") return false;
+    if (!c.processo_tese_id) return true; // fluxo sem processo vinculado
+    return processoIdsCalculo.has(c.processo_tese_id);
+  });
 
   const totalIdentificado = assinadosCalculo.reduce((s, p) => s + Number(p.valor_credito || 0), 0);
   const totalCompensado = compsCalculo.reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
@@ -81,7 +82,11 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
   const chartData = Object.entries(porMes)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([mes, vals]) => ({
-      mes: new Date(mes + "-01").toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }),
+      mes: (() => {
+        const [y, m] = mes.split("-");
+        const nomes = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+        return `${nomes[parseInt(m, 10) - 1]}/${y.slice(2)}`;
+      })(),
       compensado: vals.compensado,
       honorarios: vals.honorarios,
     }));

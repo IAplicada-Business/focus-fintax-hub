@@ -35,3 +35,18 @@ export function getStatusPagamentoConfig(value: string) {
 export function formatCurrencyBR(value: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
+
+const MESES_PT_CURTO = [
+  "jan", "fev", "mar", "abr", "mai", "jun",
+  "jul", "ago", "set", "out", "nov", "dez",
+] as const;
+
+/** Formata competência YYYY-MM ou YYYY-MM-DD sem shift de fuso (evita out/2025 p/ 2025-11-01). */
+export function formatCompetenciaPT(mesRef: string | null | undefined): string {
+  if (!mesRef) return "—";
+  const m = String(mesRef).match(/^(\d{4})-(\d{2})/);
+  if (!m) return String(mesRef);
+  const mesIdx = parseInt(m[2], 10) - 1;
+  if (mesIdx < 0 || mesIdx > 11) return String(mesRef);
+  return `${MESES_PT_CURTO[mesIdx]}/${m[1]}`;
+}

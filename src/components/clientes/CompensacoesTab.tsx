@@ -12,9 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, FileText, MessageCircle, Printer, Copy, Mail, Trash2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { formatCurrencyBR, getStatusPagamentoConfig, STATUS_PAGAMENTO } from "@/lib/clientes-constants";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { formatCurrencyBR, formatCompetenciaPT, getStatusPagamentoConfig, STATUS_PAGAMENTO } from "@/lib/clientes-constants";
 import logoFintax from "@/assets/logo-focus-fintax.svg";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 import html2canvas from "html2canvas";
@@ -402,7 +400,7 @@ Equipe Focus.`;
             const percLabel = perc > 0 ? `${(perc * 100).toFixed(perc * 100 % 1 === 0 ? 0 : 1)}%` : "—";
             return (
               <TableRow key={c.id}>
-                <TableCell>{format(new Date(c.mes_referencia), "MMM/yyyy", { locale: ptBR })}</TableCell>
+                <TableCell>{formatCompetenciaPT(c.mes_referencia as string)}</TableCell>
                 <TableCell>{c.processos_teses?.nome_exibicao || "—"}</TableCell>
                 <TableCell className="text-xs">{(c as any).tributo || "—"}</TableCell>
                 <TableCell className="font-medium">{formatCurrencyBR(Number(c.valor_compensado || 0))}</TableCell>
@@ -423,7 +421,7 @@ Equipe Focus.`;
                         <AlertDialogDescription>
                           Esta ação não pode ser desfeita. A compensação de{" "}
                           <strong>{formatCurrencyBR(Number(c.valor_compensado || 0))}</strong> referente a{" "}
-                          <strong>{format(new Date(c.mes_referencia), "MMM/yyyy", { locale: ptBR })}</strong> será removida permanentemente.
+                          <strong>{formatCompetenciaPT(c.mes_referencia as string)}</strong> será removida permanentemente.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -433,7 +431,7 @@ Equipe Focus.`;
                             const { error } = await supabase.from("compensacoes_mensais").delete().eq("id", c.id);
                             if (error) { toast.error("Erro ao excluir."); return; }
                             toast.success("Compensação excluída.");
-                            logClienteHistorico(clienteId, "compensacao_removida", `Compensação removida: ${format(new Date(c.mes_referencia), "MMM/yyyy", { locale: ptBR })} — ${formatCurrencyBR(Number(c.valor_compensado || 0))}`);
+                            logClienteHistorico(clienteId, "compensacao_removida", `Compensação removida: ${formatCompetenciaPT(c.mes_referencia as string)} — ${formatCurrencyBR(Number(c.valor_compensado || 0))}`);
                             fetchData();
                           }}
                           className="bg-[#c8001e] hover:bg-[#a30019] text-white"
