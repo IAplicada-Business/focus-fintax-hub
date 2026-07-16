@@ -2,15 +2,14 @@
 
 Pacote validado via mockups + checklist.
 
-## SQL (rodar no Lovable)
+## SQL (rodar no Lovable) — **2 passos**
 
-Arquivo: `docs/sql/fox_pendencias_aprovadas.sql`
+O Postgres não deixa usar o enum `ICMS` na mesma execução em que ele é criado (`ERROR 55P04`).
 
-1. Enum `tributo` += `ICMS`
-2. `security_invoker = true` em `v_mapa_creditos` e `v_cliente_totais_calculo`
-3. Coluna `clientes.tese_ativa_id` + seed
-4. Promove ICMS que estava em `outros`
-5. Backfill FIFO de `tese_origem_id` (INSUMOS → SUBVENCAO)
+1. `docs/sql/fox_pendencias_aprovadas_passo1_icms_enum.sql` → Run  
+2. `docs/sql/fox_pendencias_aprovadas_passo2.sql` → Run  
+
+O passo 2 faz: `security_invoker` nas views, `tese_ativa_id`, promove ICMS, backfill `tese_origem_id`.
 
 ## UI
 
