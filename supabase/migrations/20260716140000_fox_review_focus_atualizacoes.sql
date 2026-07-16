@@ -133,7 +133,7 @@ WITH lookup AS (
 INSERT INTO public.creditos_apurados (cliente_id, tese_id, valor_apurado_inicial, data_apuracao, incluir_no_calculo)
 SELECT l.cliente_id, l.tese_id, i.valor_inicial, DATE '2026-05-01', l.tese_incluir
 FROM incoming i
-JOIN lookup l ON l.cnpj_digits = i.cnpj AND l.tese_codigo = i.tese_codigo
+JOIN lookup l ON l.cnpj_digits = i.cnpj AND l.tese_codigo::text = i.tese_codigo
 ON CONFLICT (cliente_id, tese_id) DO UPDATE
 SET valor_apurado_inicial = EXCLUDED.valor_apurado_inicial,
     incluir_no_calculo = EXCLUDED.incluir_no_calculo,
@@ -276,7 +276,7 @@ SET valor_compensado_manual = c.valor_compensado,
     atualizado_em = now()
 FROM incoming i
 JOIN comps c ON c.cnpj = i.cnpj AND c.tese_codigo = i.tese_codigo
-JOIN lookup l ON l.cnpj_digits = i.cnpj AND l.tese_codigo = i.tese_codigo
+JOIN lookup l ON l.cnpj_digits = i.cnpj AND l.tese_codigo::text = i.tese_codigo
 WHERE ca.cliente_id = l.cliente_id AND ca.tese_id = l.tese_id;
 
 -- Créditos fora da planilha (status ainda nulo) herdam o padrão da tese
