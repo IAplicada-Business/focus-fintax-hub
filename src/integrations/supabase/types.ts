@@ -238,6 +238,7 @@ export type Database = {
             | Database["public"]["Enums"]["status_cliente"]
             | null
           taxa_honorario: number | null
+          tese_ativa_id: string | null
           whatsapp: string | null
         }
         Insert: {
@@ -262,6 +263,7 @@ export type Database = {
             | Database["public"]["Enums"]["status_cliente"]
             | null
           taxa_honorario?: number | null
+          tese_ativa_id?: string | null
           whatsapp?: string | null
         }
         Update: {
@@ -286,6 +288,7 @@ export type Database = {
             | Database["public"]["Enums"]["status_cliente"]
             | null
           taxa_honorario?: number | null
+          tese_ativa_id?: string | null
           whatsapp?: string | null
         }
         Relationships: [
@@ -1800,6 +1803,7 @@ export type Database = {
         | "INSS_retidos"
         | "PIS"
         | "COFINS"
+        | "ICMS"
         | "IRPJ_CSLL_agregado"
         | "DCTWEB_trimestral"
         | "outros"
@@ -1948,6 +1952,7 @@ export const Constants = {
         "INSS_retidos",
         "PIS",
         "COFINS",
+        "ICMS",
         "IRPJ_CSLL_agregado",
         "DCTWEB_trimestral",
         "outros",

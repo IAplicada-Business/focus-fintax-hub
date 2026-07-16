@@ -38,6 +38,7 @@ export type TributoEnum =
   | "INSS_retidos"
   | "PIS"
   | "COFINS"
+  | "ICMS"
   | "IRPJ_CSLL_agregado"
   | "DCTWEB_trimestral"
   | "outros";
@@ -188,12 +189,7 @@ function parseHeaders(rows: any[][]): HeaderMap | null {
       else if (h === "retidos") cols_tributo.push({ tributo: "INSS_retidos", col: c });
       else if (h === "pis") cols_tributo.push({ tributo: "PIS", col: c });
       else if (h === "cofins") cols_tributo.push({ tributo: "COFINS", col: c });
-      else if (h === "icms")
-        cols_tributo.push({
-          tributo: "outros",
-          col: c,
-          observacao_agregacao: "ICMS — importado do formato novo_icms (fluxo jun/26+)",
-        });
+      else if (h === "icms") cols_tributo.push({ tributo: "ICMS", col: c });
       else if (h === "irpj csll") cols_tributo.push({ tributo: "IRPJ_CSLL_agregado", col: c });
     }
   } else if (variante === "novo") {
@@ -531,6 +527,7 @@ function emptyTotal(): Record<TributoEnum, number> {
     INSS_retidos: 0,
     PIS: 0,
     COFINS: 0,
+    ICMS: 0,
     IRPJ_CSLL_agregado: 0,
     DCTWEB_trimestral: 0,
     outros: 0,

@@ -82,10 +82,18 @@ export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props)
     if (!resultado) return;
     setStep("importing");
 
-    // Puxa catálogo de teses pra ligar tese_origem_id (fallback: null)
-    // Aqui a heurística é simples: sem informação de tese na fluxo caixa,
-    // deixa tese_origem_id = null e o operador ajusta manualmente. O
-    // motor de motivos já grava tributo_enum corretamente.
+    // tese_origem_id: usa clientes.tese_ativa_id (troca de tese no header).
+    const clienteIds = [...new Set(preview.map((p) => p.clienteId).filter(Boolean))] as string[];
+    const teseAtivaByCliente = new Map<string, string>();
+    if (clienteIds.length) {
+      const { data: clis } = await supabase
+        .from("clientes")
+        .select("id, tese_ativa_id")
+        .in("id", clienteIds);
+      for (const c of clis || []) {
+        if ((c as any).tese_ativa_id) teseAtivaByCliente.set(c.id, (c as any).tese_ativa_id);
+      }
+    }
 
     let linhasInseridas = 0;
     let dcompsInseridas = 0;
@@ -98,19 +106,21 @@ export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props)
         continue;
       }
       const c = p.comp;
+      const teseOrigem = teseAtivaByCliente.get(p.clienteId) ?? null;
 
       for (const t of c.tributos) {
         const insertPayload: any = {
           cliente_id: p.clienteId,
           mes_referencia: c.competencia,
           tributo_enum: t.tributo,
-          tributo: t.tributo,             // legado (deprecar 1 sprint)
+          tributo: t.tributo,
           valor_compensado: t.valor,
           honorario_valor: c.honorario_valor,
           honorario_percentual: c.honorario_percentual,
           lancado_mapa: c.lancado_mapa,
           vencimento_debito: c.vencimento_debito?.toISOString().slice(0, 10) ?? null,
           nfse_valor: c.nfse_valor,
+          tese_origem_id: teseOrigem,
           observacao:
             [
               t.observacao_agregacao,
@@ -120,26 +130,30 @@ export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props)
               .join(" | "),
         };
 
-        // upsert via UNIQUE (cliente_id, mes_referencia, tributo_enum, tese_origem_id)
-        // tese_origem_id é NULL — em PG, NULL não bate no UNIQUE, então cada import
-        // recria; pra evitar duplicatas, verificamos existência antes.
-        const { data: existente } = await supabase
+        let q = supabase
           .from("compensacoes_mensais")
           .select("id")
           .eq("cliente_id", p.clienteId)
           .eq("mes_referencia", c.competencia)
-          .eq("tributo_enum", t.tributo as any)
-          .is("tese_origem_id", null)
-          .maybeSingle();
+          .eq("tributo_enum", t.tributo as any);
+        q = teseOrigem ? q.eq("tese_origem_id", teseOrigem) : q.is("tese_origem_id", null);
+        const { data: existente } = await q.maybeSingle();
 
         if (existente?.id) {
-          // update
           const { error } = await supabase
             .from("compensacoes_mensais")
             .update(insertPayload as any)
             .eq("id", existente.id);
-          if (!error) linhasInseridas++;
-          else conflicts++;
+          if (!error) {
+            linhasInseridas++;
+            for (const numero of c.dcomps) {
+              const { error: dcErr } = await (supabase.from("dcomps") as any).upsert(
+                { compensacao_id: existente.id, numero_declaracao: numero },
+                { onConflict: "compensacao_id,numero_declaracao" }
+              );
+              if (!dcErr) dcompsInseridas++;
+            }
+          } else conflicts++;
         } else {
           const { data: novo, error } = await supabase
             .from("compensacoes_mensais")
@@ -152,7 +166,6 @@ export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props)
           }
           linhasInseridas++;
 
-          // Insert DCOMPs vinculadas a essa compensação
           for (const numero of c.dcomps) {
             const { error: dcErr } = await (supabase.from("dcomps") as any).upsert(
               { compensacao_id: novo.id, numero_declaracao: numero },

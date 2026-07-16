@@ -27,10 +27,11 @@ interface LinhaMapa {
   status_utilizacao?: "utilizado" | "em_uso" | "a_utilizar" | null;
 }
 
+/** Labels de produto (DB continua utilizado / em_uso / a_utilizar). */
 const STATUS_LABEL: Record<string, string> = {
-  utilizado: "Já utilizado",
-  em_uso: "Em uso",
-  a_utilizar: "A utilizar",
+  utilizado: "Compensado",
+  em_uso: "Compensando",
+  a_utilizar: "Não iniciado",
 };
 
 const STATUS_STYLE: Record<string, string> = {

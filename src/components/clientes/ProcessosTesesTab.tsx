@@ -149,7 +149,15 @@ export function ProcessosTesesTab({ clienteId, compensacoesTotal }: Props) {
                     )}
                   </div>
                 </TableCell>
-                <TableCell>{formatCurrencyBR(Number(p.valor_credito || 0))}</TableCell>
+                <TableCell>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="w-28 h-7 text-xs"
+                    value={p.valor_credito ?? ""}
+                    onChange={(e) => handleInlineUpdate(p.id, "valor_credito", Number(e.target.value))}
+                  />
+                </TableCell>
                 <TableCell><Badge variant="outline" className={sc.color}>{sc.label}</Badge></TableCell>
                 <TableCell>
                   <Input

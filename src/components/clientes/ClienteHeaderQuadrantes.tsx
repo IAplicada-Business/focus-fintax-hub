@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TrendingUp, TrendingDown, PieChart, Layers } from "lucide-react";
+import { TrendingUp, TrendingDown, PieChart, Layers, RefreshCw } from "lucide-react";
 import { formatCurrencyBR } from "@/lib/clientes-constants";
 import {
   STATUS_COMPENSACAO_LABELS,
   STATUS_COMPENSACAO_COLORS,
   type StatusCompensacao,
 } from "@/components/StatusCompensacaoFilter";
+import { TrocaTeseAtivaModal } from "@/components/clientes/TrocaTeseAtivaModal";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -62,6 +64,10 @@ export function ClienteHeaderQuadrantes({ clienteId }: Props) {
   const [loading, setLoading] = useState(true);
   const [mesInicio, setMesInicio] = useState("");
   const [mesFim, setMesFim] = useState("");
+  const [teseAtivaId, setTeseAtivaId] = useState<string | null>(null);
+  const [teseAtivaLabel, setTeseAtivaLabel] = useState<string | null>(null);
+  const [trocaOpen, setTrocaOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +78,7 @@ export function ClienteHeaderQuadrantes({ clienteId }: Props) {
         { data: compsData },
         { data: view },
         { data: totaisView },
+        { data: cli },
       ] = await Promise.all([
         (supabase as any)
           .from("creditos_apurados")
@@ -91,7 +98,21 @@ export function ClienteHeaderQuadrantes({ clienteId }: Props) {
           .select("credito_apurado, total_compensado, saldo_restante, possiveis_creditos_futuros, teses_no_calculo")
           .eq("cliente_id", clienteId)
           .maybeSingle(),
+        supabase.from("clientes").select("tese_ativa_id").eq("id", clienteId).maybeSingle(),
       ]);
+
+      const ativaId = (cli as any)?.tese_ativa_id ?? null;
+      setTeseAtivaId(ativaId);
+      if (ativaId) {
+        const { data: t } = await (supabase as any)
+          .from("teses_tributarias")
+          .select("label")
+          .eq("id", ativaId)
+          .maybeSingle();
+        if (!cancelled) setTeseAtivaLabel(t?.label ?? null);
+      } else if (!cancelled) {
+        setTeseAtivaLabel(null);
+      }
 
       if (cancelled) return;
 
@@ -154,7 +175,7 @@ export function ClienteHeaderQuadrantes({ clienteId }: Props) {
     };
     fetchDados();
     return () => { cancelled = true; };
-  }, [clienteId]);
+  }, [clienteId, reloadKey]);
 
   const totalCompensadoPeriodo = useMemo(() => {
     return comps
@@ -307,8 +328,32 @@ export function ClienteHeaderQuadrantes({ clienteId }: Props) {
               Honorários acumulados: <strong className="text-foreground">{formatCurrencyBR(dadosBase.totalHonorarios)}</strong>
             </p>
           )}
+          <div className="mt-3 pt-2 border-t border-[var(--ink-06)]">
+            <p className="text-[10px] text-muted-foreground mb-1">
+              Tese em uso:{" "}
+              <strong className="text-foreground">{teseAtivaLabel || "não definida"}</strong>
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] w-full"
+              onClick={() => setTrocaOpen(true)}
+            >
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Trocar tese em uso
+            </Button>
+          </div>
         </div>
       </div>
+
+      <TrocaTeseAtivaModal
+        open={trocaOpen}
+        onOpenChange={setTrocaOpen}
+        clienteId={clienteId}
+        teseAtivaId={teseAtivaId}
+        onChanged={() => setReloadKey((k) => k + 1)}
+      />
     </div>
   );
 }
