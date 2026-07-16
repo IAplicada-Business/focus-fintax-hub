@@ -22,9 +22,7 @@ import {
   Grid3x3,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrencyBR } from "@/lib/clientes-constants";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { formatCurrencyBR, formatCompetenciaPT } from "@/lib/clientes-constants";
 
 // -----------------------------------------------------------------------------
 // Constantes
@@ -431,7 +429,7 @@ export default function CompensacoesLinear() {
                 <SelectItem value="all">Todas as competências</SelectItem>
                 {meses.map((m) => (
                   <SelectItem key={m} value={m}>
-                    {format(new Date(m + "-01"), "MMM/yyyy", { locale: ptBR })}
+                    {formatCompetenciaPT(m)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -507,7 +505,7 @@ export default function CompensacoesLinear() {
                       </TableCell>
                       <TableCell>
                         {readOnly ? (
-                          <span>{format(new Date(c.mes_referencia), "MMM/yyyy", { locale: ptBR })}</span>
+                          <span>{formatCompetenciaPT(c.mes_referencia)}</span>
                         ) : (
                           <Input
                             type="month"
@@ -672,7 +670,7 @@ export default function CompensacoesLinear() {
                   Compensação de{" "}
                   <strong>{formatCurrencyBR(Number(deleteTarget.valor_compensado || 0))}</strong>{" "}
                   em{" "}
-                  <strong>{format(new Date(deleteTarget.mes_referencia), "MMM/yyyy", { locale: ptBR })}</strong>{" "}
+                  <strong>{formatCompetenciaPT(deleteTarget.mes_referencia)}</strong>{" "}
                   será removida permanentemente. Todas as DCOMPs vinculadas também serão excluídas.
                 </>
               )}
@@ -784,7 +782,7 @@ function PivotMatrix({
             return (
               <TableRow key={linha.mes} className="text-xs">
                 <TableCell className="font-medium">
-                  {format(new Date(linha.mes + "-01"), "MMM/yyyy", { locale: ptBR })}
+                  {formatCompetenciaPT(linha.mes)}
                 </TableCell>
                 {PIVOT_COLS.map((col) => {
                   const v = linha.valores[col.key];

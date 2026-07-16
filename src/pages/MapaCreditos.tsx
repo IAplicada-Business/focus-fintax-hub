@@ -447,8 +447,17 @@ export default function MapaCreditos() {
                         {formatCurrencyBR(Number(l.valor_apurado_inicial))}
                       </TableCell>
                       <TableCell style={{ fontSize: "12px", textAlign: "right", padding: "8px 10px" }}>
-                        {formatCurrencyBR(Number(l.total_compensado))}
-                        <div style={{ fontSize: "9px", color: "#6b7280" }}>{pctUtilizado.toFixed(1)}% do apurado</div>
+                        {l.tese_codigo === "REPORTO" ? (
+                          <>
+                            <span style={{ color: "#6b7280" }}>—</span>
+                            <div style={{ fontSize: "9px", color: "#6b7280" }}>não compensa</div>
+                          </>
+                        ) : (
+                          <>
+                            {formatCurrencyBR(Number(l.total_compensado))}
+                            <div style={{ fontSize: "9px", color: "#6b7280" }}>{pctUtilizado.toFixed(1)}% do apurado</div>
+                          </>
+                        )}
                       </TableCell>
                       <TableCell
                         style={{
@@ -456,10 +465,12 @@ export default function MapaCreditos() {
                           textAlign: "right",
                           padding: "8px 10px",
                           fontWeight: 700,
-                          color: Number(l.saldo_final) > 0 ? "#0a1564" : "#6b7280",
+                          color: Number(l.tese_codigo === "REPORTO" ? l.valor_apurado_inicial : l.saldo_final) > 0 ? "#0a1564" : "#6b7280",
                         }}
                       >
-                        {formatCurrencyBR(Number(l.saldo_final))}
+                        {formatCurrencyBR(
+                          Number(l.tese_codigo === "REPORTO" ? l.valor_apurado_inicial : l.saldo_final)
+                        )}
                       </TableCell>
                     </TableRow>
                   );

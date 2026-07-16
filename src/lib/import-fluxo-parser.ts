@@ -417,13 +417,23 @@ export function parseAbasFluxo(
       const cnpjNorm = normalizarCnpj(cnpjRaw);
       const razaoNorm = normalizarRazao(razaoRaw);
 
-      // Determina competência: usa coluna "Comp." (mês) + ano do R1
-      let mesComp: number | null = null;
+      // Competência: R1 (título da aba) é a fonte de verdade quando preenchido.
+      // A coluna "Comp." só entra se R1 não trouxe mês — evita cópia stale
+      // (ex.: jun/26 com R1=MAIO mas Comp.=ABRIL da aba anterior).
+      let mesComp: number | null = mesDefault;
+      let compRaw = "";
+      let compRawMes: number | null = null;
       if (headerMap.col_comp >= 0) {
-        const compRaw = limpaCel(row[headerMap.col_comp]);
-        if (compRaw) mesComp = nomeMesParaNumero(compRaw);
+        compRaw = limpaCel(row[headerMap.col_comp]);
+        if (compRaw) compRawMes = nomeMesParaNumero(compRaw);
       }
-      mesComp = mesComp ?? mesDefault;
+      if (mesComp == null) {
+        mesComp = compRawMes;
+      } else if (compRawMes != null && compRawMes !== mesComp) {
+        warnings.push(
+          `${abaNome} R${linhaPlanilha}: Comp.="${compRaw}" diverge do R1 (mês ${mesComp}); usando R1.`
+        );
+      }
       if (!mesComp) {
         rejeitadas.push({
           aba: abaNome,

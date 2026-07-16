@@ -145,3 +145,38 @@ describe("parseAbasFluxo — fixture Importar Sistema - FinTax.xlsx", () => {
     }
   });
 });
+
+describe("parseAbasFluxo — R1 manda sobre Comp. stale", () => {
+  it("usa MAIO do R1 mesmo com Comp.=ABRIL na linha", () => {
+    const wsData = [
+      ["MAIO - 2026", "", "", "", "", "", "", "", "", "", "Honários", "%", "Comp.", "ENVIO BOLETO"],
+      ["EMPRESAS", "CNPJ", "", "", "", "", "", "", "", "", "", "", "", ""],
+      ["", "", "INSS", "RETIDOS", "PIS", "COFINS", "ICMS", "TOTAL", "MAPA", "", "", "", "", ""],
+      [
+        "EMPRESA TESTE",
+        "30.140.610/0001-51",
+        "1000",
+        "0",
+        "500",
+        "500",
+        "0",
+        "2000",
+        "OK",
+        "",
+        "300",
+        "15%",
+        "ABRIL",
+        "",
+      ],
+    ];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(wb, ws, "fluxo caixa jun 2026");
+    const out = parseAbasFluxo(wb, XLSX);
+    expect(out.compensacoes.length).toBeGreaterThan(0);
+    for (const c of out.compensacoes) {
+      expect(c.competencia).toBe("2026-05-01");
+    }
+    expect(out.warnings.some((w) => /diverge do R1/i.test(w))).toBe(true);
+  });
+});

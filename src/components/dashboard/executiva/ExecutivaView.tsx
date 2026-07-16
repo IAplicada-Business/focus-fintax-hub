@@ -133,11 +133,20 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
     });
   }, [creditos, teseIncluirIds]);
 
+  const reportoTeseIds = useMemo(
+    () => new Set(teses.filter((t) => t.codigo === "REPORTO").map((t) => t.id)),
+    [teses]
+  );
+
   const compsNoCalculo = useMemo(() => {
-    // Alinha compensado ao mesmo recorte do crédito apurado (Fox)
-    if (teseIncluirIds.size === 0) return comps;
-    return comps.filter((c) => !c.tese_origem_id || teseIncluirIds.has(c.tese_origem_id));
-  }, [comps, teseIncluirIds]);
+    // Alinha compensado ao mesmo recorte do crédito apurado (Fox).
+    // REPORTO nunca entra no total compensado (saldo ficaria negativo).
+    return comps.filter((c) => {
+      if (c.tese_origem_id && reportoTeseIds.has(c.tese_origem_id)) return false;
+      if (teseIncluirIds.size === 0) return true;
+      return !c.tese_origem_id || teseIncluirIds.has(c.tese_origem_id);
+    });
+  }, [comps, teseIncluirIds, reportoTeseIds]);
 
   const totalApurado = useMemo(
     () => creditosNoCalculo.reduce((s, c) => s + Number(c.valor_apurado_inicial || 0), 0),

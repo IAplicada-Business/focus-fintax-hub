@@ -5,15 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TrendingUp, TrendingDown, PieChart, Layers, RefreshCw, Plus } from "lucide-react";
-import { formatCurrencyBR } from "@/lib/clientes-constants";
+import { formatCurrencyBR, formatCompetenciaPT } from "@/lib/clientes-constants";
 import {
   STATUS_COMPENSACAO_LABELS,
   STATUS_COMPENSACAO_COLORS,
   type StatusCompensacao,
 } from "@/components/StatusCompensacaoFilter";
 import { TrocaTeseAtivaModal } from "@/components/clientes/TrocaTeseAtivaModal";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 interface Props {
   clienteId: string;
@@ -27,6 +25,8 @@ interface CompRow {
   mes_referencia: string;
   honorario_valor: number | null;
   tese_origem_id: string | null;
+  processo_tese_id?: string | null;
+  processos_teses?: { categoria?: string | null } | null;
 }
 
 interface CreditoRow {
@@ -63,6 +63,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
   const [dadosBase, setDadosBase] = useState<Dados>(EMPTY);
   const [comps, setComps] = useState<CompRow[]>([]);
   const [teseIncluir, setTeseIncluir] = useState<Set<string>>(new Set());
+  const [reportoTeseIds, setReportoTeseIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [mesInicio, setMesInicio] = useState("");
   const [mesFim, setMesFim] = useState("");
@@ -85,6 +86,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
         { data: cli },
         { count: procCount },
         { data: motorTeses },
+        { data: reportoTes },
       ] = await Promise.all([
         (supabase as any)
           .from("creditos_apurados")
@@ -92,7 +94,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
           .eq("cliente_id", clienteId),
         supabase
           .from("compensacoes_mensais")
-          .select("valor_compensado, valor_nf_servico, mes_referencia, honorario_valor, tese_origem_id")
+          .select("valor_compensado, valor_nf_servico, mes_referencia, honorario_valor, tese_origem_id, processo_tese_id, processos_teses:processo_tese_id(categoria)")
           .eq("cliente_id", clienteId),
         (supabase as any)
           .from("v_clientes_status_compensacao")
@@ -110,11 +112,17 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
           .select("id", { count: "exact", head: true })
           .eq("cliente_id", clienteId),
         supabase.from("motor_teses_config").select("tese, nome_exibicao").eq("ativo", true),
+        (supabase as any).from("teses_tributarias").select("id").eq("codigo", "REPORTO"),
       ]);
+
+      const reportoIds = new Set(
+        ((reportoTes as { id: string }[]) || []).map((t) => t.id)
+      );
 
       if (!cancelled) {
         setProcessosCount(procCount ?? 0);
         setOpcoesTese((motorTeses as { tese: string; nome_exibicao: string }[]) || []);
+        setReportoTeseIds(reportoIds);
       }
 
       const ativaId = (cli as any)?.tese_ativa_id ?? null;
@@ -160,7 +168,12 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
             .filter((c) => hasFlag && !c.incluir_no_calculo)
             .reduce((s, c) => s + Number(c.valor_apurado_inicial || 0), 0);
 
-      const compsRows = ((compsData as CompRow[]) || []);
+      const compsRows = ((compsData as CompRow[]) || []).filter((c) => {
+        // Reporto / possíveis futuros nunca entram no total compensado
+        if (c.tese_origem_id && reportoIds.has(c.tese_origem_id)) return false;
+        if ((c.processos_teses as any)?.categoria === "reporto") return false;
+        return true;
+      });
       const compsNoCalculo = compsRows.filter(
         (c) => !c.tese_origem_id || teseSet.has(c.tese_origem_id) || incluirIds.size === 0
       );
@@ -196,6 +209,8 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
   const totalCompensadoPeriodo = useMemo(() => {
     return comps
       .filter((c) => {
+        if (c.tese_origem_id && reportoTeseIds.has(c.tese_origem_id)) return false;
+        if ((c.processos_teses as any)?.categoria === "reporto") return false;
         if (c.tese_origem_id && teseIncluir.size > 0 && !teseIncluir.has(c.tese_origem_id)) {
           return false;
         }
@@ -205,7 +220,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
         return true;
       })
       .reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
-  }, [comps, teseIncluir, mesInicio, mesFim]);
+  }, [comps, teseIncluir, reportoTeseIds, mesInicio, mesFim]);
 
   const saldo = dadosBase.totalApurado - totalCompensadoPeriodo;
   const pctUtilizado = dadosBase.totalApurado > 0
@@ -215,7 +230,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
   const periodoLabel = mesInicio || mesFim
     ? `${mesInicio || "…"} → ${mesFim || "…"}`
     : dadosBase.ultimaCompetencia
-      ? `Última: ${format(new Date(dadosBase.ultimaCompetencia), "MMM/yyyy", { locale: ptBR })}`
+      ? `Última: ${formatCompetenciaPT(dadosBase.ultimaCompetencia)}`
       : "Sem compensações";
 
   if (loading) {
