@@ -62,7 +62,9 @@ const EMPTY: Dados = {
 export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
   const [dadosBase, setDadosBase] = useState<Dados>(EMPTY);
   const [comps, setComps] = useState<CompRow[]>([]);
+  const [totalCompensadoView, setTotalCompensadoView] = useState<number | null>(null);
   const [teseIncluir, setTeseIncluir] = useState<Set<string>>(new Set());
+
   const [reportoTeseIds, setReportoTeseIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [mesInicio, setMesInicio] = useState("");
