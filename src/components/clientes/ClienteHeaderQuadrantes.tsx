@@ -26,8 +26,8 @@ interface CompRow {
   honorario_valor: number | null;
   tese_origem_id: string | null;
   processo_tese_id?: string | null;
-  processos_teses?: { categoria?: string | null } | null;
 }
+
 
 interface CreditoRow {
   valor_apurado_inicial: number;
