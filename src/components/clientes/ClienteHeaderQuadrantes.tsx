@@ -153,9 +153,11 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
 
       const fromView = totaisView as {
         credito_apurado?: number;
+        total_compensado?: number;
         possiveis_creditos_futuros?: number;
         teses_no_calculo?: number;
       } | null;
+
 
       const totalApurado = fromView?.credito_apurado != null
         ? Number(fromView.credito_apurado)
