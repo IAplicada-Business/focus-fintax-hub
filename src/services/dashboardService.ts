@@ -50,7 +50,7 @@ export async function fetchOperationalKpis() {
   const [clientesRes, compensacoesRes, processosRes, totalClientesRes, totaisRes] = await Promise.all([
     supabase.from("clientes").select("id, empresa", { count: "exact" }).eq("status", "ativo").limit(5000),
     supabase.from("compensacoes_mensais").select("valor_compensado, valor_nf_servico, honorario_valor, mes_referencia, cliente_id, tese_origem_id").limit(5000),
-    supabase.from("processos_teses").select("id, cliente_id, valor_credito, percentual_honorario, valor_honorario, categoria").limit(5000),
+    supabase.from("processos_teses").select("id, cliente_id, valor_credito, percentual_honorario, valor_honorario").limit(5000),
     supabase.from("clientes").select("id", { count: "exact", head: true }).eq("status", "ativo"),
     (supabase as any).from("v_cliente_totais_calculo").select("cliente_id, credito_apurado, total_compensado, saldo_restante").limit(5000),
   ]);
