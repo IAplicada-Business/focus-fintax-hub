@@ -194,6 +194,8 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
 
       setTeseIncluir(teseSet);
       setComps(compsRows);
+      setTotalCompensadoView(fromView?.total_compensado != null ? Number(fromView.total_compensado) : null);
+
       setDadosBase({
         totalApurado,
         tesesAtivas: fromView?.teses_no_calculo ?? teseSet.size,
