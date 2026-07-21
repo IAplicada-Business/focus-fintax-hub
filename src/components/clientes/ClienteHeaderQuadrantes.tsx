@@ -94,8 +94,9 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
           .eq("cliente_id", clienteId),
         supabase
           .from("compensacoes_mensais")
-          .select("valor_compensado, valor_nf_servico, mes_referencia, honorario_valor, tese_origem_id, processo_tese_id, processos_teses:processo_tese_id(categoria)")
+          .select("valor_compensado, valor_nf_servico, mes_referencia, honorario_valor, tese_origem_id, processo_tese_id")
           .eq("cliente_id", clienteId),
+
         (supabase as any)
           .from("v_clientes_status_compensacao")
           .select("status_principal, tem_reporto, tem_tese_ativa, ultima_competencia_compensada")
