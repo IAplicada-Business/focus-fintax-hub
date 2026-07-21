@@ -172,9 +172,9 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
       const compsRows = ((compsData as CompRow[]) || []).filter((c) => {
         // Reporto / possíveis futuros nunca entram no total compensado
         if (c.tese_origem_id && reportoIds.has(c.tese_origem_id)) return false;
-        if ((c.processos_teses as any)?.categoria === "reporto") return false;
         return true;
       });
+
       const compsNoCalculo = compsRows.filter(
         (c) => !c.tese_origem_id || teseSet.has(c.tese_origem_id) || incluirIds.size === 0
       );
