@@ -26,8 +26,8 @@ interface CompRow {
   honorario_valor: number | null;
   tese_origem_id: string | null;
   processo_tese_id?: string | null;
-  processos_teses?: { categoria?: string | null } | null;
 }
+
 
 interface CreditoRow {
   valor_apurado_inicial: number;
@@ -62,7 +62,9 @@ const EMPTY: Dados = {
 export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
   const [dadosBase, setDadosBase] = useState<Dados>(EMPTY);
   const [comps, setComps] = useState<CompRow[]>([]);
+  const [totalCompensadoView, setTotalCompensadoView] = useState<number | null>(null);
   const [teseIncluir, setTeseIncluir] = useState<Set<string>>(new Set());
+
   const [reportoTeseIds, setReportoTeseIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [mesInicio, setMesInicio] = useState("");
@@ -94,8 +96,9 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
           .eq("cliente_id", clienteId),
         supabase
           .from("compensacoes_mensais")
-          .select("valor_compensado, valor_nf_servico, mes_referencia, honorario_valor, tese_origem_id, processo_tese_id, processos_teses:processo_tese_id(categoria)")
+          .select("valor_compensado, valor_nf_servico, mes_referencia, honorario_valor, tese_origem_id, processo_tese_id")
           .eq("cliente_id", clienteId),
+
         (supabase as any)
           .from("v_clientes_status_compensacao")
           .select("status_principal, tem_reporto, tem_tese_ativa, ultima_competencia_compensada")
@@ -152,9 +155,11 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
 
       const fromView = totaisView as {
         credito_apurado?: number;
+        total_compensado?: number;
         possiveis_creditos_futuros?: number;
         teses_no_calculo?: number;
       } | null;
+
 
       const totalApurado = fromView?.credito_apurado != null
         ? Number(fromView.credito_apurado)
@@ -171,9 +176,9 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
       const compsRows = ((compsData as CompRow[]) || []).filter((c) => {
         // Reporto / possíveis futuros nunca entram no total compensado
         if (c.tese_origem_id && reportoIds.has(c.tese_origem_id)) return false;
-        if ((c.processos_teses as any)?.categoria === "reporto") return false;
         return true;
       });
+
       const compsNoCalculo = compsRows.filter(
         (c) => !c.tese_origem_id || teseSet.has(c.tese_origem_id) || incluirIds.size === 0
       );
@@ -189,6 +194,8 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
 
       setTeseIncluir(teseSet);
       setComps(compsRows);
+      setTotalCompensadoView(fromView?.total_compensado != null ? Number(fromView.total_compensado) : null);
+
       setDadosBase({
         totalApurado,
         tesesAtivas: fromView?.teses_no_calculo ?? teseSet.size,
@@ -207,20 +214,32 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
   }, [clienteId, reloadKey]);
 
   const totalCompensadoPeriodo = useMemo(() => {
+    // Sem filtro de período: usar view canônica (Fox — v_cliente_totais_calculo)
+    if (!mesInicio && !mesFim && totalCompensadoView != null) {
+      return totalCompensadoView;
+    }
+    // Com filtro: recalcular; se tese_origem_id null e já existe linha linkada
+    // no mesmo mês para tese no cálculo, ignora a órfã (evita dobrar)
+    const linkedMonths = new Set(
+      comps
+        .filter((c) => c.tese_origem_id && teseIncluir.has(c.tese_origem_id))
+        .map((c) => (c.mes_referencia || "").slice(0, 7))
+    );
     return comps
       .filter((c) => {
         if (c.tese_origem_id && reportoTeseIds.has(c.tese_origem_id)) return false;
-        if ((c.processos_teses as any)?.categoria === "reporto") return false;
         if (c.tese_origem_id && teseIncluir.size > 0 && !teseIncluir.has(c.tese_origem_id)) {
           return false;
         }
         const mes = (c.mes_referencia || "").slice(0, 7);
+        if (!c.tese_origem_id && linkedMonths.has(mes)) return false;
         if (mesInicio && mes < mesInicio) return false;
         if (mesFim && mes > mesFim) return false;
         return true;
       })
       .reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
-  }, [comps, teseIncluir, reportoTeseIds, mesInicio, mesFim]);
+  }, [comps, teseIncluir, reportoTeseIds, mesInicio, mesFim, totalCompensadoView]);
+
 
   const saldo = dadosBase.totalApurado - totalCompensadoPeriodo;
   const pctUtilizado = dadosBase.totalApurado > 0
