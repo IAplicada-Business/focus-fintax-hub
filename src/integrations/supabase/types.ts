@@ -306,6 +306,13 @@ export type Database = {
             referencedRelation: "v_meta_lead_funnel"
             referencedColumns: ["crm_lead_id"]
           },
+          {
+            foreignKeyName: "clientes_tese_ativa_id_fkey"
+            columns: ["tese_ativa_id"]
+            isOneToOne: false
+            referencedRelation: "teses_tributarias"
+            referencedColumns: ["id"]
+          },
         ]
       }
       compensacoes_mensais: {
@@ -319,7 +326,7 @@ export type Database = {
           mes_referencia: string
           nfse_valor: number | null
           observacao: string | null
-          processo_tese_id: string
+          processo_tese_id: string | null
           status_pagamento: string | null
           status_pagamento_honorario: Database["public"]["Enums"]["status_pagamento"]
           tese_origem_id: string | null
@@ -339,7 +346,7 @@ export type Database = {
           mes_referencia: string
           nfse_valor?: number | null
           observacao?: string | null
-          processo_tese_id: string
+          processo_tese_id?: string | null
           status_pagamento?: string | null
           status_pagamento_honorario?: Database["public"]["Enums"]["status_pagamento"]
           tese_origem_id?: string | null
@@ -359,7 +366,7 @@ export type Database = {
           mes_referencia?: string
           nfse_valor?: number | null
           observacao?: string | null
-          processo_tese_id?: string
+          processo_tese_id?: string | null
           status_pagamento?: string | null
           status_pagamento_honorario?: Database["public"]["Enums"]["status_pagamento"]
           tese_origem_id?: string | null
@@ -731,6 +738,7 @@ export type Database = {
       }
       leads: {
         Row: {
+          calculadora_lead_id: string | null
           cnpj: string
           created_by: string | null
           criado_em: string
@@ -751,6 +759,7 @@ export type Database = {
           whatsapp: string
         }
         Insert: {
+          calculadora_lead_id?: string | null
           cnpj?: string
           created_by?: string | null
           criado_em?: string
@@ -771,6 +780,7 @@ export type Database = {
           whatsapp?: string
         }
         Update: {
+          calculadora_lead_id?: string | null
           cnpj?: string
           created_by?: string | null
           criado_em?: string
@@ -790,7 +800,15 @@ export type Database = {
           token?: string
           whatsapp?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "leads_calculadora_lead_id_fkey"
+            columns: ["calculadora_lead_id"]
+            isOneToOne: false
+            referencedRelation: "calculadora_leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meta_ad_sets: {
         Row: {
@@ -1384,6 +1402,7 @@ export type Database = {
       processos_teses: {
         Row: {
           atualizado_em: string | null
+          categoria: string
           cliente_id: string
           criado_em: string | null
           id: string
@@ -1398,6 +1417,7 @@ export type Database = {
         }
         Insert: {
           atualizado_em?: string | null
+          categoria?: string
           cliente_id: string
           criado_em?: string | null
           id?: string
@@ -1412,6 +1432,7 @@ export type Database = {
         }
         Update: {
           atualizado_em?: string | null
+          categoria?: string
           cliente_id?: string
           criado_em?: string | null
           id?: string
@@ -1610,18 +1631,6 @@ export type Database = {
         }
         Relationships: []
       }
-      v_cliente_totais_calculo: {
-        Row: {
-          cliente_id: string | null
-          credito_apurado: number | null
-          possiveis_creditos_futuros: number | null
-          saldo_restante: number | null
-          teses_fora_calculo: number | null
-          teses_no_calculo: number | null
-          total_compensado: number | null
-        }
-        Relationships: []
-      }
       user_permissions: {
         Row: {
           can_access: boolean
@@ -1672,6 +1681,40 @@ export type Database = {
       }
     }
     Views: {
+      v_cliente_totais_calculo: {
+        Row: {
+          cliente_id: string | null
+          credito_apurado: number | null
+          possiveis_creditos_futuros: number | null
+          saldo_restante: number | null
+          teses_fora_calculo: number | null
+          teses_no_calculo: number | null
+          total_compensado: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creditos_apurados_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creditos_apurados_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_clientes_status_compensacao"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "creditos_apurados_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["cliente_id"]
+          },
+        ]
+      }
       v_clientes_status_compensacao: {
         Row: {
           cliente_id: string | null
@@ -1803,10 +1846,10 @@ export type Database = {
         | "INSS_retidos"
         | "PIS"
         | "COFINS"
-        | "ICMS"
         | "IRPJ_CSLL_agregado"
         | "DCTWEB_trimestral"
         | "outros"
+        | "ICMS"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1952,10 +1995,10 @@ export const Constants = {
         "INSS_retidos",
         "PIS",
         "COFINS",
-        "ICMS",
         "IRPJ_CSLL_agregado",
         "DCTWEB_trimestral",
         "outros",
+        "ICMS",
       ],
     },
   },
