@@ -114,11 +114,21 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
     const honorarioValor = form.valor_nf_servico !== ""
       ? Number(form.valor_nf_servico) || 0
       : honorarioAuto;
-    const { data: cli } = await supabase
-      .from("clientes")
-      .select("tese_ativa_id")
-      .eq("id", clienteId)
-      .maybeSingle();
+    const procSel = processos.find((p) => p.id === form.processo_tese_id);
+    const [{ data: cli }, { data: teseRow }] = await Promise.all([
+      supabase.from("clientes").select("tese_ativa_id").eq("id", clienteId).maybeSingle(),
+      procSel?.tese
+        ? (supabase as any)
+            .from("teses_tributarias")
+            .select("id")
+            .eq("codigo", procSel.tese)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    const teseOrigemId =
+      (teseRow as { id?: string } | null)?.id
+      ?? (cli as { tese_ativa_id?: string } | null)?.tese_ativa_id
+      ?? null;
     const { error } = await supabase.from("compensacoes_mensais").insert({
       cliente_id: clienteId,
       processo_tese_id: form.processo_tese_id,
@@ -131,7 +141,7 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
       observacao: form.observacao,
       tributo: form.tributo || null,
       tributo_enum: (TRIBUTO_TO_ENUM[form.tributo] || "outros") as any,
-      tese_origem_id: (cli as any)?.tese_ativa_id ?? null,
+      tese_origem_id: teseOrigemId,
     } as any);
     if (error) { toast.error("Erro ao registrar."); return; }
     toast.success("Compensação registrada!");
