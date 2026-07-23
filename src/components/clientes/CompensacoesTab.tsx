@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, FileText, MessageCircle, Printer, Copy, Mail, Trash2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { formatCurrencyBR, formatCompetenciaPT, getStatusPagamentoConfig, STATUS_PAGAMENTO } from "@/lib/clientes-constants";
+import { formatCurrencyBR, formatCompetenciaPT, getStatusPagamentoConfig, isReportoCompensacao, STATUS_PAGAMENTO } from "@/lib/clientes-constants";
 import logoFintax from "@/assets/logo-focus-fintax.svg";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 import html2canvas from "html2canvas";
@@ -77,7 +77,10 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
     setCompensacoes(comp || []);
     setProcessos(proc || []);
     setLoading(false);
-    const total = (comp || []).reduce((s: number, c: any) => s + Number(c.valor_compensado || 0), 0);
+    // Total passado ao header/processos: sem REPORTO (possíveis futuros)
+    const total = (comp || [])
+      .filter((c: any) => !isReportoCompensacao(c))
+      .reduce((s: number, c: any) => s + Number(c.valor_compensado || 0), 0);
     onTotalChange?.(total);
   }, [clienteId, onTotalChange]);
 
@@ -90,8 +93,10 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
     if (mesFim && mes > mesFim) return false;
     return true;
   });
-  const totalFiltered = filtered.reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
-  const totalHonorariosFiltered = filtered.reduce(
+  // Total da tabela = mesmo critério do card (sem REPORTO)
+  const filteredNoReporto = filtered.filter((c) => !isReportoCompensacao(c));
+  const totalFiltered = filteredNoReporto.reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
+  const totalHonorariosFiltered = filteredNoReporto.reduce(
     (s, c) => s + Number(c.honorario_valor ?? c.valor_nf_servico ?? 0),
     0
   );
@@ -496,7 +501,7 @@ Equipe Focus.`;
         {filtered.length > 0 && (
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={3} className="font-medium">Total do período</TableCell>
+              <TableCell colSpan={3} className="font-medium">Total do período (sem Reporto)</TableCell>
               <TableCell className="font-bold">{formatCurrencyBR(totalFiltered)}</TableCell>
               <TableCell></TableCell>
               <TableCell></TableCell>

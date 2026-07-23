@@ -50,3 +50,21 @@ export function formatCompetenciaPT(mesRef: string | null | undefined): string {
   if (mesIdx < 0 || mesIdx > 11) return String(mesRef);
   return `${MESES_PT_CURTO[mesIdx]}/${m[1]}`;
 }
+
+/** REPORTO / possíveis futuros — fora do Total Compensado (mesmo com tese_origem_id nulo). */
+export function isReportoCompensacao(c: {
+  tese_origem_id?: string | null;
+  processo_tese_id?: string | null;
+  processos_teses?: { tese?: string | null; categoria?: string | null; nome_exibicao?: string | null } | null;
+}, opts?: {
+  reportoTeseIds?: Set<string>;
+  reportoProcessoIds?: Set<string>;
+}): boolean {
+  const tese = (c.processos_teses?.tese || "").toUpperCase();
+  const cat = (c.processos_teses?.categoria || "").toLowerCase();
+  const nome = (c.processos_teses?.nome_exibicao || "").toUpperCase();
+  if (tese === "REPORTO" || cat === "reporto" || nome.includes("REPORTO")) return true;
+  if (c.tese_origem_id && opts?.reportoTeseIds?.has(c.tese_origem_id)) return true;
+  if (c.processo_tese_id && opts?.reportoProcessoIds?.has(c.processo_tese_id)) return true;
+  return false;
+}
