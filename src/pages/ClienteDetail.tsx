@@ -366,6 +366,11 @@ export default function ClienteDetail() {
                   clienteId={id!}
                   cliente={cliente}
                   onTotalChange={setCompensacoesTotal}
+                  onCompensacoesChanged={() => {
+                    setHeaderReload((n) => n + 1);
+                    setTabKey((k) => k + 1);
+                    fetchHistorico();
+                  }}
                 />
               </TabsContent>
               <TabsContent value="resumo">

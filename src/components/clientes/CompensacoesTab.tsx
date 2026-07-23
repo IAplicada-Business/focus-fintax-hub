@@ -34,9 +34,10 @@ interface Props {
   clienteId: string;
   cliente?: { empresa: string; cnpj: string };
   onTotalChange?: (total: number) => void;
+  onCompensacoesChanged?: () => void;
 }
 
-export function CompensacoesTab({ clienteId, cliente, onTotalChange }: Props) {
+export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensacoesChanged }: Props) {
   const [compensacoes, setCompensacoes] = useState<any[]>([]);
   const [processos, setProcessos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,7 +139,8 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange }: Props) {
     logClienteHistorico(clienteId, "compensacao_adicionada", `Compensação ${form.mes_referencia} — ${proc?.nome_exibicao || ""}: ${formatCurrencyBR(valorComp)}`);
     setModalOpen(false);
     setForm({ processo_tese_id: "", mes_referencia: "", valor_compensado: "", status_pagamento: "pendente", valor_nf_servico: "", honorario_percentual: "", observacao: "", tributo: "" });
-    fetchData();
+    await fetchData();
+    onCompensacoesChanged?.();
   };
 
   // ——— Mapa Tributário helpers ———
@@ -405,7 +407,41 @@ Equipe Focus.`;
                 <TableCell className="text-xs">{(c as any).tributo || "—"}</TableCell>
                 <TableCell className="font-medium">{formatCurrencyBR(Number(c.valor_compensado || 0))}</TableCell>
                 <TableCell className="text-xs">{percLabel}</TableCell>
-                <TableCell><Badge variant="outline" className={sp.color}>{sp.label}</Badge></TableCell>
+                <TableCell>
+                  <Select
+                    value={c.status_pagamento || "pendente"}
+                    onValueChange={async (v) => {
+                      const prev = c.status_pagamento;
+                      setCompensacoes((cs) => cs.map((x) => (x.id === c.id ? { ...x, status_pagamento: v } : x)));
+                      const { error } = await supabase
+                        .from("compensacoes_mensais")
+                        .update({ status_pagamento: v } as any)
+                        .eq("id", c.id);
+                      if (error) {
+                        toast.error("Erro ao atualizar pagamento.");
+                        setCompensacoes((cs) => cs.map((x) => (x.id === c.id ? { ...x, status_pagamento: prev } : x)));
+                        return;
+                      }
+                      toast.success("Pagamento atualizado.");
+                      logClienteHistorico(
+                        clienteId,
+                        "pagamento_atualizado",
+                        `Pagamento ${formatCompetenciaPT(c.mes_referencia as string)} → ${getStatusPagamentoConfig(v).label}`,
+                      );
+                      await fetchData();
+                      onCompensacoesChanged?.();
+                    }}
+                  >
+                    <SelectTrigger className={`h-7 w-28 text-xs ${sp.color}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_PAGAMENTO.map((s) => (
+                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
                 <TableCell>{formatCurrencyBR(Number((c as any).honorario_valor ?? c.valor_nf_servico ?? 0))}</TableCell>
                 <TableCell className="text-xs text-muted-foreground max-w-32 truncate">{c.observacao || "—"}</TableCell>
                 <TableCell>
@@ -432,7 +468,8 @@ Equipe Focus.`;
                             if (error) { toast.error("Erro ao excluir."); return; }
                             toast.success("Compensação excluída.");
                             logClienteHistorico(clienteId, "compensacao_removida", `Compensação removida: ${formatCompetenciaPT(c.mes_referencia as string)} — ${formatCurrencyBR(Number(c.valor_compensado || 0))}`);
-                            fetchData();
+                            await fetchData();
+                            onCompensacoesChanged?.();
                           }}
                           className="bg-[#c8001e] hover:bg-[#a30019] text-white"
                         >
