@@ -468,7 +468,8 @@ Equipe Focus.`;
                             if (error) { toast.error("Erro ao excluir."); return; }
                             toast.success("Compensação excluída.");
                             logClienteHistorico(clienteId, "compensacao_removida", `Compensação removida: ${formatCompetenciaPT(c.mes_referencia as string)} — ${formatCurrencyBR(Number(c.valor_compensado || 0))}`);
-                            fetchData();
+                            await fetchData();
+                            onCompensacoesChanged?.();
                           }}
                           className="bg-[#c8001e] hover:bg-[#a30019] text-white"
                         >
