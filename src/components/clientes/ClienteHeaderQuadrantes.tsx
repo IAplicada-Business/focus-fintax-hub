@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ interface Props {
   clienteId: string;
   /** Abre a aba Processos e o fluxo de adicionar tese (opcionalmente com código pré-selecionado) */
   onAddTese?: (teseCodigo?: string) => void;
+  /** Incrementar para refetch sem remount (evita header duplicado na tela) */
+  refreshToken?: number;
 }
 
 interface CompRow {
@@ -58,7 +60,7 @@ const EMPTY: Dados = {
   possiveisFuturos: 0,
 };
 
-export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
+export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0 }: Props) {
   const [dadosBase, setDadosBase] = useState<Dados>(EMPTY);
   const [comps, setComps] = useState<CompRow[]>([]);
   const [totalCompensadoView, setTotalCompensadoView] = useState<number | null>(null);
@@ -72,11 +74,17 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
   const [reloadKey, setReloadKey] = useState(0);
   const [processosCount, setProcessosCount] = useState(0);
   const [opcoesTese, setOpcoesTese] = useState<{ tese: string; nome_exibicao: string }[]>([]);
+  const loadedOnceRef = useRef(false);
+
+  useEffect(() => {
+    loadedOnceRef.current = false;
+  }, [clienteId]);
 
   useEffect(() => {
     let cancelled = false;
     const fetchDados = async () => {
-      setLoading(true);
+      // Skeleton só no 1º load do cliente — refresh não remonta o bloco (evita header duplicado)
+      if (!loadedOnceRef.current) setLoading(true);
       const [
         { data: creditos },
         { data: compsData },
@@ -204,11 +212,12 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
         tem_tese_ativa: !!(view as any)?.tem_tese_ativa,
         possiveisFuturos,
       });
+      loadedOnceRef.current = true;
       setLoading(false);
     };
     fetchDados();
     return () => { cancelled = true; };
-  }, [clienteId, reloadKey]);
+  }, [clienteId, reloadKey, refreshToken]);
 
   const totalCompensadoPeriodo = useMemo(() => {
     // Regra de produto: cada lançamento em "Registrar compensação" soma no
