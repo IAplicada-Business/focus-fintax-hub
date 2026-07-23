@@ -367,8 +367,8 @@ export default function ClienteDetail() {
                   cliente={cliente}
                   onTotalChange={setCompensacoesTotal}
                   onCompensacoesChanged={() => {
+                    // Só remonta o header — não remonta as abas (evita flicker / perda de contexto)
                     setHeaderReload((n) => n + 1);
-                    setTabKey((k) => k + 1);
                     fetchHistorico();
                   }}
                 />

@@ -62,7 +62,6 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
   const [dadosBase, setDadosBase] = useState<Dados>(EMPTY);
   const [comps, setComps] = useState<CompRow[]>([]);
   const [totalCompensadoView, setTotalCompensadoView] = useState<number | null>(null);
-  const [teseIncluir, setTeseIncluir] = useState<Set<string>>(new Set());
   const [reportoTeseIds, setReportoTeseIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [mesInicio, setMesInicio] = useState("");
@@ -191,7 +190,6 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
         ? compsPagos.reduce((a, b) => (a.mes_referencia > b.mes_referencia ? a : b)).mes_referencia
         : (view as any)?.ultima_competencia_compensada ?? null;
 
-      setTeseIncluir(teseSet);
       setComps(compsRows);
       setTotalCompensadoView(fromView?.total_compensado != null ? Number(fromView.total_compensado) : null);
 
@@ -213,18 +211,16 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
   }, [clienteId, reloadKey]);
 
   const totalCompensadoPeriodo = useMemo(() => {
-    // Fonte principal: soma da aba Compensações (atualiza na hora ao registrar).
-    // Detalhamento (via v_cliente_totais_calculo) só se não houver linhas na aba.
+    // Regra de produto: cada lançamento em "Registrar compensação" soma no
+    // Total Compensado e reduz o Saldo na hora. Fonte = aba Compensações.
+    // Fallback (view/Detalhamento) só se a aba estiver vazia.
     const linkedMonths = new Set(
       comps
-        .filter((c) => c.tese_origem_id && teseIncluir.has(c.tese_origem_id))
+        .filter((c) => c.tese_origem_id)
         .map((c) => (c.mes_referencia || "").slice(0, 7))
     );
     const naAba = comps.filter((c) => {
       if (c.tese_origem_id && reportoTeseIds.has(c.tese_origem_id)) return false;
-      if (c.tese_origem_id && teseIncluir.size > 0 && !teseIncluir.has(c.tese_origem_id)) {
-        return false;
-      }
       const mes = (c.mes_referencia || "").slice(0, 7);
       // Órfã no mesmo mês de linha linkada → ignora (evita dobrar)
       if (!c.tese_origem_id && linkedMonths.has(mes)) return false;
@@ -236,7 +232,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
       return totalCompensadoView;
     }
     return naAba.reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
-  }, [comps, teseIncluir, reportoTeseIds, mesInicio, mesFim, totalCompensadoView]);
+  }, [comps, reportoTeseIds, mesInicio, mesFim, totalCompensadoView]);
 
   const saldo = dadosBase.totalApurado - totalCompensadoPeriodo;
   const pctUtilizado = dadosBase.totalApurado > 0
