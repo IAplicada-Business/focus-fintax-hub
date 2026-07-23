@@ -1,0 +1,22 @@
+---
+description: Edit Focus FinTax only via Git — never via Lovable agent
+alwaysApply: true
+---
+
+# Git only — never Lovable agent edits
+
+Focus FinTax Hub is developed **only through this Git repo** (branch → PR → merge).
+
+## Never
+
+- Do **not** call Lovable `send_message` (or any Lovable agent edit) to change product code.
+- Do **not** “fix in Lovable and skip the PR.”
+- Do **not** treat Lovable chat as the source of truth for diffs.
+
+## Always
+
+- Edit files locally in this workspace.
+- Open a GitHub PR for reviewable changes.
+- Use Lovable only for **read-only** checks if needed (preview URL, deploy status) — and prefer not using Lovable MCP at all unless the user asks to **publish/deploy** after a merge.
+
+If production is out of sync with `main`, fix it by pushing/merging Git and then deploying — not by re-implementing in the Lovable agent.
