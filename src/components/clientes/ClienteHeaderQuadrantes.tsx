@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TrendingUp, TrendingDown, PieChart, Layers, RefreshCw, Plus } from "lucide-react";
-import { formatCurrencyBR, formatCompetenciaPT, isReportoCompensacao } from "@/lib/clientes-constants";
+import { formatCurrencyBR, formatCompetenciaPT, isReportoCompensacao, sumCompensadoCanonical } from "@/lib/clientes-constants";
 import {
   STATUS_COMPENSACAO_LABELS,
   STATUS_COMPENSACAO_COLORS,
@@ -228,24 +228,19 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
     // Regra de produto: cada lançamento em "Registrar compensação" soma no
     // Total Compensado e reduz o Saldo na hora. Fonte = aba Compensações.
     // Fallback (view/Detalhamento) só se a aba estiver vazia.
-    const linkedMonths = new Set(
-      comps
-        .filter((c) => c.tese_origem_id)
-        .map((c) => (c.mes_referencia || "").slice(0, 7))
-    );
-    const naAba = comps.filter((c) => {
-      if (isReportoCompensacao(c, { reportoTeseIds, reportoProcessoIds })) return false;
+    const noPeriodo = comps.filter((c) => {
       const mes = (c.mes_referencia || "").slice(0, 7);
-      // Órfã no mesmo mês de linha linkada → ignora (evita dobrar)
-      if (!c.tese_origem_id && linkedMonths.has(mes)) return false;
       if (mesInicio && mes < mesInicio) return false;
       if (mesFim && mes > mesFim) return false;
       return true;
     });
-    if (naAba.length === 0 && !mesInicio && !mesFim && totalCompensadoView != null) {
+    const fromAba = sumCompensadoCanonical(noPeriodo, { reportoTeseIds, reportoProcessoIds });
+    if (noPeriodo.length === 0 && !mesInicio && !mesFim && totalCompensadoView != null) {
       return totalCompensadoView;
     }
-    return naAba.reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
+    // Se há linhas na aba (mesmo todas Reporto), usa a soma canônica (0 se só Reporto)
+    if (comps.length > 0 || mesInicio || mesFim) return fromAba;
+    return totalCompensadoView ?? fromAba;
   }, [comps, reportoTeseIds, reportoProcessoIds, mesInicio, mesFim, totalCompensadoView]);
 
   const saldo = dadosBase.totalApurado - totalCompensadoPeriodo;
