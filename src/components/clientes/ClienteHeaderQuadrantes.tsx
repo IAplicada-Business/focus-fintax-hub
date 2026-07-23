@@ -213,30 +213,29 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
   }, [clienteId, reloadKey]);
 
   const totalCompensadoPeriodo = useMemo(() => {
-    // Sem filtro de período: usar view canônica (Fox — v_cliente_totais_calculo)
-    if (!mesInicio && !mesFim && totalCompensadoView != null) {
-      return totalCompensadoView;
-    }
-    // Com filtro: recalcular; se tese_origem_id null e já existe linha linkada
-    // no mesmo mês para tese no cálculo, ignora a órfã (evita dobrar)
+    // Fonte principal: soma da aba Compensações (atualiza na hora ao registrar).
+    // Detalhamento (via v_cliente_totais_calculo) só se não houver linhas na aba.
     const linkedMonths = new Set(
       comps
         .filter((c) => c.tese_origem_id && teseIncluir.has(c.tese_origem_id))
         .map((c) => (c.mes_referencia || "").slice(0, 7))
     );
-    return comps
-      .filter((c) => {
-        if (c.tese_origem_id && reportoTeseIds.has(c.tese_origem_id)) return false;
-        if (c.tese_origem_id && teseIncluir.size > 0 && !teseIncluir.has(c.tese_origem_id)) {
-          return false;
-        }
-        const mes = (c.mes_referencia || "").slice(0, 7);
-        if (!c.tese_origem_id && linkedMonths.has(mes)) return false;
-        if (mesInicio && mes < mesInicio) return false;
-        if (mesFim && mes > mesFim) return false;
-        return true;
-      })
-      .reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
+    const naAba = comps.filter((c) => {
+      if (c.tese_origem_id && reportoTeseIds.has(c.tese_origem_id)) return false;
+      if (c.tese_origem_id && teseIncluir.size > 0 && !teseIncluir.has(c.tese_origem_id)) {
+        return false;
+      }
+      const mes = (c.mes_referencia || "").slice(0, 7);
+      // Órfã no mesmo mês de linha linkada → ignora (evita dobrar)
+      if (!c.tese_origem_id && linkedMonths.has(mes)) return false;
+      if (mesInicio && mes < mesInicio) return false;
+      if (mesFim && mes > mesFim) return false;
+      return true;
+    });
+    if (naAba.length === 0 && !mesInicio && !mesFim && totalCompensadoView != null) {
+      return totalCompensadoView;
+    }
+    return naAba.reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
   }, [comps, teseIncluir, reportoTeseIds, mesInicio, mesFim, totalCompensadoView]);
 
   const saldo = dadosBase.totalApurado - totalCompensadoPeriodo;
