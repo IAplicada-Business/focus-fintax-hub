@@ -34,9 +34,10 @@ interface Props {
   clienteId: string;
   cliente?: { empresa: string; cnpj: string };
   onTotalChange?: (total: number) => void;
+  onCompensacoesChanged?: () => void;
 }
 
-export function CompensacoesTab({ clienteId, cliente, onTotalChange }: Props) {
+export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensacoesChanged }: Props) {
   const [compensacoes, setCompensacoes] = useState<any[]>([]);
   const [processos, setProcessos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
