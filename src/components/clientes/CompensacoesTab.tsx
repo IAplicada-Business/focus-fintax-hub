@@ -139,7 +139,8 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
     logClienteHistorico(clienteId, "compensacao_adicionada", `Compensação ${form.mes_referencia} — ${proc?.nome_exibicao || ""}: ${formatCurrencyBR(valorComp)}`);
     setModalOpen(false);
     setForm({ processo_tese_id: "", mes_referencia: "", valor_compensado: "", status_pagamento: "pendente", valor_nf_servico: "", honorario_percentual: "", observacao: "", tributo: "" });
-    fetchData();
+    await fetchData();
+    onCompensacoesChanged?.();
   };
 
   // ——— Mapa Tributário helpers ———
