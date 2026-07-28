@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TrendingUp, TrendingDown, PieChart, Layers, RefreshCw, Plus } from "lucide-react";
-import { formatCurrencyBR, formatCompetenciaPT } from "@/lib/clientes-constants";
+import { formatCurrencyBR, formatCompetenciaPT, isReportoCompensacao, sumCompensadoCanonical } from "@/lib/clientes-constants";
 import {
   STATUS_COMPENSACAO_LABELS,
   STATUS_COMPENSACAO_COLORS,
@@ -17,6 +17,8 @@ interface Props {
   clienteId: string;
   /** Abre a aba Processos e o fluxo de adicionar tese (opcionalmente com código pré-selecionado) */
   onAddTese?: (teseCodigo?: string) => void;
+  /** Incrementar para refetch sem remount (evita header duplicado na tela) */
+  refreshToken?: number;
 }
 
 interface CompRow {
@@ -26,6 +28,7 @@ interface CompRow {
   honorario_valor: number | null;
   tese_origem_id: string | null;
   processo_tese_id?: string | null;
+  processos_teses?: { tese?: string | null; categoria?: string | null; nome_exibicao?: string | null } | null;
 }
 
 interface CreditoRow {
@@ -58,11 +61,12 @@ const EMPTY: Dados = {
   possiveisFuturos: 0,
 };
 
-export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
+export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0 }: Props) {
   const [dadosBase, setDadosBase] = useState<Dados>(EMPTY);
   const [comps, setComps] = useState<CompRow[]>([]);
   const [totalCompensadoView, setTotalCompensadoView] = useState<number | null>(null);
   const [reportoTeseIds, setReportoTeseIds] = useState<Set<string>>(new Set());
+  const [reportoProcessoIds, setReportoProcessoIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [mesInicio, setMesInicio] = useState("");
   const [mesFim, setMesFim] = useState("");
@@ -72,11 +76,17 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
   const [reloadKey, setReloadKey] = useState(0);
   const [processosCount, setProcessosCount] = useState(0);
   const [opcoesTese, setOpcoesTese] = useState<{ tese: string; nome_exibicao: string }[]>([]);
+  const loadedOnceRef = useRef(false);
+
+  useEffect(() => {
+    loadedOnceRef.current = false;
+  }, [clienteId]);
 
   useEffect(() => {
     let cancelled = false;
     const fetchDados = async () => {
-      setLoading(true);
+      // Skeleton só no 1º load do cliente — refresh não remonta o bloco (evita header duplicado)
+      if (!loadedOnceRef.current) setLoading(true);
       const [
         { data: creditos },
         { data: compsData },
@@ -86,17 +96,17 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
         { count: procCount },
         { data: motorTeses },
         { data: reportoTes },
+        { data: reportoProcs },
       ] = await Promise.all([
         (supabase as any)
           .from("creditos_apurados")
           .select("valor_apurado_inicial, tese_id, incluir_no_calculo")
           .eq("cliente_id", clienteId),
-        // Não embute processos_teses(categoria): se a coluna não existir no banco,
-        // o PostgREST falha a query inteira e o Total Compensado fica R$ 0,00.
-        // Reporto é filtrado via teses_tributarias.codigo = 'REPORTO' (abaixo).
+        // Filtra Reporto por processo.tese / tese_origem — não só tese_origem_id
+        // (linhas importadas muitas vezes vêm com tese_origem_id nulo).
         supabase
           .from("compensacoes_mensais")
-          .select("valor_compensado, valor_nf_servico, mes_referencia, honorario_valor, tese_origem_id, processo_tese_id")
+          .select("valor_compensado, valor_nf_servico, mes_referencia, honorario_valor, tese_origem_id, processo_tese_id, processos_teses:processo_tese_id(tese, nome_exibicao)")
           .eq("cliente_id", clienteId),
         (supabase as any)
           .from("v_clientes_status_compensacao")
@@ -115,16 +125,21 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
           .eq("cliente_id", clienteId),
         supabase.from("motor_teses_config").select("tese, nome_exibicao").eq("ativo", true),
         (supabase as any).from("teses_tributarias").select("id").eq("codigo", "REPORTO"),
+        supabase.from("processos_teses").select("id").eq("cliente_id", clienteId).eq("tese", "REPORTO"),
       ]);
 
       const reportoIds = new Set(
         ((reportoTes as { id: string }[]) || []).map((t) => t.id)
+      );
+      const reportoProcIds = new Set(
+        ((reportoProcs as { id: string }[]) || []).map((p) => p.id)
       );
 
       if (!cancelled) {
         setProcessosCount(procCount ?? 0);
         setOpcoesTese((motorTeses as { tese: string; nome_exibicao: string }[]) || []);
         setReportoTeseIds(reportoIds);
+        setReportoProcessoIds(reportoProcIds);
       }
 
       const ativaId = (cli as any)?.tese_ativa_id ?? null;
@@ -171,11 +186,9 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
             .filter((c) => hasFlag && !c.incluir_no_calculo)
             .reduce((s, c) => s + Number(c.valor_apurado_inicial || 0), 0);
 
-      const compsRows = ((compsData as CompRow[]) || []).filter((c) => {
-        // Reporto / possíveis futuros nunca entram no total compensado
-        if (c.tese_origem_id && reportoIds.has(c.tese_origem_id)) return false;
-        return true;
-      });
+      const compsRows = ((compsData as CompRow[]) || []).filter(
+        (c) => !isReportoCompensacao(c, { reportoTeseIds: reportoIds, reportoProcessoIds: reportoProcIds })
+      );
 
       const compsNoCalculo = compsRows.filter(
         (c) => !c.tese_origem_id || teseSet.has(c.tese_origem_id) || incluirIds.size === 0
@@ -204,35 +217,31 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese }: Props) {
         tem_tese_ativa: !!(view as any)?.tem_tese_ativa,
         possiveisFuturos,
       });
+      loadedOnceRef.current = true;
       setLoading(false);
     };
     fetchDados();
     return () => { cancelled = true; };
-  }, [clienteId, reloadKey]);
+  }, [clienteId, reloadKey, refreshToken]);
 
   const totalCompensadoPeriodo = useMemo(() => {
     // Regra de produto: cada lançamento em "Registrar compensação" soma no
     // Total Compensado e reduz o Saldo na hora. Fonte = aba Compensações.
     // Fallback (view/Detalhamento) só se a aba estiver vazia.
-    const linkedMonths = new Set(
-      comps
-        .filter((c) => c.tese_origem_id)
-        .map((c) => (c.mes_referencia || "").slice(0, 7))
-    );
-    const naAba = comps.filter((c) => {
-      if (c.tese_origem_id && reportoTeseIds.has(c.tese_origem_id)) return false;
+    const noPeriodo = comps.filter((c) => {
       const mes = (c.mes_referencia || "").slice(0, 7);
-      // Órfã no mesmo mês de linha linkada → ignora (evita dobrar)
-      if (!c.tese_origem_id && linkedMonths.has(mes)) return false;
       if (mesInicio && mes < mesInicio) return false;
       if (mesFim && mes > mesFim) return false;
       return true;
     });
-    if (naAba.length === 0 && !mesInicio && !mesFim && totalCompensadoView != null) {
+    const fromAba = sumCompensadoCanonical(noPeriodo, { reportoTeseIds, reportoProcessoIds });
+    if (noPeriodo.length === 0 && !mesInicio && !mesFim && totalCompensadoView != null) {
       return totalCompensadoView;
     }
-    return naAba.reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
-  }, [comps, reportoTeseIds, mesInicio, mesFim, totalCompensadoView]);
+    // Se há linhas na aba (mesmo todas Reporto), usa a soma canônica (0 se só Reporto)
+    if (comps.length > 0 || mesInicio || mesFim) return fromAba;
+    return totalCompensadoView ?? fromAba;
+  }, [comps, reportoTeseIds, reportoProcessoIds, mesInicio, mesFim, totalCompensadoView]);
 
   const saldo = dadosBase.totalApurado - totalCompensadoPeriodo;
   const pctUtilizado = dadosBase.totalApurado > 0

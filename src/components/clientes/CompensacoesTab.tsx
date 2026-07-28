@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, FileText, MessageCircle, Printer, Copy, Mail, Trash2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { formatCurrencyBR, formatCompetenciaPT, getStatusPagamentoConfig, STATUS_PAGAMENTO } from "@/lib/clientes-constants";
+import { formatCurrencyBR, formatCompetenciaPT, getStatusPagamentoConfig, isReportoCompensacao, sumCompensadoCanonical, STATUS_PAGAMENTO } from "@/lib/clientes-constants";
 import logoFintax from "@/assets/logo-focus-fintax.svg";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 import html2canvas from "html2canvas";
@@ -77,8 +77,7 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
     setCompensacoes(comp || []);
     setProcessos(proc || []);
     setLoading(false);
-    const total = (comp || []).reduce((s: number, c: any) => s + Number(c.valor_compensado || 0), 0);
-    onTotalChange?.(total);
+    onTotalChange?.(sumCompensadoCanonical((comp as any[]) || []));
   }, [clienteId, onTotalChange]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -90,11 +89,11 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
     if (mesFim && mes > mesFim) return false;
     return true;
   });
-  const totalFiltered = filtered.reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
-  const totalHonorariosFiltered = filtered.reduce(
-    (s, c) => s + Number(c.honorario_valor ?? c.valor_nf_servico ?? 0),
-    0
-  );
+  // Total da tabela = mesmo critério do card Total Compensado
+  const totalFiltered = sumCompensadoCanonical(filtered);
+  const totalHonorariosFiltered = filtered
+    .filter((c) => !isReportoCompensacao(c))
+    .reduce((s, c) => s + Number(c.honorario_valor ?? c.valor_nf_servico ?? 0), 0);
 
   const selectedProc = processos.find((p) => p.id === form.processo_tese_id);
   const percHonorario = form.honorario_percentual !== ""
@@ -496,7 +495,7 @@ Equipe Focus.`;
         {filtered.length > 0 && (
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={3} className="font-medium">Total do período</TableCell>
+              <TableCell colSpan={3} className="font-medium">Total do período (sem Reporto)</TableCell>
               <TableCell className="font-bold">{formatCurrencyBR(totalFiltered)}</TableCell>
               <TableCell></TableCell>
               <TableCell></TableCell>

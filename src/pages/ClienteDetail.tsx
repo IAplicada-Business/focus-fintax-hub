@@ -41,6 +41,7 @@ import {
   AlertDialogTitle as AlertTitle,
 } from "@/components/ui/alert-dialog";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
+import { sumCompensadoCanonical } from "@/lib/clientes-constants";
 
 export default function ClienteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -86,6 +87,24 @@ export default function ClienteDetail() {
     fetchHistorico();
   }, [fetchHistorico]);
 
+  /** Mesmo critério do Total Compensado do header (sem REPORTO) — atualiza mesmo na aba Processos */
+  const fetchCompensacoesTotal = useCallback(async () => {
+    if (!id) return;
+    const [{ data: comp }, { data: reportoTes }, { data: reportoProcs }] = await Promise.all([
+      supabase
+        .from("compensacoes_mensais")
+        .select("valor_compensado, tese_origem_id, processo_tese_id, processos_teses:processo_tese_id(tese, nome_exibicao)")
+        .eq("cliente_id", id),
+      (supabase as any).from("teses_tributarias").select("id").eq("codigo", "REPORTO"),
+      supabase.from("processos_teses").select("id").eq("cliente_id", id).eq("tese", "REPORTO"),
+    ]);
+    const reportoTeseIds = new Set(((reportoTes as { id: string }[]) || []).map((t) => t.id));
+    const reportoProcessoIds = new Set(((reportoProcs as { id: string }[]) || []).map((p) => p.id));
+    setCompensacoesTotal(
+      sumCompensadoCanonical((comp as any[]) || [], { reportoTeseIds, reportoProcessoIds }),
+    );
+  }, [id]);
+
   // Laratex CSV import state
   const [laratexOpen, setLatatexOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -106,6 +125,10 @@ export default function ClienteDetail() {
   const [addTesePreset, setAddTesePreset] = useState<string | null>(null);
   const [headerReload, setHeaderReload] = useState(0);
   const [intimacoesPendentes, setIntimacoesPendentes] = useState(0);
+
+  useEffect(() => {
+    fetchCompensacoesTotal();
+  }, [fetchCompensacoesTotal, headerReload]);
 
   const requestAddTese = useCallback((teseCodigo?: string) => {
     setActiveTab("processos");
@@ -322,9 +345,9 @@ export default function ClienteDetail() {
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {id && (
           <ClienteHeaderQuadrantes
-            key={headerReload}
             clienteId={id}
             onAddTese={requestAddTese}
+            refreshToken={headerReload}
           />
         )}
         {(() => {

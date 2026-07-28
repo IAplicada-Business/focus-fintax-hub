@@ -50,3 +50,45 @@ export function formatCompetenciaPT(mesRef: string | null | undefined): string {
   if (mesIdx < 0 || mesIdx > 11) return String(mesRef);
   return `${MESES_PT_CURTO[mesIdx]}/${m[1]}`;
 }
+
+/** REPORTO / possíveis futuros — fora do Total Compensado (mesmo com tese_origem_id nulo). */
+export function isReportoCompensacao(c: {
+  tese_origem_id?: string | null;
+  processo_tese_id?: string | null;
+  processos_teses?: { tese?: string | null; categoria?: string | null; nome_exibicao?: string | null } | null;
+}, opts?: {
+  reportoTeseIds?: Set<string>;
+  reportoProcessoIds?: Set<string>;
+}): boolean {
+  const tese = (c.processos_teses?.tese || "").toUpperCase();
+  const cat = (c.processos_teses?.categoria || "").toLowerCase();
+  const nome = (c.processos_teses?.nome_exibicao || "").toUpperCase();
+  if (tese === "REPORTO" || cat === "reporto" || nome.includes("REPORTO")) return true;
+  if (c.tese_origem_id && opts?.reportoTeseIds?.has(c.tese_origem_id)) return true;
+  if (c.processo_tese_id && opts?.reportoProcessoIds?.has(c.processo_tese_id)) return true;
+  return false;
+}
+
+/** Soma compensações no mesmo critério do card Total Compensado (sem Reporto / sem órfã duplicada). */
+export function sumCompensadoCanonical(
+  rows: Array<{
+    valor_compensado?: number | null;
+    tese_origem_id?: string | null;
+    processo_tese_id?: string | null;
+    mes_referencia?: string | null;
+    processos_teses?: { tese?: string | null; categoria?: string | null; nome_exibicao?: string | null } | null;
+  }>,
+  opts?: { reportoTeseIds?: Set<string>; reportoProcessoIds?: Set<string> },
+): number {
+  const linkedMonths = new Set(
+    rows.filter((c) => c.tese_origem_id).map((c) => String(c.mes_referencia || "").slice(0, 7)),
+  );
+  return rows
+    .filter((c) => {
+      if (isReportoCompensacao(c, opts)) return false;
+      const mes = String(c.mes_referencia || "").slice(0, 7);
+      if (!c.tese_origem_id && linkedMonths.has(mes)) return false;
+      return true;
+    })
+    .reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
+}
