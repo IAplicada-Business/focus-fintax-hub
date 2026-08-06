@@ -9,7 +9,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, Printer, Filter, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrencyBR } from "@/lib/clientes-constants";
+import {
+  formatCurrencyBR,
+  statusUtilizacaoFromSaldo,
+  sumCompensadoForTese,
+} from "@/lib/clientes-constants";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import logoFintax from "@/assets/logo-focus-fintax.svg";
@@ -82,14 +86,72 @@ export default function MapaCreditos() {
     if (!clienteId) return;
     const fetch = async () => {
       setLoading(true);
-      const [{ data: c }, { data: v }] = await Promise.all([
-        supabase.from("clientes").select("id, empresa, cnpj, data_apuracao").eq("id", clienteId).single(),
-        (supabase as any).from("v_mapa_creditos").select("*").eq("cliente_id", clienteId),
-      ]);
+      const [{ data: c }, { data: v }, { data: comps }, { data: procs }, { data: creditos }] =
+        await Promise.all([
+          supabase.from("clientes").select("id, empresa, cnpj, data_apuracao").eq("id", clienteId).single(),
+          (supabase as any).from("v_mapa_creditos").select("*").eq("cliente_id", clienteId),
+          supabase
+            .from("compensacoes_mensais")
+            .select(
+              "valor_compensado, tese_origem_id, processo_tese_id, mes_referencia, tributo, tributo_enum, processos_teses:processo_tese_id(tese, nome_exibicao)",
+            )
+            .eq("cliente_id", clienteId),
+          supabase.from("processos_teses").select("id, tese").eq("cliente_id", clienteId),
+          (supabase as any)
+            .from("creditos_apurados")
+            .select("tese_id, valor_compensado_manual")
+            .eq("cliente_id", clienteId),
+        ]);
       setCliente((c as any) || null);
-      const rows = ((v || []) as LinhaMapa[]).sort(
-        (a, b) => (ORDEM_TESES[a.tese_codigo] ?? 99) - (ORDEM_TESES[b.tese_codigo] ?? 99)
-      );
+
+      const processoIdsByTese = new Map<string, Set<string>>();
+      for (const p of (procs as { id: string; tese: string | null }[]) || []) {
+        const cod = String(p.tese || "").toUpperCase();
+        if (!cod) continue;
+        if (!processoIdsByTese.has(cod)) processoIdsByTese.set(cod, new Set());
+        processoIdsByTese.get(cod)!.add(p.id);
+      }
+      const manualByTese = new Map<string, number>();
+      for (const row of (creditos as { tese_id: string; valor_compensado_manual: number | null }[]) || []) {
+        if (row.valor_compensado_manual != null) {
+          manualByTese.set(row.tese_id, Number(row.valor_compensado_manual));
+        }
+      }
+
+      // Recalcula no client (sem depender de migration SQL no Lovable):
+      // GREATEST(Detalhamento, soma aba com órfãs/tributo).
+      const rows = ((v || []) as LinhaMapa[])
+        .map((r) => {
+          const codigo = String(r.tese_codigo || "").toUpperCase();
+          if (codigo === "REPORTO") {
+            return {
+              ...r,
+              total_compensado: 0,
+              saldo_final: Number(r.valor_apurado_inicial || 0),
+              status_utilizacao: "a_utilizar" as const,
+            };
+          }
+          const fromAba = sumCompensadoForTese((comps as any[]) || [], {
+            teseCodigo: codigo,
+            teseId: r.tese_id,
+            processoIds: processoIdsByTese.get(codigo),
+          });
+          const manual = manualByTese.get(r.tese_id);
+          const compensado = Math.max(
+            fromAba,
+            manual != null ? manual : 0,
+            Number(r.total_compensado || 0),
+          );
+          const apurado = Number(r.valor_apurado_inicial || 0);
+          return {
+            ...r,
+            total_compensado: compensado,
+            saldo_final: apurado - compensado,
+            status_utilizacao: statusUtilizacaoFromSaldo(apurado, compensado),
+          };
+        })
+        .sort((a, b) => (ORDEM_TESES[a.tese_codigo] ?? 99) - (ORDEM_TESES[b.tese_codigo] ?? 99));
+
       setLinhas(rows);
       // Default: esconde REPORTO do filtro (fora do cálculo Fox)
       setTeseFiltroSet(new Set(rows.filter((r) => r.tese_codigo !== "REPORTO").map((r) => r.tese_codigo)));

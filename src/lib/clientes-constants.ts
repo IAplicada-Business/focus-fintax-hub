@@ -173,18 +173,20 @@ export function compMatchesTese(c: CompensacaoSumRow, opts: TeseMatchOpts): bool
   const codigo = (opts.teseCodigo || "").toUpperCase();
   if (!codigo || codigo === "REPORTO") return false;
 
+  // Processo explícito manda (usuário escolheu a tese na UI)
   if (c.processo_tese_id && opts.processoIds?.has(c.processo_tese_id)) return true;
-  if (c.tese_origem_id && opts.teseId && c.tese_origem_id === opts.teseId) return true;
-
   const procTese = (c.processos_teses?.tese || "").toUpperCase();
   if (procTese && procTese === codigo) return true;
 
-  if (opts.inferOrphans === false) return false;
-  // Órfã pura: sem processo e sem tese_origem → inferir pelo tributo
-  if (!c.processo_tese_id && !c.tese_origem_id) {
-    const inferred = inferTeseCodigoFromTributo(c.tributo_enum || c.tributo);
-    return inferred === codigo;
-  }
+  // Tributo com mapeamento claro (IRPJ→Subvenção, PIS→Insumos) corrige tese_origem
+  // errada do FIFO/tese_ativa — funciona sem rodar SQL no Lovable.
+  const inferred =
+    opts.inferOrphans === false
+      ? null
+      : inferTeseCodigoFromTributo(c.tributo_enum || c.tributo);
+  if (inferred) return inferred === codigo;
+
+  if (c.tese_origem_id && opts.teseId && c.tese_origem_id === opts.teseId) return true;
   return false;
 }
 

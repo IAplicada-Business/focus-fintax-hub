@@ -124,6 +124,30 @@ describe("compMatchesTese / sumCompensadoForTese", () => {
     ).toBeCloseTo(981876.55, 2);
   });
 
+  it("IRPJ linkado errado em Insumos vai para Subvenção (sem SQL)", () => {
+    const rows = [
+      {
+        mes_referencia: "2026-03-01",
+        tese_origem_id: "tese-insumos",
+        processo_tese_id: null as string | null,
+        tributo_enum: "IRPJ_CSLL_agregado",
+        valor_compensado: 981876.55,
+      },
+    ];
+    expect(
+      compMatchesTese(rows[0], { teseCodigo: "INSUMOS", teseId: "tese-insumos" }),
+    ).toBe(false);
+    expect(
+      compMatchesTese(rows[0], { teseCodigo: "SUBVENCAO", teseId: "tese-sub" }),
+    ).toBe(true);
+    expect(
+      sumCompensadoForTese(rows, { teseCodigo: "INSUMOS", teseId: "tese-insumos" }),
+    ).toBe(0);
+    expect(
+      sumCompensadoForTese(rows, { teseCodigo: "SUBVENCAO", teseId: "tese-sub" }),
+    ).toBeCloseTo(981876.55, 2);
+  });
+
   it("bate processo_tese_id mesmo sem tese_origem", () => {
     const rows = [
       {
