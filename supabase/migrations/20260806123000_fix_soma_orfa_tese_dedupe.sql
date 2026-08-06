@@ -134,7 +134,7 @@ WHERE cm.id = a.compensacao_id
 UPDATE public.compensacoes_mensais cm
 SET processo_tese_id = p.id
 FROM public.processos_teses p
-JOIN public.teses_tributarias t ON t.codigo = p.tese
+JOIN public.teses_tributarias t ON t.codigo = p.tese::text
 WHERE cm.cliente_id = p.cliente_id
   AND cm.tese_origem_id = t.id
   AND cm.processo_tese_id IS NULL
@@ -142,7 +142,7 @@ WHERE cm.cliente_id = p.cliente_id
     SELECT p2.id
     FROM public.processos_teses p2
     WHERE p2.cliente_id = cm.cliente_id
-      AND p2.tese = t.codigo
+      AND p2.tese::text = t.codigo
     ORDER BY p2.criado_em NULLS LAST, p2.id
     LIMIT 1
   );
