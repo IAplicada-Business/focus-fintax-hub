@@ -8,6 +8,7 @@ import { Upload, CheckCircle2, AlertTriangle, Loader2, XCircle } from "lucide-re
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { parseAbasFluxo, type ImportFluxoResultado, type TributoEnum } from "@/lib/import-fluxo-parser";
+import { inferTeseCodigoFromTributo } from "@/lib/clientes-constants";
 
 interface Props {
   open: boolean;
@@ -82,7 +83,8 @@ export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props)
     if (!resultado) return;
     setStep("importing");
 
-    // tese_origem_id: usa clientes.tese_ativa_id (troca de tese no header).
+    // tese_origem_id: preferência por tributo (IRPJ→Subvenção, PIS/COFINS/INSS→Insumos);
+    // fallback = tese_ativa do cliente.
     const clienteIds = [...new Set(preview.map((p) => p.clienteId).filter(Boolean))] as string[];
     const teseAtivaByCliente = new Map<string, string>();
     if (clienteIds.length) {
@@ -94,6 +96,10 @@ export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props)
         if ((c as any).tese_ativa_id) teseAtivaByCliente.set(c.id, (c as any).tese_ativa_id);
       }
     }
+    const { data: tesesCat } = await (supabase as any).from("teses_tributarias").select("id, codigo");
+    const teseIdByCodigo = new Map<string, string>(
+      ((tesesCat as { id: string; codigo: string }[]) || []).map((t) => [t.codigo.toUpperCase(), t.id]),
+    );
 
     let linhasInseridas = 0;
     let dcompsInseridas = 0;
@@ -106,9 +112,14 @@ export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props)
         continue;
       }
       const c = p.comp;
-      const teseOrigem = teseAtivaByCliente.get(p.clienteId) ?? null;
 
       for (const t of c.tributos) {
+        const inferred = inferTeseCodigoFromTributo(t.tributo);
+        const teseOrigem =
+          (inferred ? teseIdByCodigo.get(inferred) : null) ??
+          teseAtivaByCliente.get(p.clienteId) ??
+          null;
+
         const insertPayload: any = {
           cliente_id: p.clienteId,
           mes_referencia: c.competencia,

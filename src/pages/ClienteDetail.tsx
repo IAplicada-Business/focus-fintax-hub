@@ -90,19 +90,24 @@ export default function ClienteDetail() {
   /** Mesmo critério do Total Compensado do header (sem REPORTO) — atualiza mesmo na aba Processos */
   const fetchCompensacoesTotal = useCallback(async () => {
     if (!id) return;
-    const [{ data: comp }, { data: reportoTes }, { data: reportoProcs }] = await Promise.all([
+    const [{ data: comp }, { data: reportoTes }, { data: reportoProcs }, { data: view }] = await Promise.all([
       supabase
         .from("compensacoes_mensais")
-        .select("valor_compensado, tese_origem_id, processo_tese_id, processos_teses:processo_tese_id(tese, nome_exibicao)")
+        .select("valor_compensado, tese_origem_id, processo_tese_id, mes_referencia, tributo, tributo_enum, processos_teses:processo_tese_id(tese, nome_exibicao)")
         .eq("cliente_id", id),
       (supabase as any).from("teses_tributarias").select("id").eq("codigo", "REPORTO"),
       supabase.from("processos_teses").select("id").eq("cliente_id", id).eq("tese", "REPORTO"),
+      (supabase as any)
+        .from("v_cliente_totais_calculo")
+        .select("total_compensado")
+        .eq("cliente_id", id)
+        .maybeSingle(),
     ]);
     const reportoTeseIds = new Set(((reportoTes as { id: string }[]) || []).map((t) => t.id));
     const reportoProcessoIds = new Set(((reportoProcs as { id: string }[]) || []).map((p) => p.id));
-    setCompensacoesTotal(
-      sumCompensadoCanonical((comp as any[]) || [], { reportoTeseIds, reportoProcessoIds }),
-    );
+    const fromAba = sumCompensadoCanonical((comp as any[]) || [], { reportoTeseIds, reportoProcessoIds });
+    const fromView = Number((view as { total_compensado?: number } | null)?.total_compensado || 0);
+    setCompensacoesTotal(Math.max(fromAba, fromView));
   }, [id]);
 
   // Laratex CSV import state
@@ -388,7 +393,7 @@ export default function ClienteDetail() {
                 <CompensacoesTab
                   clienteId={id!}
                   cliente={cliente}
-                  onTotalChange={setCompensacoesTotal}
+                  onTotalChange={() => { void fetchCompensacoesTotal(); }}
                   onCompensacoesChanged={() => {
                     // Só remonta o header — não remonta as abas (evita flicker / perda de contexto)
                     setHeaderReload((n) => n + 1);

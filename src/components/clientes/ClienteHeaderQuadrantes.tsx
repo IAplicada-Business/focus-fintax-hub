@@ -28,6 +28,8 @@ interface CompRow {
   honorario_valor: number | null;
   tese_origem_id: string | null;
   processo_tese_id?: string | null;
+  tributo?: string | null;
+  tributo_enum?: string | null;
   processos_teses?: { tese?: string | null; categoria?: string | null; nome_exibicao?: string | null } | null;
 }
 
@@ -106,7 +108,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
         // (linhas importadas muitas vezes vêm com tese_origem_id nulo).
         supabase
           .from("compensacoes_mensais")
-          .select("valor_compensado, valor_nf_servico, mes_referencia, honorario_valor, tese_origem_id, processo_tese_id, processos_teses:processo_tese_id(tese, nome_exibicao)")
+          .select("valor_compensado, valor_nf_servico, mes_referencia, honorario_valor, tese_origem_id, processo_tese_id, tributo, tributo_enum, processos_teses:processo_tese_id(tese, nome_exibicao)")
           .eq("cliente_id", clienteId),
         (supabase as any)
           .from("v_clientes_status_compensacao")
@@ -225,9 +227,9 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
   }, [clienteId, reloadKey, refreshToken]);
 
   const totalCompensadoPeriodo = useMemo(() => {
-    // Regra de produto: cada lançamento em "Registrar compensação" soma no
-    // Total Compensado e reduz o Saldo na hora. Fonte = aba Compensações.
-    // Fallback (view/Detalhamento) só se a aba estiver vazia.
+    // Fonte = aba Compensações (com órfãs por tributo, sem gêmeas duplicadas).
+    // Sem filtro de período: piso com a view/Detalhamento para não subestimar
+    // clientes como Maravista (histórico no Detalhamento + fluxo parcial).
     const noPeriodo = comps.filter((c) => {
       const mes = (c.mes_referencia || "").slice(0, 7);
       if (mesInicio && mes < mesInicio) return false;
@@ -235,12 +237,9 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
       return true;
     });
     const fromAba = sumCompensadoCanonical(noPeriodo, { reportoTeseIds, reportoProcessoIds });
-    if (noPeriodo.length === 0 && !mesInicio && !mesFim && totalCompensadoView != null) {
-      return totalCompensadoView;
-    }
-    // Se há linhas na aba (mesmo todas Reporto), usa a soma canônica (0 se só Reporto)
-    if (comps.length > 0 || mesInicio || mesFim) return fromAba;
-    return totalCompensadoView ?? fromAba;
+    if (mesInicio || mesFim) return fromAba;
+    if (comps.length === 0) return totalCompensadoView ?? fromAba;
+    return Math.max(fromAba, totalCompensadoView ?? 0);
   }, [comps, reportoTeseIds, reportoProcessoIds, mesInicio, mesFim, totalCompensadoView]);
 
   const saldo = dadosBase.totalApurado - totalCompensadoPeriodo;

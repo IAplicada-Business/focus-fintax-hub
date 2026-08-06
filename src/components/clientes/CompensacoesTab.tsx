@@ -12,7 +12,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, FileText, MessageCircle, Printer, Copy, Mail, Trash2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { formatCurrencyBR, formatCompetenciaPT, getStatusPagamentoConfig, isReportoCompensacao, sumCompensadoCanonical, STATUS_PAGAMENTO } from "@/lib/clientes-constants";
+import {
+  formatCurrencyBR,
+  formatCompetenciaPT,
+  getStatusPagamentoConfig,
+  isReportoCompensacao,
+  sumCompensadoCanonical,
+  filterCompsForTese,
+  STATUS_PAGAMENTO,
+} from "@/lib/clientes-constants";
 import logoFintax from "@/assets/logo-focus-fintax.svg";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 import html2canvas from "html2canvas";
@@ -40,6 +48,10 @@ interface Props {
 export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensacoesChanged }: Props) {
   const [compensacoes, setCompensacoes] = useState<any[]>([]);
   const [processos, setProcessos] = useState<any[]>([]);
+  /** codigo tese → id em teses_tributarias (para bater órfãs / tese_origem no mapa) */
+  const [teseIdByCodigo, setTeseIdByCodigo] = useState<Record<string, string>>({});
+  /** credito apurado por código de tese (Detalhamento) — base do saldo no mapa */
+  const [creditoByCodigo, setCreditoByCodigo] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [filterTese, setFilterTese] = useState("all");
@@ -66,16 +78,32 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
   const [whatsMes, setWhatsMes] = useState("");
 
   const fetchData = useCallback(async () => {
-    const [{ data: comp }, { data: proc }] = await Promise.all([
+    const [{ data: comp }, { data: proc }, { data: teses }, { data: creditos }] = await Promise.all([
       supabase
         .from("compensacoes_mensais")
         .select("*, processos_teses!compensacoes_mensais_processo_tese_id_fkey(nome_exibicao, tese)")
         .eq("cliente_id", clienteId)
         .order("mes_referencia", { ascending: false }),
       supabase.from("processos_teses").select("id, nome_exibicao, tese, valor_credito, percentual_honorario").eq("cliente_id", clienteId),
+      (supabase as any).from("teses_tributarias").select("id, codigo"),
+      (supabase as any)
+        .from("creditos_apurados")
+        .select("tese_id, valor_apurado_inicial, incluir_no_calculo")
+        .eq("cliente_id", clienteId),
     ]);
     setCompensacoes(comp || []);
     setProcessos(proc || []);
+    const idByCod: Record<string, string> = {};
+    for (const t of (teses as { id: string; codigo: string }[]) || []) {
+      if (t.codigo) idByCod[t.codigo.toUpperCase()] = t.id;
+    }
+    setTeseIdByCodigo(idByCod);
+    const credByCod: Record<string, number> = {};
+    for (const c of (creditos as { tese_id: string; valor_apurado_inicial: number }[]) || []) {
+      const codigo = Object.entries(idByCod).find(([, id]) => id === c.tese_id)?.[0];
+      if (codigo) credByCod[codigo] = Number(c.valor_apurado_inicial || 0);
+    }
+    setCreditoByCodigo(credByCod);
     setLoading(false);
     onTotalChange?.(sumCompensadoCanonical((comp as any[]) || []));
   }, [clienteId, onTotalChange]);
@@ -153,19 +181,40 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
   };
 
   // ——— Mapa Tributário helpers ———
-  const mesComps = mapaMes ? compensacoes.filter((c) => (c.mes_referencia as string).startsWith(mapaMes)) : [];
-  const mesProcessoIds = [...new Set(mesComps.map((c) => c.processo_tese_id))];
-  const mesProcessos = processos.filter((p) => mesProcessoIds.includes(p.id));
+  // Inclui órfãs (processo/tese nulos) pela inferência de tributo — senão o saldo
+  // fica inflado (ex.: Pérola só subtraindo o mês com processo linkado).
+  const compsForProcesso = (proc: { id: string; tese?: string | null }) => {
+    const codigo = String(proc.tese || "").toUpperCase();
+    return filterCompsForTese(compensacoes, {
+      teseCodigo: codigo,
+      teseId: teseIdByCodigo[codigo] || null,
+      processoIds: new Set([proc.id]),
+    });
+  };
+
+  const mesProcessos = processos.filter((p) => {
+    if (!mapaMes) return false;
+    const codigo = String(p.tese || "").toUpperCase();
+    if (!codigo || codigo === "REPORTO") return false;
+    return compsForProcesso(p).some((c) => String(c.mes_referencia || "").startsWith(mapaMes));
+  });
 
   const formatMesPT = (mesStr: string) => {
     const [y, m] = mesStr.split("-");
     return `${MESES_PT[parseInt(m, 10) - 1]}/${y}`;
   };
 
-  const getCompensacoesAteOmes = (processoId: string, mesRef: string) => {
-    return compensacoes
-      .filter((c) => c.processo_tese_id === processoId && (c.mes_referencia as string).slice(0, 7) <= mesRef)
+  const getCompensacoesAteOmes = (proc: { id: string; tese?: string | null }, mesRef: string) => {
+    return compsForProcesso(proc)
+      .filter((c) => String(c.mes_referencia || "").slice(0, 7) <= mesRef)
       .reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
+  };
+
+  const creditoProcesso = (proc: { id: string; tese?: string | null; valor_credito?: number | null }) => {
+    const codigo = String(proc.tese || "").toUpperCase();
+    const fromDetalhe = creditoByCodigo[codigo];
+    if (fromDetalhe != null && fromDetalhe > 0) return fromDetalhe;
+    return Number(proc.valor_credito || 0);
   };
 
   const getTributo = (c: any) => (c as any).tributo || c.observacao || "INSS";
@@ -693,10 +742,14 @@ Equipe Focus.`;
 
               {/* Report Pages — one per processo */}
               {mesProcessos.map((proc, procIdx) => {
-                const procComps = mesComps.filter((c) => c.processo_tese_id === proc.id);
+                const procCompsAll = compsForProcesso(proc);
+                const procComps = procCompsAll.filter((c) =>
+                  String(c.mes_referencia || "").startsWith(mapaMes),
+                );
                 const valorComp = procComps.reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
-                const acumulado = getCompensacoesAteOmes(proc.id, mapaMes);
-                const saldo = Number(proc.valor_credito || 0) - acumulado;
+                const acumulado = getCompensacoesAteOmes(proc, mapaMes);
+                const creditoBase = creditoProcesso(proc);
+                const saldo = creditoBase - acumulado;
                 const isSub = isSubvencao(proc.tese);
 
                 return (
@@ -740,7 +793,7 @@ Equipe Focus.`;
                           ["Escopo do Trabalho", proc.nome_exibicao],
                           ["Competência", formatMesPT(mapaMes)],
                           ["Modalidade do Benefício", "Compensação"],
-                          ["Valor Total do Benefício Tributário", formatCurrencyBR(Number(proc.valor_credito || 0))],
+                          ["Valor Total do Benefício Tributário", formatCurrencyBR(creditoBase)],
                           ["Valor Utilizado na Compensação do Mês", formatCurrencyBR(valorComp)],
                           ["Saldo Disp. para Compensações Futuras", formatCurrencyBR(saldo)],
                         ].map(([desc, val], i) => (
@@ -793,7 +846,7 @@ Equipe Focus.`;
                       </thead>
                       <tbody>
                         {[
-                          ["Total de Créditos Apurados", formatCurrencyBR(Number(proc.valor_credito || 0)), false],
+                          ["Total de Créditos Apurados", formatCurrencyBR(creditoBase), false],
                           ["Total de Créditos Utilizados", formatCurrencyBR(acumulado), false],
                           ["Total de Créditos a Compensar", formatCurrencyBR(saldo), false],
                           ["Saldo Final de Créditos", formatCurrencyBR(saldo), true],
