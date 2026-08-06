@@ -30,10 +30,10 @@ export const SCREENS: ScreenDef[] = [
     // então incluir na raiz só entregaria uma tela sem tabs acessíveis.
     // Quando existir portal do cliente, criar rota dedicada em vez de reutilizar.
     key: "dashboard", label: "Dashboard", route: "/dashboard",
-    defaultRoles: ["admin", "pmo", "gestor_tributario", "comercial"],
+    defaultRoles: ["admin", "pmo", "gestor_tributario", "comercial", "sdr", "gestor_comercial"],
     defaultReadOnlyRoles: [],
     children: [
-      { key: "dashboard.comercial",   label: "Visão Comercial",   defaultRoles: ["admin", "pmo", "comercial"],        defaultReadOnlyRoles: [] },
+      { key: "dashboard.comercial",   label: "Visão Comercial",   defaultRoles: ["admin", "pmo", "comercial", "sdr", "gestor_comercial"],        defaultReadOnlyRoles: [] },
       { key: "dashboard.operacional", label: "Visão Operacional", defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: [] },
       { key: "dashboard.executiva",   label: "Visão Executiva",   defaultRoles: ["admin", "pmo"],                      defaultReadOnlyRoles: [] },
       // Gestão: clientes/teses/ciclo — não é funil de leads
@@ -45,34 +45,34 @@ export const SCREENS: ScreenDef[] = [
     // só libera admin OU comercial (policy "Admin comercial select leads"),
     // então incluir gestor como readonly só faria ele ver Pipeline vazio.
     key: "pipeline", label: "Leads", route: "/pipeline",
-    defaultRoles: ["admin", "pmo", "comercial"],
+    defaultRoles: ["admin", "pmo", "comercial", "sdr", "gestor_comercial"],
     defaultReadOnlyRoles: [],
     children: [
-      { key: "fila_leads", label: "Fila de Leads", defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: [] },
+      { key: "fila_leads", label: "Fila de Leads", defaultRoles: ["admin", "pmo", "comercial", "sdr", "gestor_comercial"], defaultReadOnlyRoles: [] },
     ],
   },
   {
     key: "marketing", label: "Marketing", route: "/marketing",
-    defaultRoles: ["admin", "pmo", "comercial"],
-    defaultReadOnlyRoles: [],
+    defaultRoles: ["admin", "pmo", "comercial", "sdr", "gestor_comercial"],
+    defaultReadOnlyRoles: ["marketing"],
     children: [
-      { key: "marketing.overview",    label: "Overview",     defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: [] },
-      { key: "marketing.campanhas",   label: "Campanhas",    defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: [] },
-      { key: "marketing.anuncios",    label: "Anúncios",     defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: [] },
-      { key: "marketing.formularios", label: "Formulários",  defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: [] },
-      { key: "marketing.leads",       label: "Leads (Meta)", defaultRoles: ["admin", "pmo", "comercial"], defaultReadOnlyRoles: [] },
+      { key: "marketing.overview",    label: "Overview",     defaultRoles: ["admin", "pmo", "comercial", "sdr", "gestor_comercial"], defaultReadOnlyRoles: ["marketing"] },
+      { key: "marketing.campanhas",   label: "Campanhas",    defaultRoles: ["admin", "pmo", "comercial", "sdr", "gestor_comercial"], defaultReadOnlyRoles: ["marketing"] },
+      { key: "marketing.anuncios",    label: "Anúncios",     defaultRoles: ["admin", "pmo", "comercial", "sdr", "gestor_comercial"], defaultReadOnlyRoles: ["marketing"] },
+      { key: "marketing.formularios", label: "Formulários",  defaultRoles: ["admin", "pmo", "comercial", "sdr", "gestor_comercial"], defaultReadOnlyRoles: ["marketing"] },
+      { key: "marketing.leads",       label: "Leads (Meta)", defaultRoles: ["admin", "pmo", "comercial", "sdr", "gestor_comercial"], defaultReadOnlyRoles: ["marketing"] },
       { key: "marketing.logs",        label: "Logs",         defaultRoles: ["admin", "pmo"],              defaultReadOnlyRoles: [] },
     ],
   },
   {
     key: "clientes", label: "Clientes", route: "/clientes",
     defaultRoles: ["admin", "pmo", "gestor_tributario"],
-    defaultReadOnlyRoles: ["comercial"],
+    defaultReadOnlyRoles: ["comercial", "sdr", "gestor_comercial"],
     children: [
-      { key: "clientes.processos",    label: "Processos por Tese", defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial"] },
-      { key: "clientes.compensacoes", label: "Compensações",       defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial"] },
-      { key: "clientes.resumo",       label: "Resumo Financeiro",  defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial"] },
-      { key: "intimacoes",            label: "Intimações",         defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial"] },
+      { key: "clientes.processos",    label: "Processos por Tese", defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial", "sdr", "gestor_comercial"] },
+      { key: "clientes.compensacoes", label: "Compensações",       defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial", "sdr", "gestor_comercial"] },
+      { key: "clientes.resumo",       label: "Resumo Financeiro",  defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial", "sdr", "gestor_comercial"] },
+      { key: "intimacoes",            label: "Intimações",         defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial", "sdr", "gestor_comercial"] },
     ],
   },
   {
