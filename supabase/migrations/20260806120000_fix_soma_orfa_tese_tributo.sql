@@ -1,21 +1,32 @@
 -- Fix soma de valor compensado / saldo (Maravista, Pérola, mapas)
+-- Idempotente. Pode rerodar após o erro 23505 (unique compensacoes_mensais).
 --
 -- Problemas:
--- 1) sumCompensadoCanonical no front descartava TODAS as órfãs de um mês com
---    qualquer linha linkada (corrigido no TS). Aqui alinamos dados + view.
--- 2) IRPJ/CSLL às vezes ficou em INSUMOS (FIFO / tese_ativa) — vai para SUBVENCAO.
--- 3) processo_tese_id nulo nas cargas → Mapa Tributário não acumulava histórico.
--- 4) v_mapa_creditos: GREATEST(manual, soma_linkada) + status derivado do saldo.
+-- 1) Órfãs / IRPJ mal atribuído → reatribui por tributo
+-- 2) UPDATE direto em tese_origem_id estoura UNIQUE (cliente, mês, tributo, tese)
+--    → faz MERGE (soma + apaga origem) antes do UPDATE seguro
+-- 3) processo_tese_id nulo nas cargas
+-- 4) v_mapa_creditos: GREATEST(manual, soma_linkada) + status pelo saldo
 
 BEGIN;
 
--- 1) Reatribui IRPJ/CSLL → Subvenção (quando a tese Subvenção existe no cliente)
-UPDATE public.compensacoes_mensais cm
-SET tese_origem_id = ca_sub.tese_id
-FROM public.creditos_apurados ca_sub
-JOIN public.teses_tributarias t_sub ON t_sub.id = ca_sub.tese_id AND t_sub.codigo = 'SUBVENCAO'
-WHERE cm.cliente_id = ca_sub.cliente_id
-  AND cm.tributo_enum::text IN ('IRPJ_CSLL_agregado')
+-- ---------------------------------------------------------------------------
+-- 0) Plano de alocação: compensacao_id → tese alvo
+-- ---------------------------------------------------------------------------
+CREATE TEMP TABLE tmp_tese_alloc (
+  compensacao_id uuid PRIMARY KEY,
+  tese_id uuid NOT NULL
+) ON COMMIT DROP;
+
+-- IRPJ/CSLL → Subvenção (órfã ou ainda em Insumos)
+INSERT INTO tmp_tese_alloc (compensacao_id, tese_id)
+SELECT cm.id, ca_sub.tese_id
+FROM public.compensacoes_mensais cm
+JOIN public.creditos_apurados ca_sub
+  ON ca_sub.cliente_id = cm.cliente_id
+JOIN public.teses_tributarias t_sub
+  ON t_sub.id = ca_sub.tese_id AND t_sub.codigo = 'SUBVENCAO'
+WHERE cm.tributo_enum::text = 'IRPJ_CSLL_agregado'
   AND (
     cm.tese_origem_id IS NULL
     OR cm.tese_origem_id IN (
@@ -24,21 +35,102 @@ WHERE cm.cliente_id = ca_sub.cliente_id
       JOIN public.teses_tributarias t_ins ON t_ins.id = ca_ins.tese_id AND t_ins.codigo = 'INSUMOS'
       WHERE ca_ins.cliente_id = cm.cliente_id
     )
-  );
+  )
+  AND (cm.tese_origem_id IS DISTINCT FROM ca_sub.tese_id)
+ON CONFLICT DO NOTHING;
 
--- 2) Órfãs restantes: PIS/COFINS/INSS → Insumos; ICMS → ICMS_ST
-UPDATE public.compensacoes_mensais cm
-SET tese_origem_id = ca.tese_id
-FROM public.creditos_apurados ca
+-- Órfãs restantes: PIS/COFINS/INSS → Insumos; ICMS → ICMS_ST
+INSERT INTO tmp_tese_alloc (compensacao_id, tese_id)
+SELECT cm.id, ca.tese_id
+FROM public.compensacoes_mensais cm
+JOIN public.creditos_apurados ca ON ca.cliente_id = cm.cliente_id
 JOIN public.teses_tributarias t ON t.id = ca.tese_id
-WHERE cm.cliente_id = ca.cliente_id
-  AND cm.tese_origem_id IS NULL
+WHERE cm.tese_origem_id IS NULL
+  AND NOT EXISTS (SELECT 1 FROM tmp_tese_alloc a WHERE a.compensacao_id = cm.id)
   AND (
     (t.codigo = 'INSUMOS' AND cm.tributo_enum::text IN ('PIS', 'COFINS', 'INSS_52', 'INSS_retidos', 'outros'))
     OR (t.codigo = 'ICMS_ST' AND cm.tributo_enum::text = 'ICMS')
+  )
+ON CONFLICT DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- 1) MERGE quando a chave (cliente, mês, tributo, tese) já existe
+-- ---------------------------------------------------------------------------
+CREATE TEMP TABLE tmp_merge_target ON COMMIT DROP AS
+SELECT
+  a.compensacao_id AS from_id,
+  exist.id AS to_id
+FROM tmp_tese_alloc a
+JOIN public.compensacoes_mensais AS orphan ON orphan.id = a.compensacao_id
+JOIN public.compensacoes_mensais AS exist
+  ON exist.cliente_id = orphan.cliente_id
+ AND exist.mes_referencia = orphan.mes_referencia
+ AND exist.tributo_enum = orphan.tributo_enum
+ AND exist.tese_origem_id = a.tese_id
+ AND exist.id <> orphan.id;
+
+-- Move DCOMPs da origem para o destino (sem duplicar número)
+UPDATE public.dcomps AS d
+SET compensacao_id = t.to_id
+FROM tmp_merge_target AS t
+WHERE d.compensacao_id = t.from_id
+  AND NOT EXISTS (
+    SELECT 1 FROM public.dcomps AS x
+    WHERE x.compensacao_id = t.to_id AND x.numero_declaracao = d.numero_declaracao
   );
 
--- 3) Backfill processo_tese_id a partir da tese_origem (1º processo da tese no cliente)
+DELETE FROM public.dcomps AS d
+USING tmp_merge_target AS t
+WHERE d.compensacao_id = t.from_id;
+
+CREATE TEMP TABLE tmp_merge_sums ON COMMIT DROP AS
+SELECT
+  t.to_id,
+  SUM(COALESCE(cm.valor_compensado, 0)) AS extra_valor,
+  SUM(COALESCE(cm.honorario_valor, 0)) AS extra_hon,
+  SUM(COALESCE(cm.valor_nf_servico, 0)) AS extra_nf,
+  BOOL_OR(COALESCE(cm.lancado_mapa, false)) AS extra_mapa
+FROM tmp_merge_target AS t
+JOIN public.compensacoes_mensais AS cm ON cm.id = t.from_id
+GROUP BY t.to_id;
+
+UPDATE public.compensacoes_mensais AS dest
+SET
+  valor_compensado = COALESCE(dest.valor_compensado, 0) + s.extra_valor,
+  honorario_valor = COALESCE(dest.honorario_valor, 0) + s.extra_hon,
+  valor_nf_servico = COALESCE(dest.valor_nf_servico, 0) + s.extra_nf,
+  lancado_mapa = dest.lancado_mapa OR COALESCE(s.extra_mapa, false)
+FROM tmp_merge_sums AS s
+WHERE dest.id = s.to_id;
+
+DELETE FROM public.compensacoes_mensais AS cm
+USING tmp_merge_target AS t
+WHERE cm.id = t.from_id;
+
+DELETE FROM tmp_tese_alloc AS a
+USING tmp_merge_target AS t
+WHERE a.compensacao_id = t.from_id;
+
+-- ---------------------------------------------------------------------------
+-- 2) UPDATE seguro nas linhas restantes (sem colisão de UNIQUE)
+-- ---------------------------------------------------------------------------
+UPDATE public.compensacoes_mensais AS cm
+SET tese_origem_id = a.tese_id
+FROM tmp_tese_alloc AS a
+WHERE cm.id = a.compensacao_id
+  AND cm.tese_origem_id IS DISTINCT FROM a.tese_id
+  AND NOT EXISTS (
+    SELECT 1 FROM public.compensacoes_mensais AS x
+    WHERE x.cliente_id = cm.cliente_id
+      AND x.mes_referencia = cm.mes_referencia
+      AND x.tributo_enum = cm.tributo_enum
+      AND x.tese_origem_id = a.tese_id
+      AND x.id <> cm.id
+  );
+
+-- ---------------------------------------------------------------------------
+-- 3) Backfill processo_tese_id a partir da tese_origem
+-- ---------------------------------------------------------------------------
 UPDATE public.compensacoes_mensais cm
 SET processo_tese_id = p.id
 FROM public.processos_teses p
@@ -55,7 +147,9 @@ WHERE cm.cliente_id = p.cliente_id
     LIMIT 1
   );
 
--- 4) View: piso Detalhamento + soma linkada; status pelo saldo
+-- ---------------------------------------------------------------------------
+-- 4) Views
+-- ---------------------------------------------------------------------------
 CREATE OR REPLACE VIEW public.v_mapa_creditos AS
 SELECT
   ca.cliente_id,
@@ -140,7 +234,9 @@ GRANT SELECT ON public.v_cliente_totais_calculo TO authenticated;
 COMMENT ON VIEW public.v_cliente_totais_calculo IS
   'KPIs com teses no cálculo. Compensado = GREATEST(Detalhamento, soma linkada). REPORTO em possíveis futuros.';
 
--- 5) Sincroniza status_utilizacao persistido com o saldo recalculado
+-- ---------------------------------------------------------------------------
+-- 5) Sincroniza status_utilizacao com o saldo recalculado
+-- ---------------------------------------------------------------------------
 UPDATE public.creditos_apurados ca
 SET
   status_utilizacao = v.status_utilizacao,
