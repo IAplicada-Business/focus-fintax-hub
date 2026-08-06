@@ -539,6 +539,8 @@ export default function ClienteDetail() {
                       const dotColor =
                         h.tipo === "compensacao_adicionada"
                           ? "bg-emerald-500"
+                          : h.tipo === "compensacao_editada"
+                            ? "bg-sky-500"
                           : h.tipo === "status_mudado"
                             ? "bg-amber-500"
                             : h.tipo === "comunicado_enviado"
