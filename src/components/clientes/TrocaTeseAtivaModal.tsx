@@ -13,7 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrencyBR } from "@/lib/clientes-constants";
+import {
+  formatCurrencyBR,
+  statusUtilizacaoFromSaldo,
+  sumCompensadoForTese,
+} from "@/lib/clientes-constants";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 
 interface CreditoLinha {
@@ -56,20 +60,74 @@ export function TrocaTeseAtivaModal({
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    (supabase as any)
-      .from("v_mapa_creditos")
-      .select(
-        "tese_id, tese_codigo, tese_label, valor_apurado_inicial, total_compensado, saldo_final, status_utilizacao, incluir_no_calculo"
-      )
-      .eq("cliente_id", clienteId)
-      .then(({ data }: { data: CreditoLinha[] | null }) => {
-        const rows = (data || []).filter(
-          (r) => r.tese_codigo !== "REPORTO" && r.incluir_no_calculo !== false
-        );
-        setLinhas(rows);
-        setSelecionada(teseAtivaId || rows.find((r) => Number(r.saldo_final) > 0)?.tese_id || "");
-        setLoading(false);
-      });
+
+    (async () => {
+      const [{ data: mapa }, { data: comps }, { data: procs }, { data: creditos }] = await Promise.all([
+        (supabase as any)
+          .from("v_mapa_creditos")
+          .select(
+            "tese_id, tese_codigo, tese_label, valor_apurado_inicial, total_compensado, saldo_final, status_utilizacao, incluir_no_calculo"
+          )
+          .eq("cliente_id", clienteId),
+        supabase
+          .from("compensacoes_mensais")
+          .select(
+            "valor_compensado, tese_origem_id, processo_tese_id, mes_referencia, tributo, tributo_enum, processos_teses:processo_tese_id(tese, nome_exibicao)"
+          )
+          .eq("cliente_id", clienteId),
+        supabase.from("processos_teses").select("id, tese").eq("cliente_id", clienteId),
+        (supabase as any)
+          .from("creditos_apurados")
+          .select("tese_id, valor_compensado_manual")
+          .eq("cliente_id", clienteId),
+      ]);
+
+      const processoIdsByTese = new Map<string, Set<string>>();
+      for (const p of (procs as { id: string; tese: string | null }[]) || []) {
+        const cod = String(p.tese || "").toUpperCase();
+        if (!cod) continue;
+        if (!processoIdsByTese.has(cod)) processoIdsByTese.set(cod, new Set());
+        processoIdsByTese.get(cod)!.add(p.id);
+      }
+
+      const manualByTese = new Map<string, number>();
+      for (const c of (creditos as { tese_id: string; valor_compensado_manual: number | null }[]) || []) {
+        if (c.valor_compensado_manual != null) {
+          manualByTese.set(c.tese_id, Number(c.valor_compensado_manual));
+        }
+      }
+
+      const rows = ((mapa || []) as CreditoLinha[])
+        .filter((r) => r.tese_codigo !== "REPORTO" && r.incluir_no_calculo !== false)
+        .map((r) => {
+          const codigo = String(r.tese_codigo || "").toUpperCase();
+          const fromAba = sumCompensadoForTese((comps as any[]) || [], {
+            teseCodigo: codigo,
+            teseId: r.tese_id,
+            processoIds: processoIdsByTese.get(codigo),
+          });
+          const manual = manualByTese.get(r.tese_id);
+          // Detalhamento é piso histórico; aba soma órfãs/novos — usa o maior para não
+          // subestimar (Maravista) nem ignorar lançamentos novos.
+          const compensado = Math.max(
+            fromAba,
+            manual != null ? manual : 0,
+            Number(r.total_compensado || 0),
+          );
+          const apurado = Number(r.valor_apurado_inicial || 0);
+          const saldo = apurado - compensado;
+          return {
+            ...r,
+            total_compensado: compensado,
+            saldo_final: saldo,
+            status_utilizacao: statusUtilizacaoFromSaldo(apurado, compensado),
+          };
+        });
+
+      setLinhas(rows);
+      setSelecionada(teseAtivaId || rows.find((r) => Number(r.saldo_final) > 0)?.tese_id || "");
+      setLoading(false);
+    })();
   }, [open, clienteId, teseAtivaId]);
 
   const atual = useMemo(

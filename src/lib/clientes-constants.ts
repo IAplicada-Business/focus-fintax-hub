@@ -51,15 +51,24 @@ export function formatCompetenciaPT(mesRef: string | null | undefined): string {
   return `${MESES_PT_CURTO[mesIdx]}/${m[1]}`;
 }
 
-/** REPORTO / possíveis futuros — fora do Total Compensado (mesmo com tese_origem_id nulo). */
-export function isReportoCompensacao(c: {
+export type CompensacaoSumRow = {
+  valor_compensado?: number | null;
   tese_origem_id?: string | null;
   processo_tese_id?: string | null;
+  mes_referencia?: string | null;
+  tributo?: string | null;
+  tributo_enum?: string | null;
   processos_teses?: { tese?: string | null; categoria?: string | null; nome_exibicao?: string | null } | null;
-}, opts?: {
-  reportoTeseIds?: Set<string>;
-  reportoProcessoIds?: Set<string>;
-}): boolean {
+};
+
+/** REPORTO / possíveis futuros — fora do Total Compensado (mesmo com tese_origem_id nulo). */
+export function isReportoCompensacao(
+  c: CompensacaoSumRow,
+  opts?: {
+    reportoTeseIds?: Set<string>;
+    reportoProcessoIds?: Set<string>;
+  },
+): boolean {
   const tese = (c.processos_teses?.tese || "").toUpperCase();
   const cat = (c.processos_teses?.categoria || "").toLowerCase();
   const nome = (c.processos_teses?.nome_exibicao || "").toUpperCase();
@@ -69,26 +78,137 @@ export function isReportoCompensacao(c: {
   return false;
 }
 
+/** Normaliza tributo para chave de dedupe (enum ou texto livre). */
+export function tributoKey(c: { tributo?: string | null; tributo_enum?: string | null }): string {
+  return String(c.tributo_enum || c.tributo || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "_");
+}
+
+/**
+ * Inferência de tese pelo tributo quando a linha veio órfã (sem tese_origem / processo).
+ * Alinha fluxo de caixa: PIS/COFINS/INSS → Insumos; IRPJ/CSLL → Subvenção; ICMS → ICMS ST.
+ */
+export function inferTeseCodigoFromTributo(tributo: string | null | undefined): string | null {
+  const t = String(tributo || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "_");
+  if (!t) return null;
+  if (t.includes("IRPJ") || t.includes("CSLL")) return "SUBVENCAO";
+  if (t === "ICMS" || t.includes("ICMS_ST") || t === "ICMS-ST") return "ICMS_ST";
+  if (
+    t === "PIS" ||
+    t === "COFINS" ||
+    t.includes("PIS_COFINS") ||
+    t.startsWith("INSS") ||
+    t.includes("PREV") ||
+    t === "OUTROS"
+  ) {
+    return "INSUMOS";
+  }
+  return null;
+}
+
+function mesKey(mes: string | null | undefined): string {
+  return String(mes || "").slice(0, 7);
+}
+
+/** Órfã só é duplicata se existir gêmea linkada no mesmo mês+tributo+valor (±1,5 centavo). */
+export function isOrphanDuplicateOfLinked(
+  orphan: CompensacaoSumRow,
+  linkedRows: CompensacaoSumRow[],
+): boolean {
+  if (orphan.tese_origem_id) return false;
+  const mes = mesKey(orphan.mes_referencia);
+  const trib = tributoKey(orphan);
+  const valor = Number(orphan.valor_compensado || 0);
+  return linkedRows.some((l) => {
+    if (!l.tese_origem_id) return false;
+    if (mesKey(l.mes_referencia) !== mes) return false;
+    if (tributoKey(l) !== trib) return false;
+    return Math.abs(Number(l.valor_compensado || 0) - valor) < 0.015;
+  });
+}
+
+/**
+ * Linhas que entram no Total Compensado:
+ * sem Reporto; órfãs duplicadas (mesmo mês+tributo+valor de uma linkada) fora.
+ * NÃO descarta órfãs só porque o mês já tem outra linha linkada (bug Maravista).
+ */
+export function filterCompensadoCanonical(
+  rows: CompensacaoSumRow[],
+  opts?: { reportoTeseIds?: Set<string>; reportoProcessoIds?: Set<string> },
+): CompensacaoSumRow[] {
+  const linked = rows.filter((c) => !!c.tese_origem_id);
+  return rows.filter((c) => {
+    if (isReportoCompensacao(c, opts)) return false;
+    if (!c.tese_origem_id && isOrphanDuplicateOfLinked(c, linked)) return false;
+    return true;
+  });
+}
+
 /** Soma compensações no mesmo critério do card Total Compensado (sem Reporto / sem órfã duplicada). */
 export function sumCompensadoCanonical(
-  rows: Array<{
-    valor_compensado?: number | null;
-    tese_origem_id?: string | null;
-    processo_tese_id?: string | null;
-    mes_referencia?: string | null;
-    processos_teses?: { tese?: string | null; categoria?: string | null; nome_exibicao?: string | null } | null;
-  }>,
+  rows: CompensacaoSumRow[],
   opts?: { reportoTeseIds?: Set<string>; reportoProcessoIds?: Set<string> },
 ): number {
-  const linkedMonths = new Set(
-    rows.filter((c) => c.tese_origem_id).map((c) => String(c.mes_referencia || "").slice(0, 7)),
+  return filterCompensadoCanonical(rows, opts).reduce(
+    (s, c) => s + Number(c.valor_compensado || 0),
+    0,
   );
-  return rows
-    .filter((c) => {
-      if (isReportoCompensacao(c, opts)) return false;
-      const mes = String(c.mes_referencia || "").slice(0, 7);
-      if (!c.tese_origem_id && linkedMonths.has(mes)) return false;
-      return true;
-    })
-    .reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
+}
+
+export type TeseMatchOpts = {
+  teseCodigo: string;
+  teseId?: string | null;
+  processoIds?: Set<string>;
+  /** Quando true, órfãs sem tese caem na inferência por tributo. Default true. */
+  inferOrphans?: boolean;
+};
+
+/** Compensação pertence à tese/processo (link direto, tese_origem ou inferência por tributo). */
+export function compMatchesTese(c: CompensacaoSumRow, opts: TeseMatchOpts): boolean {
+  const codigo = (opts.teseCodigo || "").toUpperCase();
+  if (!codigo || codigo === "REPORTO") return false;
+
+  if (c.processo_tese_id && opts.processoIds?.has(c.processo_tese_id)) return true;
+  if (c.tese_origem_id && opts.teseId && c.tese_origem_id === opts.teseId) return true;
+
+  const procTese = (c.processos_teses?.tese || "").toUpperCase();
+  if (procTese && procTese === codigo) return true;
+
+  if (opts.inferOrphans === false) return false;
+  // Órfã pura: sem processo e sem tese_origem → inferir pelo tributo
+  if (!c.processo_tese_id && !c.tese_origem_id) {
+    const inferred = inferTeseCodigoFromTributo(c.tributo_enum || c.tributo);
+    return inferred === codigo;
+  }
+  return false;
+}
+
+/** Filtra e dedupa linhas da tese para Mapa Tributário / saldo por tese. */
+export function filterCompsForTese(
+  rows: CompensacaoSumRow[],
+  opts: TeseMatchOpts & { reportoTeseIds?: Set<string>; reportoProcessoIds?: Set<string> },
+): CompensacaoSumRow[] {
+  return filterCompensadoCanonical(rows, opts).filter((c) => compMatchesTese(c, opts));
+}
+
+export function sumCompensadoForTese(
+  rows: CompensacaoSumRow[],
+  opts: TeseMatchOpts & { reportoTeseIds?: Set<string>; reportoProcessoIds?: Set<string> },
+): number {
+  return filterCompsForTese(rows, opts).reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
+}
+
+/** Status de utilização derivado do saldo (não usa flag sticky do banco). */
+export function statusUtilizacaoFromSaldo(
+  apurado: number,
+  compensado: number,
+): "a_utilizar" | "em_uso" | "utilizado" {
+  if (compensado <= 0.011) return "a_utilizar";
+  if (apurado - compensado <= 0.011) return "utilizado";
+  return "em_uso";
 }
