@@ -24,6 +24,20 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (screenKey) {
     const perm = permissions.find((p) => p.screen_key === screenKey);
     if (perm && !perm.can_access) {
+      // Redirecting to /dashboard would loop back here if the user also
+      // lacks access to /dashboard, so render inline instead of navigating.
+      if (screenKey === "dashboard") {
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-background p-8">
+            <div className="max-w-md w-full rounded-2xl border border-card-border bg-card p-8 text-center shadow-sm">
+              <h2 className="text-lg font-bold text-foreground mb-2">Sem acesso</h2>
+              <p className="text-sm text-muted-foreground">
+                Sua conta não tem permissão para acessar esta área. Fale com um administrador.
+              </p>
+            </div>
+          </div>
+        );
+      }
       return <Navigate to="/dashboard" replace />;
     }
   }
