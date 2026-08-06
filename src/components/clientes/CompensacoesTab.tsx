@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, FileText, MessageCircle, Printer, Copy, Mail, Trash2 } from "lucide-react";
+import { Plus, FileText, MessageCircle, Printer, Copy, Mail, Trash2, Pencil } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { formatCurrencyBR, formatCompetenciaPT, getStatusPagamentoConfig, isReportoCompensacao, sumCompensadoCanonical, STATUS_PAGAMENTO } from "@/lib/clientes-constants";
@@ -28,7 +28,34 @@ const TRIBUTO_TO_ENUM: Record<string, string> = {
   "IRPJ/CSLL": "IRPJ_CSLL_agregado",
   Outros: "outros",
 };
+const ENUM_TO_TRIBUTO: Record<string, string> = {
+  INSS_52: "INSS",
+  INSS_retidos: "INSS_retidos",
+  PIS: "PIS",
+  COFINS: "COFINS",
+  ICMS: "ICMS",
+  IRPJ_CSLL_agregado: "IRPJ/CSLL",
+  outros: "Outros",
+};
+const EMPTY_FORM = {
+  processo_tese_id: "",
+  mes_referencia: "",
+  valor_compensado: "",
+  status_pagamento: "pendente",
+  valor_nf_servico: "",
+  honorario_percentual: "",
+  observacao: "",
+  tributo: "",
+};
 const MESES_PT = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+
+function resolveTributoLabel(c: any): string {
+  const raw = (c?.tributo as string) || "";
+  if (raw && TRIBUTO_OPTIONS.includes(raw)) return raw;
+  const fromEnum = ENUM_TO_TRIBUTO[(c?.tributo_enum as string) || raw] || "";
+  if (fromEnum) return fromEnum;
+  return raw;
+}
 
 interface Props {
   clienteId: string;
@@ -42,19 +69,11 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
   const [processos, setProcessos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [filterTese, setFilterTese] = useState("all");
   const [mesInicio, setMesInicio] = useState("");
   const [mesFim, setMesFim] = useState("");
-  const [form, setForm] = useState({
-    processo_tese_id: "",
-    mes_referencia: "",
-    valor_compensado: "",
-    status_pagamento: "pendente",
-    valor_nf_servico: "",
-    honorario_percentual: "",
-    observacao: "",
-    tributo: "",
-  });
+  const [form, setForm] = useState({ ...EMPTY_FORM });
 
   // Mapa Tributário state
   const [mapaOpen, setMapaOpen] = useState(false);
@@ -104,6 +123,33 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
   // Available months
   const availableMonths = [...new Set(compensacoes.map((c) => (c.mes_referencia as string).slice(0, 7)))].sort().reverse();
 
+  const resetFormModal = () => {
+    setEditingId(null);
+    setForm({ ...EMPTY_FORM });
+  };
+
+  const openCreateModal = () => {
+    resetFormModal();
+    setModalOpen(true);
+  };
+
+  const openEditModal = (c: any) => {
+    const percStored = Number(c.honorario_percentual ?? 0);
+    const honorarioStored = Number(c.honorario_valor ?? c.valor_nf_servico ?? 0);
+    setEditingId(c.id);
+    setForm({
+      processo_tese_id: c.processo_tese_id || "",
+      mes_referencia: (c.mes_referencia as string)?.slice(0, 7) || "",
+      valor_compensado: c.valor_compensado != null ? String(c.valor_compensado) : "",
+      status_pagamento: c.status_pagamento || "pendente",
+      valor_nf_servico: honorarioStored > 0 ? String(honorarioStored) : "",
+      honorario_percentual: percStored > 0 ? String(Math.round(percStored * 1000) / 10) : "",
+      observacao: c.observacao || "",
+      tributo: resolveTributoLabel(c),
+    });
+    setModalOpen(true);
+  };
+
   const handleSave = async () => {
     if (!form.processo_tese_id || !form.mes_referencia) {
       toast.error("Processo e mês são obrigatórios.");
@@ -128,8 +174,7 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
       (teseRow as { id?: string } | null)?.id
       ?? (cli as { tese_ativa_id?: string } | null)?.tese_ativa_id
       ?? null;
-    const { error } = await supabase.from("compensacoes_mensais").insert({
-      cliente_id: clienteId,
+    const payload = {
       processo_tese_id: form.processo_tese_id,
       mes_referencia: form.mes_referencia + "-01",
       valor_compensado: valorComp,
@@ -141,13 +186,33 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
       tributo: form.tributo || null,
       tributo_enum: (TRIBUTO_TO_ENUM[form.tributo] || "outros") as any,
       tese_origem_id: teseOrigemId,
-    } as any);
-    if (error) { toast.error("Erro ao registrar."); return; }
-    toast.success("Compensação registrada!");
-    const proc = processos.find((p) => p.id === form.processo_tese_id);
-    logClienteHistorico(clienteId, "compensacao_adicionada", `Compensação ${form.mes_referencia} — ${proc?.nome_exibicao || ""}: ${formatCurrencyBR(valorComp)}`);
+    };
+
+    if (editingId) {
+      const { error } = await supabase
+        .from("compensacoes_mensais")
+        .update(payload as any)
+        .eq("id", editingId);
+      if (error) { toast.error("Erro ao atualizar."); return; }
+      toast.success("Compensação atualizada!");
+      const proc = processos.find((p) => p.id === form.processo_tese_id);
+      logClienteHistorico(
+        clienteId,
+        "compensacao_editada",
+        `Compensação editada ${form.mes_referencia} — ${proc?.nome_exibicao || ""}: ${formatCurrencyBR(valorComp)}`,
+      );
+    } else {
+      const { error } = await supabase.from("compensacoes_mensais").insert({
+        cliente_id: clienteId,
+        ...payload,
+      } as any);
+      if (error) { toast.error("Erro ao registrar."); return; }
+      toast.success("Compensação registrada!");
+      const proc = processos.find((p) => p.id === form.processo_tese_id);
+      logClienteHistorico(clienteId, "compensacao_adicionada", `Compensação ${form.mes_referencia} — ${proc?.nome_exibicao || ""}: ${formatCurrencyBR(valorComp)}`);
+    }
     setModalOpen(false);
-    setForm({ processo_tese_id: "", mes_referencia: "", valor_compensado: "", status_pagamento: "pendente", valor_nf_servico: "", honorario_percentual: "", observacao: "", tributo: "" });
+    resetFormModal();
     await fetchData();
     onCompensacoesChanged?.();
   };
@@ -382,7 +447,7 @@ Equipe Focus.`;
           <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50" onClick={() => { setWhatsMes(""); setWhatsOpen(true); }}>
             <MessageCircle className="h-4 w-4 mr-1" /> Comunicado WhatsApp
           </Button>
-          <Button size="sm" onClick={() => setModalOpen(true)}><Plus className="h-4 w-4 mr-1" /> Registrar compensação</Button>
+          <Button size="sm" onClick={openCreateModal}><Plus className="h-4 w-4 mr-1" /> Registrar compensação</Button>
         </div>
       </div>
 
@@ -397,7 +462,7 @@ Equipe Focus.`;
             <TableHead>Pagamento</TableHead>
             <TableHead>Honorários</TableHead>
             <TableHead>Obs.</TableHead>
-            <TableHead className="w-10"></TableHead>
+            <TableHead className="w-20"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -454,39 +519,50 @@ Equipe Focus.`;
                 <TableCell>{formatCurrencyBR(Number((c as any).honorario_valor ?? c.valor_nf_servico ?? 0))}</TableCell>
                 <TableCell className="text-xs text-muted-foreground max-w-32 truncate">{c.observacao || "—"}</TableCell>
                 <TableCell>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Esta ação não pode ser desfeita. A compensação de{" "}
-                          <strong>{formatCurrencyBR(Number(c.valor_compensado || 0))}</strong> referente a{" "}
-                          <strong>{formatCompetenciaPT(c.mes_referencia as string)}</strong> será removida permanentemente.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={async () => {
-                            const { error } = await supabase.from("compensacoes_mensais").delete().eq("id", c.id);
-                            if (error) { toast.error("Erro ao excluir."); return; }
-                            toast.success("Compensação excluída.");
-                            logClienteHistorico(clienteId, "compensacao_removida", `Compensação removida: ${formatCompetenciaPT(c.mes_referencia as string)} — ${formatCurrencyBR(Number(c.valor_compensado || 0))}`);
-                            await fetchData();
-                            onCompensacoesChanged?.();
-                          }}
-                          className="bg-[#c8001e] hover:bg-[#a30019] text-white"
-                        >
-                          Excluir
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <div className="flex items-center gap-0.5">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-primary"
+                      title="Editar compensação"
+                      onClick={() => openEditModal(c)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" title="Excluir compensação">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta ação não pode ser desfeita. A compensação de{" "}
+                            <strong>{formatCurrencyBR(Number(c.valor_compensado || 0))}</strong> referente a{" "}
+                            <strong>{formatCompetenciaPT(c.mes_referencia as string)}</strong> será removida permanentemente.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={async () => {
+                              const { error } = await supabase.from("compensacoes_mensais").delete().eq("id", c.id);
+                              if (error) { toast.error("Erro ao excluir."); return; }
+                              toast.success("Compensação excluída.");
+                              logClienteHistorico(clienteId, "compensacao_removida", `Compensação removida: ${formatCompetenciaPT(c.mes_referencia as string)} — ${formatCurrencyBR(Number(c.valor_compensado || 0))}`);
+                              await fetchData();
+                              onCompensacoesChanged?.();
+                            }}
+                            className="bg-[#c8001e] hover:bg-[#a30019] text-white"
+                          >
+                            Excluir
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </TableCell>
               </TableRow>
             );
@@ -506,10 +582,18 @@ Equipe Focus.`;
         )}
       </Table>
 
-      {/* Registration Modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      {/* Registration / Edit Modal */}
+      <Dialog
+        open={modalOpen}
+        onOpenChange={(open) => {
+          setModalOpen(open);
+          if (!open) resetFormModal();
+        }}
+      >
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Registrar Compensação</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Editar Compensação" : "Registrar Compensação"}</DialogTitle>
+          </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="space-y-1.5">
               <Label>Processo / Tese *</Label>
@@ -553,11 +637,14 @@ Equipe Focus.`;
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Tributo</Label>
-                <Select value={form.tributo} onValueChange={(v) => setForm((p) => ({ ...p, tributo: v === "__none__" ? "" : v }))}>
+                <Select value={form.tributo || "__none__"} onValueChange={(v) => setForm((p) => ({ ...p, tributo: v === "__none__" ? "" : v }))}>
                   <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">— Nenhum —</SelectItem>
                     {TRIBUTO_OPTIONS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    {form.tributo && !TRIBUTO_OPTIONS.includes(form.tributo) && (
+                      <SelectItem value={form.tributo}>{form.tributo}</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -586,8 +673,8 @@ Equipe Focus.`;
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave}>Salvar</Button>
+            <Button variant="outline" onClick={() => { setModalOpen(false); resetFormModal(); }}>Cancelar</Button>
+            <Button onClick={handleSave}>{editingId ? "Salvar alterações" : "Salvar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
