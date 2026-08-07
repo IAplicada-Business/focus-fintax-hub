@@ -76,6 +76,14 @@ export const SCREENS: ScreenDef[] = [
     ],
   },
   {
+    // Esteira administrativa (BPMN) — operação, não comercial: mesmo trio
+    // que já vê Clientes/Compensações hoje. Comercial/sdr/gestor_comercial
+    // ficam fora por ora (Épica 7, escopo v1 confirmado em 06/08/2026).
+    key: "esteira", label: "Esteira", route: "/esteira",
+    defaultRoles: ["admin", "pmo", "gestor_tributario"],
+    defaultReadOnlyRoles: [],
+  },
+  {
     key: "configuracoes", label: "Configurações", route: "/configuracoes",
     defaultRoles: ["admin", "pmo"],
     defaultReadOnlyRoles: [],
@@ -128,6 +136,7 @@ export function routeToScreenKey(path: string): string | null {
   if (path.startsWith("/configuracoes/motor")) return "motor_calculo";
   if (path.startsWith("/configuracoes")) return "configuracoes";
   if (path.startsWith("/benchmarks")) return "benchmarks";
+  if (path.startsWith("/esteira")) return "esteira";
   if (path.startsWith("/pipeline")) return "pipeline";
   if (path.startsWith("/leads")) return "fila_leads";
   if (path.startsWith("/clientes")) return "clientes";

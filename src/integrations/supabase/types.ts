@@ -10,7 +10,32 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.4"
+    PostgrestVersion: "14.15"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -210,6 +235,13 @@ export type Database = {
             foreignKeyName: "fk_cliente_historico_cliente"
             columns: ["cliente_id"]
             isOneToOne: false
+            referencedRelation: "v_esteira_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_cliente_historico_cliente"
+            columns: ["cliente_id"]
+            isOneToOne: false
             referencedRelation: "v_meta_lead_funnel"
             referencedColumns: ["cliente_id"]
           },
@@ -223,8 +255,10 @@ export type Database = {
           compensando_fintax: boolean | null
           criado_em: string | null
           data_apuracao: string | null
+          data_entrada_estagio: string
           email: string | null
           empresa: string
+          estagio_esteira: Database["public"]["Enums"]["estagio_esteira"]
           faturamento_faixa: string | null
           id: string
           lead_id: string | null
@@ -232,6 +266,7 @@ export type Database = {
           observacoes: string | null
           regiao: string | null
           regime_tributario: string | null
+          responsavel_id: string | null
           segmento: string | null
           status: string | null
           status_operacional:
@@ -248,8 +283,10 @@ export type Database = {
           compensando_fintax?: boolean | null
           criado_em?: string | null
           data_apuracao?: string | null
+          data_entrada_estagio?: string
           email?: string | null
           empresa: string
+          estagio_esteira?: Database["public"]["Enums"]["estagio_esteira"]
           faturamento_faixa?: string | null
           id?: string
           lead_id?: string | null
@@ -257,6 +294,7 @@ export type Database = {
           observacoes?: string | null
           regiao?: string | null
           regime_tributario?: string | null
+          responsavel_id?: string | null
           segmento?: string | null
           status?: string | null
           status_operacional?:
@@ -273,8 +311,10 @@ export type Database = {
           compensando_fintax?: boolean | null
           criado_em?: string | null
           data_apuracao?: string | null
+          data_entrada_estagio?: string
           email?: string | null
           empresa?: string
+          estagio_esteira?: Database["public"]["Enums"]["estagio_esteira"]
           faturamento_faixa?: string | null
           id?: string
           lead_id?: string | null
@@ -282,6 +322,7 @@ export type Database = {
           observacoes?: string | null
           regiao?: string | null
           regime_tributario?: string | null
+          responsavel_id?: string | null
           segmento?: string | null
           status?: string | null
           status_operacional?:
@@ -395,6 +436,13 @@ export type Database = {
             foreignKeyName: "compensacoes_mensais_cliente_id_fkey"
             columns: ["cliente_id"]
             isOneToOne: false
+            referencedRelation: "v_esteira_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compensacoes_mensais_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
             referencedRelation: "v_meta_lead_funnel"
             referencedColumns: ["cliente_id"]
           },
@@ -468,6 +516,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_clientes_status_compensacao"
             referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "creditos_apurados_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_esteira_clientes"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "creditos_apurados_cliente_id_fkey"
@@ -667,6 +722,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_clientes_status_compensacao"
             referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "intimacoes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_esteira_clientes"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "intimacoes_cliente_id_fkey"
@@ -1394,6 +1456,13 @@ export type Database = {
             foreignKeyName: "observacoes_cliente_cliente_id_fkey"
             columns: ["cliente_id"]
             isOneToOne: false
+            referencedRelation: "v_esteira_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observacoes_cliente_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
             referencedRelation: "v_meta_lead_funnel"
             referencedColumns: ["cliente_id"]
           },
@@ -1464,6 +1533,13 @@ export type Database = {
             foreignKeyName: "fk_processos_cliente"
             columns: ["cliente_id"]
             isOneToOne: false
+            referencedRelation: "v_esteira_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_processos_cliente"
+            columns: ["cliente_id"]
+            isOneToOne: false
             referencedRelation: "v_meta_lead_funnel"
             referencedColumns: ["cliente_id"]
           },
@@ -1480,6 +1556,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_clientes_status_compensacao"
             referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "processos_teses_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_esteira_clientes"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "processos_teses_cliente_id_fkey"
@@ -1710,6 +1793,13 @@ export type Database = {
             foreignKeyName: "creditos_apurados_cliente_id_fkey"
             columns: ["cliente_id"]
             isOneToOne: false
+            referencedRelation: "v_esteira_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creditos_apurados_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
             referencedRelation: "v_meta_lead_funnel"
             referencedColumns: ["cliente_id"]
           },
@@ -1729,6 +1819,27 @@ export type Database = {
           tem_tese_ativa: boolean | null
           todos_encerrados: boolean | null
           ultima_competencia_compensada: string | null
+        }
+        Relationships: []
+      }
+      v_esteira_clientes: {
+        Row: {
+          cnpj: string | null
+          criado_em: string | null
+          data_entrada_estagio: string | null
+          dias_na_etapa: number | null
+          empresa: string | null
+          estagio_esteira: Database["public"]["Enums"]["estagio_esteira"] | null
+          id: string | null
+          origem: string | null
+          regime_tributario: string | null
+          responsavel_id: string | null
+          responsavel_nome: string | null
+          segmento: string | null
+          status: string | null
+          status_operacional:
+            | Database["public"]["Enums"]["status_cliente"]
+            | null
         }
         Relationships: []
       }
@@ -1759,6 +1870,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_clientes_status_compensacao"
             referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "creditos_apurados_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_esteira_clientes"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "creditos_apurados_cliente_id_fkey"
@@ -1829,7 +1947,22 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "pmo" | "gestor_tributario" | "comercial" | "cliente"
+      app_role:
+        | "admin"
+        | "pmo"
+        | "gestor_tributario"
+        | "comercial"
+        | "cliente"
+        | "sdr"
+        | "gestor_comercial"
+        | "marketing"
+      estagio_esteira:
+        | "triagem"
+        | "levantamento"
+        | "emitir_contrato"
+        | "receber_assinado"
+        | "em_compensacao"
+        | "concluido"
       regime_tributario: "lucro_real" | "lucro_presumido" | "simples_nacional"
       status_cliente: "fechado" | "relatorio_enviado" | "em_analise" | "ativo"
       status_pagamento: "pendente" | "pago"
@@ -1975,9 +2108,29 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
-      app_role: ["admin", "pmo", "gestor_tributario", "comercial", "cliente"],
+      app_role: [
+        "admin",
+        "pmo",
+        "gestor_tributario",
+        "comercial",
+        "cliente",
+        "sdr",
+        "gestor_comercial",
+        "marketing",
+      ],
+      estagio_esteira: [
+        "triagem",
+        "levantamento",
+        "emitir_contrato",
+        "receber_assinado",
+        "em_compensacao",
+        "concluido",
+      ],
       regime_tributario: ["lucro_real", "lucro_presumido", "simples_nacional"],
       status_cliente: ["fechado", "relatorio_enviado", "em_analise", "ativo"],
       status_pagamento: ["pendente", "pago"],

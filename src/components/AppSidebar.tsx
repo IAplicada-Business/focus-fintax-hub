@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   LayoutDashboard, Users, LogOut, UserPlus, Building2, Settings, Lock, ChevronDown, Menu,
-  AlertTriangle, Inbox, Megaphone, ShieldCheck,
+  AlertTriangle, Inbox, Megaphone, ShieldCheck, KanbanSquare,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -53,6 +53,12 @@ const menuItems: MenuItem[] = [
     children: [
       { title: "Intimações", url: "/intimacoes", screenKey: "intimacoes" },
     ],
+  },
+  {
+    title: "Esteira",
+    url: "/esteira",
+    icon: KanbanSquare,
+    screenKey: "esteira",
   },
   {
     title: "Configurações",
@@ -300,7 +306,7 @@ export function AppSidebar() {
   return (
     <div
       className={cn(
-        "h-screen flex flex-col shrink-0 transition-all duration-300 ease-in-out overflow-hidden relative",
+        "sticky top-0 self-start z-30 h-screen flex flex-col shrink-0 transition-all duration-300 ease-in-out overflow-hidden",
         open ? "w-[250px]" : "w-[64px]"
       )}
       style={sidebarStyle}
