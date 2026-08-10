@@ -6,9 +6,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { PasswordRecoveryRedirect } from "@/components/auth/PasswordRecoveryRedirect";
 import { AppLayout } from "@/components/AppLayout";
 import Index from "@/pages/Index";
 import Login from "@/pages/Login";
+import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/NotFound";
 
 const Calculadora = lazy(() => import("@/pages/Calculadora"));
@@ -63,9 +65,11 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <PasswordRecoveryRedirect />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Login />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<PageSpinner />}><OAuthConsent /></Suspense>} />
             <Route path="/diagnostico/:token" element={<Suspense fallback={<PageSpinner />}><Diagnostico /></Suspense>} />
             <Route path="/calculadora" element={<Suspense fallback={<PageSpinner />}><Calculadora /></Suspense>} />
