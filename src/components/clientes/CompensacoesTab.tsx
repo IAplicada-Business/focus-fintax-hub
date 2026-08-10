@@ -23,8 +23,7 @@ import {
 } from "@/lib/clientes-constants";
 import logoFintax from "@/assets/logo-focus-fintax.svg";
 import { logClienteHistorico } from "@/lib/cliente-historico";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import { exportElementToPdf, sanitizePdfFileName } from "@/lib/export-element-pdf";
 
 const TRIBUTO_OPTIONS = ["INSS", "INSS_retidos", "PIS", "COFINS", "ICMS", "IRPJ/CSLL", "Outros"];
 const TRIBUTO_TO_ENUM: Record<string, string> = {
@@ -352,107 +351,39 @@ Equipe Focus.`;
   };
 
   // ——— Download PDF do Mapa Tributário ———
-  // Renderiza o container inteiro (não só o viewport) via html2canvas +
-  // divide em páginas A4 no jsPDF. Fix do bug do "print viewport" original.
-  const sanitizeFileName = (s: string) =>
-    (s || "cliente")
-      .normalize("NFD").replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-zA-Z0-9_-]+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 60);
-
+  // Captura via clone fora do Dialog (Radix usa transform, que quebra html2canvas).
   const handleDownloadMapaPdf = async () => {
     const element = document.getElementById("mapa-tributario-pdf") as HTMLElement | null;
     if (!element || downloadingPdf) return;
-    setDownloadingPdf(true);
-
-    // Neutraliza restrições de altura/overflow dos ancestrais pra capturar
-    // o CONTEÚDO INTEIRO (não só o que cabe na viewport).
-    const modified: { el: HTMLElement; prop: string; prev: string }[] = [];
-    const forceStyle = (el: HTMLElement, prop: string, value: string) => {
-      modified.push({ el, prop, prev: el.style.getPropertyValue(prop) });
-      el.style.setProperty(prop, value, "important");
-    };
-
-    // Ancestrais até o body
-    let node: HTMLElement | null = element;
-    while (node && node !== document.body) {
-      const cs = window.getComputedStyle(node);
-      if (["auto", "scroll", "hidden"].includes(cs.overflow) || ["auto", "scroll", "hidden"].includes(cs.overflowY)) {
-        forceStyle(node, "overflow", "visible");
-        forceStyle(node, "overflow-y", "visible");
-      }
-      if (cs.maxHeight && cs.maxHeight !== "none") forceStyle(node, "max-height", "none");
-      if (cs.height && cs.height.endsWith("vh")) forceStyle(node, "height", "auto");
-      node = node.parentElement;
+    if (!mapaMes) {
+      toast.error("Selecione um mês antes de gerar o PDF.");
+      return;
     }
-    // O próprio container em auto height também
-    forceStyle(element, "height", "auto");
-    forceStyle(element, "max-height", "none");
-    forceStyle(element, "overflow", "visible");
-
-    try {
-      // Espera 1 tick pro layout recalcular
-      await new Promise((r) => setTimeout(r, 50));
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-        allowTaint: false,
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
-        height: element.scrollHeight,
-        width: element.scrollWidth,
+    if (mesProcessos.length === 0) {
+      toast.error("Sem processos para este mês", {
+        description: "Não há compensações vinculadas a processos neste mês — o PDF sairia vazio.",
       });
+      return;
+    }
 
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pageWidthMm = 210;
-      const pageHeightMm = 297;
-      const imgWidthMm = pageWidthMm;
-      const imgHeightMm = (canvas.height * imgWidthMm) / canvas.width;
-      const imgData = canvas.toDataURL("image/jpeg", 0.92);
-
-      let heightLeft = imgHeightMm;
-      let position = 0;
-      pdf.addImage(imgData, "JPEG", 0, position, imgWidthMm, imgHeightMm);
-      heightLeft -= pageHeightMm;
-
-      // Multipage: reusa a MESMA imagem, deslocando -pageHeight a cada página
-      while (heightLeft > 0) {
-        position -= pageHeightMm;
-        pdf.addPage();
-        pdf.addImage(imgData, "JPEG", 0, position, imgWidthMm, imgHeightMm);
-        heightLeft -= pageHeightMm;
-      }
-
-      // Rodapé com paginação e data de geração em todas as páginas
-      const pageCount = pdf.getNumberOfPages();
-      const nowStr = new Date().toLocaleDateString("pt-BR");
-      for (let i = 1; i <= pageCount; i++) {
-        pdf.setPage(i);
-        pdf.setFontSize(8);
-        pdf.setTextColor(120, 120, 120);
-        pdf.text(`Focus FinTax · Confidencial · Gerado em ${nowStr}`, 10, pageHeightMm - 6);
-        pdf.text(`Página ${i} de ${pageCount}`, pageWidthMm - 32, pageHeightMm - 6);
-      }
-
-      const razao = sanitizeFileName(cliente?.empresa || "");
-      const comp  = mapaMes ? mapaMes.replace(/-/g, "") : new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      pdf.save(`MapaTributario_${razao}_${comp}.pdf`);
-
+    setDownloadingPdf(true);
+    try {
+      const razao = sanitizePdfFileName(cliente?.empresa || "");
+      const comp = mapaMes.replace(/-/g, "");
+      await exportElementToPdf(element, `MapaTributario_${razao}_${comp}`);
       toast.success("PDF gerado com sucesso!");
-      logClienteHistorico(clienteId, "mapa_tributario_exportado", `Mapa Tributário exportado em PDF — competência ${mapaMes ? formatMesPT(mapaMes) : "sem mês"}`);
+      logClienteHistorico(
+        clienteId,
+        "mapa_tributario_exportado",
+        `Mapa Tributário exportado em PDF — competência ${formatMesPT(mapaMes)}`,
+      );
     } catch (err) {
       console.error("Erro ao gerar PDF do Mapa Tributário:", err);
-      toast.error("Erro ao gerar PDF", { description: "Tenta usar o print do navegador como fallback (Ctrl+P)." });
+      const msg = err instanceof Error ? err.message : "Falha desconhecida ao capturar o mapa.";
+      toast.error("Erro ao gerar PDF", {
+        description: `${msg} Como fallback, use Ctrl+P no navegador.`,
+      });
     } finally {
-      // Restaura estilos originais
-      for (const { el, prop, prev } of modified) {
-        if (prev) el.style.setProperty(prop, prev);
-        else el.style.removeProperty(prop);
-      }
       setDownloadingPdf(false);
     }
   };
@@ -746,7 +677,7 @@ Equipe Focus.`;
                   size="sm"
                   className="gap-2"
                   onClick={handleDownloadMapaPdf}
-                  disabled={downloadingPdf}
+                  disabled={downloadingPdf || mesProcessos.length === 0}
                 >
                   <Printer className="h-4 w-4" />
                   {downloadingPdf ? "Gerando PDF..." : "Baixar PDF"}
@@ -828,7 +759,13 @@ Equipe Focus.`;
               </div>
 
               {/* Report Pages — one per processo */}
-              {mesProcessos.map((proc, procIdx) => {
+              {mesProcessos.length === 0 ? (
+                <p style={{ padding: "48px 32px", textAlign: "center", color: "#6b7280", fontSize: "13px" }}>
+                  Não há processos com compensação em {formatMesPT(mapaMes)}.
+                  Selecione outro mês ou confira se as compensações estão vinculadas a um processo.
+                </p>
+              ) : (
+              mesProcessos.map((proc, procIdx) => {
                 const procCompsAll = compsForProcesso(proc);
                 const procComps = procCompsAll.filter((c) =>
                   String(c.mes_referencia || "").startsWith(mapaMes),
@@ -985,7 +922,8 @@ Equipe Focus.`;
                     </div>
                   </div>
                 );
-              })}
+              })
+              )}
             </div>
           )}
         </DialogContent>

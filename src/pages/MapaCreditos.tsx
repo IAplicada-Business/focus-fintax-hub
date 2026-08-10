@@ -14,8 +14,7 @@ import {
   statusUtilizacaoFromSaldo,
   sumCompensadoForTese,
 } from "@/lib/clientes-constants";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import { exportElementToPdf, sanitizePdfFileName } from "@/lib/export-element-pdf";
 import logoFintax from "@/assets/logo-focus-fintax.svg";
 
 interface LinhaMapa {
@@ -62,14 +61,6 @@ const ORDEM_TESES: Record<string, number> = {
   REPORTO: 7,
 };
 
-const sanitizeFileName = (s: string) =>
-  (s || "cliente")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-zA-Z0-9_-]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 60);
-
 export default function MapaCreditos() {
   const { id: clienteId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -86,22 +77,52 @@ export default function MapaCreditos() {
     if (!clienteId) return;
     const fetch = async () => {
       setLoading(true);
-      const [{ data: c }, { data: v }, { data: comps }, { data: procs }, { data: creditos }] =
-        await Promise.all([
-          supabase.from("clientes").select("id, empresa, cnpj, data_apuracao").eq("id", clienteId).single(),
-          (supabase as any).from("v_mapa_creditos").select("*").eq("cliente_id", clienteId),
-          supabase
-            .from("compensacoes_mensais")
-            .select(
-              "valor_compensado, tese_origem_id, processo_tese_id, mes_referencia, tributo, tributo_enum, processos_teses:processo_tese_id(tese, nome_exibicao)",
-            )
-            .eq("cliente_id", clienteId),
-          supabase.from("processos_teses").select("id, tese").eq("cliente_id", clienteId),
-          (supabase as any)
-            .from("creditos_apurados")
-            .select("tese_id, valor_compensado_manual")
-            .eq("cliente_id", clienteId),
-        ]);
+      const [
+        { data: c, error: cErr },
+        { data: v, error: vErr },
+        { data: comps, error: compsErr },
+        { data: procs, error: procsErr },
+        { data: creditos, error: creditosErr },
+      ] = await Promise.all([
+        supabase.from("clientes").select("id, empresa, cnpj, data_apuracao").eq("id", clienteId).single(),
+        (supabase as any).from("v_mapa_creditos").select("*").eq("cliente_id", clienteId),
+        supabase
+          .from("compensacoes_mensais")
+          .select(
+            "valor_compensado, tese_origem_id, processo_tese_id, mes_referencia, tributo, tributo_enum, processos_teses:processo_tese_id(tese, nome_exibicao)",
+          )
+          .eq("cliente_id", clienteId),
+        supabase.from("processos_teses").select("id, tese").eq("cliente_id", clienteId),
+        (supabase as any)
+          .from("creditos_apurados")
+          .select("tese_id, valor_compensado_manual")
+          .eq("cliente_id", clienteId),
+      ]);
+
+      if (cErr) {
+        console.error("MapaCreditos: falha ao carregar cliente", cErr);
+        toast.error("Não foi possível carregar o cliente", { description: cErr.message });
+        setCliente(null);
+        setLinhas([]);
+        setLoading(false);
+        return;
+      }
+      if (vErr) {
+        // Sem a view o mapa fica vazio — antes isso silenciava e o botão de PDF
+        // simplesmente ficava disabled, parecendo "não gera".
+        console.error("MapaCreditos: falha ao carregar v_mapa_creditos", vErr);
+        toast.error("Não foi possível carregar o mapa de créditos", {
+          description: vErr.message || "A view v_mapa_creditos falhou. Confira se a migration está aplicada.",
+        });
+      }
+      if (compsErr || procsErr || creditosErr) {
+        console.warn("MapaCreditos: falha parcial ao carregar dados auxiliares", {
+          compsErr,
+          procsErr,
+          creditosErr,
+        });
+      }
+
       setCliente((c as any) || null);
 
       const processoIdsByTese = new Map<string, Set<string>>();
@@ -153,8 +174,12 @@ export default function MapaCreditos() {
         .sort((a, b) => (ORDEM_TESES[a.tese_codigo] ?? 99) - (ORDEM_TESES[b.tese_codigo] ?? 99));
 
       setLinhas(rows);
-      // Default: esconde REPORTO do filtro (fora do cálculo Fox)
-      setTeseFiltroSet(new Set(rows.filter((r) => r.tese_codigo !== "REPORTO").map((r) => r.tese_codigo)));
+      // Default: esconde REPORTO do filtro (fora do cálculo Fox). Quando REPORTO é
+      // a única tese do cliente, esconder tudo deixaria o mapa vazio e o botão de
+      // PDF disabled — nesse caso mostra o que existe.
+      const semReporto = rows.filter((r) => r.tese_codigo !== "REPORTO");
+      const visiveisPorDefault = semReporto.length > 0 ? semReporto : rows;
+      setTeseFiltroSet(new Set(visiveisPorDefault.map((r) => r.tese_codigo)));
       setLoading(false);
     };
     fetch();
@@ -215,79 +240,26 @@ export default function MapaCreditos() {
   const handleDownloadPdf = async () => {
     const el = pdfRef.current;
     if (!el || downloading) return;
-    setDownloading(true);
-
-    // Neutraliza restrições de altura/overflow de ancestrais
-    const modified: { el: HTMLElement; prop: string; prev: string }[] = [];
-    const force = (n: HTMLElement, prop: string, value: string) => {
-      modified.push({ el: n, prop, prev: n.style.getPropertyValue(prop) });
-      n.style.setProperty(prop, value, "important");
-    };
-    let node: HTMLElement | null = el;
-    while (node && node !== document.body) {
-      const cs = window.getComputedStyle(node);
-      if (["auto", "scroll", "hidden"].includes(cs.overflow) || ["auto", "scroll", "hidden"].includes(cs.overflowY)) {
-        force(node, "overflow", "visible");
-        force(node, "overflow-y", "visible");
-      }
-      if (cs.maxHeight && cs.maxHeight !== "none") force(node, "max-height", "none");
-      if (cs.height && cs.height.endsWith("vh")) force(node, "height", "auto");
-      node = node.parentElement;
-    }
-    force(el, "height", "auto");
-    force(el, "max-height", "none");
-    force(el, "overflow", "visible");
-
-    try {
-      await new Promise((r) => setTimeout(r, 50));
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-        windowWidth: el.scrollWidth,
-        windowHeight: el.scrollHeight,
-        height: el.scrollHeight,
-        width: el.scrollWidth,
+    if (linhasVisiveis.length === 0) {
+      toast.error("Sem créditos para exportar", {
+        description: "Este cliente não tem linhas no mapa (ou o filtro escondeu todas as teses).",
       });
+      return;
+    }
 
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pageWidthMm = 210;
-      const pageHeightMm = 297;
-      const imgWidthMm = pageWidthMm;
-      const imgHeightMm = (canvas.height * imgWidthMm) / canvas.width;
-      const imgData = canvas.toDataURL("image/jpeg", 0.92);
-
-      let heightLeft = imgHeightMm;
-      let position = 0;
-      pdf.addImage(imgData, "JPEG", 0, position, imgWidthMm, imgHeightMm);
-      heightLeft -= pageHeightMm;
-      while (heightLeft > 0) {
-        position -= pageHeightMm;
-        pdf.addPage();
-        pdf.addImage(imgData, "JPEG", 0, position, imgWidthMm, imgHeightMm);
-        heightLeft -= pageHeightMm;
-      }
-      const pageCount = pdf.getNumberOfPages();
-      const nowStr = new Date().toLocaleDateString("pt-BR");
-      for (let i = 1; i <= pageCount; i++) {
-        pdf.setPage(i);
-        pdf.setFontSize(8);
-        pdf.setTextColor(120, 120, 120);
-        pdf.text(`Focus FinTax · Confidencial · Gerado em ${nowStr}`, 10, pageHeightMm - 6);
-        pdf.text(`Página ${i} de ${pageCount}`, pageWidthMm - 32, pageHeightMm - 6);
-      }
-      const razao = sanitizeFileName(cliente?.empresa || "");
-      pdf.save(`MapaCreditos_${razao}_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.pdf`);
+    setDownloading(true);
+    try {
+      const razao = sanitizePdfFileName(cliente?.empresa || "");
+      const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      await exportElementToPdf(el, `MapaCreditos_${razao}_${stamp}`);
       toast.success("PDF gerado!");
     } catch (e) {
       console.error(e);
-      toast.error("Erro ao gerar PDF", { description: "Tenta usar Ctrl+P como fallback." });
+      const msg = e instanceof Error ? e.message : "Falha desconhecida ao capturar o mapa.";
+      toast.error("Erro ao gerar PDF", {
+        description: `${msg} Como fallback, use Ctrl+P.`,
+      });
     } finally {
-      for (const { el: n, prop, prev } of modified) {
-        if (prev) n.style.setProperty(prop, prev);
-        else n.style.removeProperty(prop);
-      }
       setDownloading(false);
     }
   };
