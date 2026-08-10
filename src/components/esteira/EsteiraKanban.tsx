@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { ChevronRight, ChevronDown, Building2 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
-import { ESTEIRA_STAGES, ORIGEM_LABELS } from "@/lib/esteira-constants";
+import { ESTEIRA_STAGES, ORIGEM_LABELS, isEstagioEsteira } from "@/lib/esteira-constants";
 import { useUpdateEstagioEsteira } from "@/hooks/data/useEsteira";
 import type { EsteiraCliente } from "@/services/esteiraService";
 
@@ -47,6 +47,7 @@ export function EsteiraKanban({ clientes, onClienteClick }: Props) {
     if (!result.destination) return;
     const clienteId = result.draggableId;
     const newStage = result.destination.droppableId;
+    if (!isEstagioEsteira(newStage)) return;
     const cliente = clientes.find((c) => c.id === clienteId);
     if (!cliente || cliente.estagio_esteira === newStage) return;
 

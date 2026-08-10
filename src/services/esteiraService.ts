@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { EstagioEsteira } from "@/lib/esteira-constants";
 
 export interface EsteiraCliente {
   id: string;
@@ -26,7 +27,7 @@ export async function listEsteiraClientes() {
   return data as EsteiraCliente[];
 }
 
-export async function updateEstagioEsteira(clienteId: string, estagio: string) {
+export async function updateEstagioEsteira(clienteId: string, estagio: EstagioEsteira) {
   const { error } = await supabase
     .from("clientes")
     .update({ estagio_esteira: estagio })
