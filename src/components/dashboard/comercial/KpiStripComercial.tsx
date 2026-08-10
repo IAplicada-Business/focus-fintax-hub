@@ -28,13 +28,15 @@ export function KpiStripComercial({ comLeads, comNewWeek, trendDiff, comPotencia
   return (
     <div role="region" aria-label="KPIs comerciais" className="animate-slide-up delay-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-5 w-full">
       {kpis.map((kpi, i) => (
-        <div key={i} role="status" aria-label={`${kpi.label}: ${kpi.value}`} className="card-base p-5 relative flex flex-col justify-between min-h-[110px]">
-          {kpi.trend !== undefined && kpi.trend !== 0 && (
-            <span className={`absolute top-3 right-3 text-[10px] font-semibold font-mono-dm tabular-nums ${kpi.trend > 0 ? "text-dash-green" : "text-dash-red"}`}>
-              {kpi.trend > 0 ? "↑" : "↓"} {kpi.trend > 0 ? "+" : ""}{kpi.trend} vs sem. ant.
-            </span>
-          )}
-          <p className="text-[10px] font-bold uppercase tracking-[1.6px] text-ink-35 mb-2">{kpi.label}</p>
+        <div key={i} role="status" aria-label={`${kpi.label}: ${kpi.value}`} className="card-base p-5 flex flex-col justify-between min-h-[110px]">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-[1.6px] text-ink-35">{kpi.label}</p>
+            {kpi.trend !== undefined && kpi.trend !== 0 && (
+              <span className={`shrink-0 whitespace-nowrap text-[10px] font-semibold font-mono-dm tabular-nums ${kpi.trend > 0 ? "text-dash-green" : "text-dash-red"}`}>
+                {kpi.trend > 0 ? "↑" : "↓"} {kpi.trend > 0 ? "+" : ""}{kpi.trend} vs sem. ant.
+              </span>
+            )}
+          </div>
           <div>
             <p className={`font-display text-[40px] font-bold leading-none ${kpi.colorClass}`}>{kpi.value}</p>
             <p className="text-xs text-ink-35 mt-1.5">{kpi.sub}</p>

@@ -55,7 +55,7 @@ export function FunilComercial({ funnelData, maxFunnelCount, totalFunnelCount, t
                 isContrato ? "text-[#b45309]" : isCliente ? "text-[#0f7b4e]" : "text-navy"
               )}>{f.count}</span>
               <span className={cn(
-                "font-mono-dm tabular-nums text-[11px] font-semibold flex-shrink-0 w-[72px] text-right px-2",
+                "font-mono-dm tabular-nums text-[11px] font-semibold flex-shrink-0 w-[112px] text-right whitespace-nowrap pl-2 pr-3",
                 isContrato ? "text-[#b45309]" : "text-[#0f7b4e]"
               )}>{f.potencial > 0 ? compactCurrency(f.potencial) : "—"}</span>
               <div className="flex-shrink-0 w-[100px]">
@@ -75,9 +75,9 @@ export function FunilComercial({ funnelData, maxFunnelCount, totalFunnelCount, t
 
         {/* Total row */}
         <div className="flex items-center px-5 py-3 bg-[rgba(10,21,100,0.03)] border-t-2 border-[rgba(10,21,100,0.08)]">
-          <span className="text-[10px] font-bold tracking-[1px] uppercase text-ink-35 flex-1 pl-[17px]">Total do pipeline</span>
-          <span className="font-display text-[18px] font-bold text-navy w-10 text-right shrink-0">{totalFunnelCount}</span>
-          <span className="font-mono-dm tabular-nums text-[13px] font-bold text-dash-green w-[72px] text-right shrink-0 px-2">{compactCurrency(totalFunnelPotencial)}</span>
+          <span className="text-[10px] font-bold tracking-[1px] uppercase text-ink-35 flex-1 min-w-0 pl-5">Total do pipeline</span>
+          <span className="font-display text-[18px] font-bold text-navy w-9 text-right shrink-0">{totalFunnelCount}</span>
+          <span className="font-mono-dm tabular-nums text-[13px] font-bold text-dash-green w-[112px] text-right whitespace-nowrap shrink-0 pl-2 pr-3">{compactCurrency(totalFunnelPotencial)}</span>
           <div className="w-[100px] shrink-0" />
           <div className="w-[22px]" />
         </div>

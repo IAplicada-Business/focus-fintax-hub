@@ -95,13 +95,15 @@ export function KpiBox({ label, value, sub, colorClass, trend, last, rawValue }:
   const animatedNum = useCountUp(rawValue ?? 0);
   const displayValue = rawValue !== undefined ? String(animatedNum) : value;
   return (
-    <div className={`px-5 py-4 relative ${last ? "" : "border-r border-[rgba(10,21,100,0.10)]"}`}>
-      {trend !== undefined && trend !== 0 && (
-        <span className={`absolute top-3.5 right-3.5 text-[10px] font-semibold font-mono-dm tabular-nums ${trend > 0 ? "text-dash-green" : "text-dash-red"}`}>
-          {trend > 0 ? "↑" : "↓"} {trend > 0 ? "+" : ""}{trend} vs sem. ant.
-        </span>
-      )}
-      <div className="text-[10px] font-semibold tracking-[1.4px] uppercase text-ink-35 mb-[7px]">{label}</div>
+    <div className={`px-5 py-4 ${last ? "" : "border-r border-[rgba(10,21,100,0.10)]"}`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 mb-[7px]">
+        <div className="text-[10px] font-semibold tracking-[1.4px] uppercase text-ink-35">{label}</div>
+        {trend !== undefined && trend !== 0 && (
+          <span className={`shrink-0 whitespace-nowrap text-[10px] font-semibold font-mono-dm tabular-nums ${trend > 0 ? "text-dash-green" : "text-dash-red"}`}>
+            {trend > 0 ? "↑" : "↓"} {trend > 0 ? "+" : ""}{trend} vs sem. ant.
+          </span>
+        )}
+      </div>
       <div className={`font-display text-[26px] font-bold leading-none ${valColorClass}`}>{displayValue}</div>
       <div className="text-[11px] text-ink-35 mt-1">{sub}</div>
     </div>
