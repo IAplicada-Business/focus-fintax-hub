@@ -167,8 +167,11 @@ COMMENT ON VIEW public.v_esteira_sla IS
 
 -- ---------------------------------------------------------------------------
 -- 5) Kanban: sla_dias + atrasado por cliente
+--    DROP+CREATE: CREATE OR REPLACE não pode reordenar/inserir colunas no meio.
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE VIEW public.v_esteira_clientes AS
+DROP VIEW IF EXISTS public.v_esteira_clientes;
+
+CREATE VIEW public.v_esteira_clientes AS
 SELECT
   c.id,
   c.empresa,

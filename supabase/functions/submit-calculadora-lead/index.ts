@@ -17,6 +17,7 @@ import {
   configFromRows,
   type FocusIndice,
 } from "../_shared/calc-motor.ts";
+import { sugerirProduto, type TeseMotorInput } from "../_shared/sugestao-produto.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -113,36 +114,75 @@ Deno.serve(async (req) => {
         resultado.reforma.debito.total) *
       12; // saldo mensal × 12 (positivo se favorável)
 
+    // Sugestão de produto: cruza RT × motor de teses (Épica 2)
+    const { data: motorRows, error: motorErr } = await sb
+      .from("motor_teses_config")
+      .select(
+        "tese, nome_exibicao, regimes_elegiveis, segmentos_elegiveis, percentual_min, percentual_max, ativo, ordem_exibicao",
+      );
+    if (motorErr) {
+      console.warn("submit-calculadora-lead motor_teses_config:", motorErr.message);
+    }
+    const sugestao = sugerirProduto({
+      regime: String(body.regime),
+      segmento,
+      faturamento_mensal: faturamento,
+      economia_potencial_anual: economiaAnual,
+      ibs_cbs_estimado: ibsCbsEstimado,
+      ja_faz_recuperacao: !!body.ja_faz_recuperacao,
+      teses: ((motorRows as TeseMotorInput[]) ?? []).map((t) => ({
+        ...t,
+        percentual_min: Number(t.percentual_min),
+        percentual_max: Number(t.percentual_max),
+      })),
+    });
+
     // Grava lead
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
     const userAgent = req.headers.get("user-agent") ?? null;
 
-    const { data: lead, error: leadErr } = await sb
+    const leadCore = {
+      nome: String(body.nome).slice(0, 255),
+      telefone: String(body.telefone).slice(0, 32),
+      email: String(body.email).slice(0, 255),
+      segmento,
+      regime: body.regime,
+      faturamento_mensal: faturamento,
+      ja_faz_recuperacao: !!body.ja_faz_recuperacao,
+      aceite_lgpd: true,
+      aceite_lgpd_at: new Date().toISOString(),
+      utm_source: body.utm_source ?? null,
+      utm_medium: body.utm_medium ?? null,
+      utm_campaign: body.utm_campaign ?? null,
+      utm_term: body.utm_term ?? null,
+      utm_content: body.utm_content ?? null,
+      ip_address: clientIp,
+      user_agent: userAgent,
+      resultado_dre_atual: resultado.dre as any,
+      resultado_dre_reforma: resultado.dre as any,
+      ibs_cbs_estimado: ibsCbsEstimado,
+      economia_potencial_anual: economiaAnual,
+    };
+
+    let { data: lead, error: leadErr } = await sb
       .from("calculadora_leads")
       .insert({
-        nome: String(body.nome).slice(0, 255),
-        telefone: String(body.telefone).slice(0, 32),
-        email: String(body.email).slice(0, 255),
-        segmento,
-        regime: body.regime,
-        faturamento_mensal: faturamento,
-        ja_faz_recuperacao: !!body.ja_faz_recuperacao,
-        aceite_lgpd: true,
-        aceite_lgpd_at: new Date().toISOString(),
-        utm_source: body.utm_source ?? null,
-        utm_medium: body.utm_medium ?? null,
-        utm_campaign: body.utm_campaign ?? null,
-        utm_term: body.utm_term ?? null,
-        utm_content: body.utm_content ?? null,
-        ip_address: clientIp,
-        user_agent: userAgent,
-        resultado_dre_atual: resultado.dre as any,
-        resultado_dre_reforma: resultado.dre as any,
-        ibs_cbs_estimado: ibsCbsEstimado,
-        economia_potencial_anual: economiaAnual,
+        ...leadCore,
+        sugestao_produto: sugestao.produto,
+        sugestao_produto_racional: sugestao as any,
       })
       .select("id")
       .single();
+
+    // Migration ainda não aplicada: coluna sugestao_* inexistente — grava sem ela.
+    if (leadErr && /sugestao_produto/i.test(leadErr.message || "")) {
+      console.warn("submit-calculadora-lead: colunas de sugestão ausentes, insert sem elas");
+      ({ data: lead, error: leadErr } = await sb
+        .from("calculadora_leads")
+        .insert(leadCore)
+        .select("id")
+        .single());
+    }
 
     if (leadErr || !lead) {
       console.error("submit-calculadora-lead insert lead err:", leadErr);
@@ -215,6 +255,8 @@ Deno.serve(async (req) => {
           reforma: resultado.reforma,
           ibs_cbs_estimado: ibsCbsEstimado,
           economia_potencial_anual: economiaAnual,
+          sugestao_produto: sugestao.produto,
+          sugestao_produto_label: sugestao.label,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },

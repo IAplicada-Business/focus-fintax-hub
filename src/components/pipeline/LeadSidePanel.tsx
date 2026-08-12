@@ -15,6 +15,7 @@ import { toastError } from "@/lib/handle-error";
 import { ExternalLink, MessageCircle, Pencil, UserCheck, XCircle, ArrowRight, AlertTriangle, Check, Trash2, Save, X as CloseIcon } from "lucide-react";
 import { PIPELINE_STAGES, STAGE_COLORS, SEGMENTO_LABELS, formatCurrency, daysSince } from "@/lib/pipeline-constants";
 import { REGIMES } from "@/lib/lead-constants";
+import { PRODUTO_LABEL, type ProdutoSugerido } from "@/lib/sugestao-produto";
 import { useAuth } from "@/hooks/useAuth";
 import { canEditLead } from "@/lib/role-permissions";
 import type { PipelineLead } from "@/pages/Pipeline";
@@ -73,6 +74,16 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
     ja_faz_recuperacao: boolean;
     utm_source: string | null;
     utm_campaign: string | null;
+    sugestao_produto: string | null;
+    sugestao_produto_racional: {
+      label?: string;
+      resumo?: string;
+      motivos?: string[];
+      potencial_compensacao_min?: number;
+      potencial_compensacao_max?: number;
+      teses?: { nome_exibicao: string; estimativa_minima: number; estimativa_maxima: number }[];
+      draft?: boolean;
+    } | null;
   } | null>(null);
   const debounceRef = useRef<NodeJS.Timeout>();
 
@@ -87,7 +98,7 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
       if (calcId) {
         (supabase as any)
           .from("calculadora_leads")
-          .select("faturamento_mensal, ibs_cbs_estimado, economia_potencial_anual, regime, ja_faz_recuperacao, utm_source, utm_campaign")
+          .select("faturamento_mensal, ibs_cbs_estimado, economia_potencial_anual, regime, ja_faz_recuperacao, utm_source, utm_campaign, sugestao_produto, sugestao_produto_racional")
           .eq("id", calcId)
           .maybeSingle()
           .then(({ data }: any) => setCalcData(data ?? null));
@@ -405,7 +416,7 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
                     <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-3 space-y-2">
                       <div className="flex items-center justify-between">
                         <p className="text-[10px] font-bold tracking-widest uppercase text-rose-800">
-                          📊 Diagnóstico da Calculadora RT
+                          Diagnóstico da Calculadora RT
                         </p>
                         <Badge variant="outline" className="bg-white text-rose-800 border-rose-200 text-[10px]">
                           {calcData.regime}
@@ -443,6 +454,71 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
                           </div>
                         )}
                       </div>
+                    </div>
+                  )}
+
+                  {calcData?.sugestao_produto && (
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[10px] font-bold tracking-widest uppercase text-primary">
+                          Sugestão de produto
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          {calcData.sugestao_produto_racional?.draft !== false && (
+                            <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-800 border-amber-200">
+                              draft
+                            </Badge>
+                          )}
+                          <Badge className="text-[10px]">
+                            {calcData.sugestao_produto_racional?.label
+                              || PRODUTO_LABEL[calcData.sugestao_produto as ProdutoSugerido]
+                              || calcData.sugestao_produto}
+                          </Badge>
+                        </div>
+                      </div>
+                      {calcData.sugestao_produto_racional?.resumo && (
+                        <p className="text-xs text-foreground leading-relaxed">
+                          {calcData.sugestao_produto_racional.resumo}
+                        </p>
+                      )}
+                      {(calcData.sugestao_produto_racional?.potencial_compensacao_max ?? 0) > 0 && (
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <p className="text-[10px] text-muted-foreground">Potencial Compensação (min)</p>
+                            <p className="font-semibold">
+                              {formatCurrency(calcData.sugestao_produto_racional!.potencial_compensacao_min ?? 0)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-muted-foreground">Potencial Compensação (max)</p>
+                            <p className="font-semibold text-emerald-700">
+                              {formatCurrency(calcData.sugestao_produto_racional!.potencial_compensacao_max ?? 0)}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      {!!calcData.sugestao_produto_racional?.teses?.length && (
+                        <div className="space-y-1 pt-1 border-t border-primary/10">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Teses no racional</p>
+                          {calcData.sugestao_produto_racional!.teses!.map((t, i) => (
+                            <div key={i} className="flex justify-between gap-2 text-[11px]">
+                              <span className="font-medium truncate">{t.nome_exibicao}</span>
+                              <span className="text-muted-foreground shrink-0">
+                                {formatCurrency(t.estimativa_minima)} — {formatCurrency(t.estimativa_maxima)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {!!calcData.sugestao_produto_racional?.motivos?.length && (
+                        <ul className="space-y-1 pt-1 border-t border-primary/10">
+                          {calcData.sugestao_produto_racional!.motivos!.map((m, i) => (
+                            <li key={i} className="text-[11px] text-muted-foreground leading-snug list-disc ml-3">
+                              {m}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   )}
 
