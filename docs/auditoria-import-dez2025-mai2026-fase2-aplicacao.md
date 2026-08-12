@@ -23,38 +23,39 @@ refletir a planilha vigente:
 
 Total do mês: de R$ 2.694.306,42 para **R$ 948.607,32** — agora bate 100% com a planilha.
 
-### SUPERMERCADOS FEIRA NOVA LTDA e COMERCIAL DE ALIMENTOS PRIMUS (FILIAL) — linhas órfãs zeradas
+### SUPERMERCADOS FEIRA NOVA LTDA e COMERCIAL DE ALIMENTOS PRIMUS (FILIAL) — zeradas e depois revertidas
 
-Por decisão explícita do time, essas 4 linhas **não foram deletadas** (para preservar
-histórico) — foram zeradas, já que a planilha atual não tem nenhum valor de tributo "outros"
-para esses cliente/mês:
+Essas 4 linhas foram zeradas (não deletadas) na primeira rodada, com `observacao` explicando o
+motivo — e **revertidas para o valor original logo depois**, a pedido explícito do time. Estado
+final: **inalterado em relação ao início da auditoria** (`valor_compensado` e `observacao` de
+volta ao que estavam antes de qualquer ação desta fase):
 
-| Empresa | Mês | Tributo | Valor anterior (R$) | Valor novo | id |
-|---|---|---|---|---|---|
-| SUPERMERCADOS FEIRA NOVA LTDA | 2026-01 | outros | 897.672,59 | 0 | `1181b9ce-d69a-4c64-96c8-ea376232ab45` |
-| SUPERMERCADOS FEIRA NOVA LTDA | 2026-02 | outros | 340.788,89 | 0 | `a6cac79b-78e0-4fd1-89b9-68afcb1dad15` |
-| COMERCIAL DE ALIMENTOS PRIMUS LTDA/BOI DE OURO/FILIAL | 2026-01 | outros | 12.616,09 | 0 | `c5ba199f-c8b8-4aef-a0a2-f70c4433d370` |
-| COMERCIAL DE ALIMENTOS PRIMUS LTDA/BOI DE OURO/FILIAL | 2026-02 | outros | 12.760,99 | 0 | `4d230f4f-95a6-419e-9af2-287e9124b780` |
+| Empresa | Mês | Tributo | Valor (mantido) | id |
+|---|---|---|---|---|
+| SUPERMERCADOS FEIRA NOVA LTDA | 2026-01 | outros | 897.672,59 | `1181b9ce-d69a-4c64-96c8-ea376232ab45` |
+| SUPERMERCADOS FEIRA NOVA LTDA | 2026-02 | outros | 340.788,89 | `a6cac79b-78e0-4fd1-89b9-68afcb1dad15` |
+| COMERCIAL DE ALIMENTOS PRIMUS LTDA/BOI DE OURO/FILIAL | 2026-01 | outros | 12.616,09 | `c5ba199f-c8b8-4aef-a0a2-f70c4433d370` |
+| COMERCIAL DE ALIMENTOS PRIMUS LTDA/BOI DE OURO/FILIAL | 2026-02 | outros | 12.760,99 | `4d230f4f-95a6-419e-9af2-287e9124b780` |
 
-Cada linha recebeu uma `observacao` explicando o motivo e o valor original, para auditoria
-futura.
+O diagnóstico da causa raiz (linhas órfãs de import de 30/03/2026, ver
+[fase2-diagnostico](./auditoria-import-dez2025-mai2026-fase2-diagnostico.md)) continua válido —
+essas 2 combinações cliente/mês seguem 🟡 INCOERENTE em relação à planilha atual. Nenhuma ação
+foi mantida sobre elas; aguardando nova decisão do time sobre como tratar.
 
 ## Efeito no total compensado
 
 | Cliente | Mês | Total anterior (R$) | Total novo (R$) | Planilha (R$) |
 |---|---|---|---|---|
 | REUNIDOS | 2026-04 | 2.694.306,42 | 948.607,32 | 948.607,32 ✅ |
-| SUPERMERCADOS FEIRA NOVA LTDA | 2026-01 | 1.238.461,48 | 340.788,89 | 340.788,89 ✅ |
-| SUPERMERCADOS FEIRA NOVA LTDA | 2026-02 | 340.788,89 | 0,00 | 0,00 ✅ |
-| COMERCIAL DE ALIMENTOS PRIMUS LTDA/BOI DE OURO/FILIAL | 2026-01 | 12.616,09 | 0,00 | 0,00 ✅ |
-| COMERCIAL DE ALIMENTOS PRIMUS LTDA/BOI DE OURO/FILIAL | 2026-02 | 12.760,99 | 0,00 | 0,00 ✅ |
+| SUPERMERCADOS FEIRA NOVA LTDA | 2026-01 | 1.238.461,48 | 1.238.461,48 (revertido) | 340.788,89 🟡 |
+| SUPERMERCADOS FEIRA NOVA LTDA | 2026-02 | 340.788,89 | 340.788,89 (revertido) | 0,00 🟡 |
+| COMERCIAL DE ALIMENTOS PRIMUS LTDA/BOI DE OURO/FILIAL | 2026-01 | 12.616,09 | 12.616,09 (revertido) | 0,00 🟡 |
+| COMERCIAL DE ALIMENTOS PRIMUS LTDA/BOI DE OURO/FILIAL | 2026-02 | 12.760,99 | 12.760,99 (revertido) | 0,00 🟡 |
 
-Todos os 4 casos 🟡 restantes (dos 6 originais da Fase 1) agora batem 100% com a planilha
-atual. O 5º caso (FJC, dez/25) já tinha sido reclassificado como 🟢 no diagnóstico anterior
-(lançamento legítimo vinculado a processo de tese, fora do fluxo mensal) — não precisou de
-correção. Faltou tratar o 6º (INCOERENTE original "COMERCIAL DE ALIMENTOS PRIMUS LTDA/BOI DE
-OURO/FILIAL 2026-01/02" que já está coberto na tabela acima — eram os mesmos 2 registros da
-FILIAL.
+Só REUNIDOS ficou corrigido nesta rodada. FEIRA NOVA e PRIMUS FILIAL voltaram ao estado
+original — seguem 🟡 INCOERENTE, pendentes de nova decisão. O caso FJC (dez/25) permanece
+reclassificado como 🟢 (ver diagnóstico), lançamento legítimo vinculado a processo de tese,
+sem necessidade de correção.
 
 ## O que ainda está pendente (sem dados/decisão)
 
