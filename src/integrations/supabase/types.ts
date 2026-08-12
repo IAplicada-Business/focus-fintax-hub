@@ -1481,6 +1481,7 @@ export type Database = {
           status_contrato: string | null
           status_processo: string | null
           tese: string
+          tipo_recuperacao: Database["public"]["Enums"]["tipo_recuperacao"]
           valor_credito: number | null
           valor_honorario: number | null
         }
@@ -1496,6 +1497,7 @@ export type Database = {
           status_contrato?: string | null
           status_processo?: string | null
           tese: string
+          tipo_recuperacao?: Database["public"]["Enums"]["tipo_recuperacao"]
           valor_credito?: number | null
           valor_honorario?: number | null
         }
@@ -1511,6 +1513,7 @@ export type Database = {
           status_contrato?: string | null
           status_processo?: string | null
           tese?: string
+          tipo_recuperacao?: Database["public"]["Enums"]["tipo_recuperacao"]
           valor_credito?: number | null
           valor_honorario?: number | null
         }
@@ -1816,6 +1819,7 @@ export type Database = {
           tem_compensacao_qualquer: boolean | null
           tem_judicial: boolean | null
           tem_reporto: boolean | null
+          tem_ressarcimento: boolean | null
           tem_tese_ativa: boolean | null
           todos_encerrados: boolean | null
           ultima_competencia_compensada: string | null
@@ -1824,6 +1828,7 @@ export type Database = {
       }
       v_esteira_clientes: {
         Row: {
+          atrasado: boolean | null
           cnpj: string | null
           criado_em: string | null
           data_entrada_estagio: string | null
@@ -1836,10 +1841,14 @@ export type Database = {
           responsavel_id: string | null
           responsavel_nome: string | null
           segmento: string | null
+          sla_dias: number | null
           status: string | null
           status_operacional:
             | Database["public"]["Enums"]["status_cliente"]
             | null
+          tem_ramo_compensacao: boolean | null
+          tem_ramo_judicial: boolean | null
+          tem_ramo_ressarcimento: boolean | null
         }
         Relationships: []
       }
@@ -1963,6 +1972,10 @@ export type Database = {
         | "receber_assinado"
         | "em_compensacao"
         | "concluido"
+      tipo_recuperacao:
+        | "compensacao"
+        | "ressarcimento"
+        | "recuperacao_judicial"
       regime_tributario: "lucro_real" | "lucro_presumido" | "simples_nacional"
       status_cliente: "fechado" | "relatorio_enviado" | "em_analise" | "ativo"
       status_pagamento: "pendente" | "pago"
@@ -2130,6 +2143,11 @@ export const Constants = {
         "receber_assinado",
         "em_compensacao",
         "concluido",
+      ],
+      tipo_recuperacao: [
+        "compensacao",
+        "ressarcimento",
+        "recuperacao_judicial",
       ],
       regime_tributario: ["lucro_real", "lucro_presumido", "simples_nacional"],
       status_cliente: ["fechado", "relatorio_enviado", "em_analise", "ativo"],

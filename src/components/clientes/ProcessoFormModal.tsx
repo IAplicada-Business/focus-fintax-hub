@@ -8,6 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { STATUS_CONTRATO, STATUS_PROCESSO } from "@/lib/clientes-constants";
+import {
+  TIPOS_RECUPERACAO,
+  isTipoRecuperacao,
+  sugerirTipoRecuperacao,
+  type TipoRecuperacao,
+} from "@/lib/tipo-recuperacao";
 
 interface Props {
   open: boolean;
@@ -29,6 +35,7 @@ const EMPTY_FORM = {
   status_processo: "a_iniciar",
   observacao: "",
   categoria: "compensacao",
+  tipo_recuperacao: "compensacao" as TipoRecuperacao,
 };
 
 export function ProcessoFormModal({
@@ -62,6 +69,9 @@ export function ProcessoFormModal({
         status_processo: processo.status_processo,
         observacao: processo.observacao || "",
         categoria: processo.categoria === "reporto" ? "reporto" : "compensacao",
+        tipo_recuperacao: isTipoRecuperacao(processo.tipo_recuperacao)
+          ? processo.tipo_recuperacao
+          : "compensacao",
       });
       return;
     }
@@ -74,6 +84,7 @@ export function ProcessoFormModal({
         tese: presetTese,
         nome_exibicao: nome,
         categoria: isReporto ? "reporto" : "compensacao",
+        tipo_recuperacao: sugerirTipoRecuperacao(presetTese, nome),
       });
       return;
     }
@@ -94,6 +105,7 @@ export function ProcessoFormModal({
       tese: value,
       nome_exibicao: nome,
       categoria: isReporto ? "reporto" : p.categoria,
+      tipo_recuperacao: sugerirTipoRecuperacao(value, nome),
     }));
   };
 
@@ -111,6 +123,7 @@ export function ProcessoFormModal({
       status_processo: form.status_processo,
       observacao: form.observacao,
       categoria: form.categoria,
+      tipo_recuperacao: form.tipo_recuperacao,
       atualizado_em: new Date().toISOString(),
     } as any;
 
@@ -142,6 +155,25 @@ export function ProcessoFormModal({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Ramo de recuperação</Label>
+            <Select
+              value={form.tipo_recuperacao}
+              onValueChange={(v) => {
+                if (isTipoRecuperacao(v)) update("tipo_recuperacao", v);
+              }}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {TIPOS_RECUPERACAO.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Compensação, Ressarcimento ou Recuperação Judicial — um tipo por processo.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Categoria</Label>

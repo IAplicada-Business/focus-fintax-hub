@@ -9,6 +9,11 @@ import {
   isClienteAtrasadoSla,
   slaDiasDaEtapa,
 } from "@/lib/esteira-constants";
+import {
+  ramosVisiveisNoKanban,
+  TIPO_RECUPERACAO_BADGE,
+  TIPO_RECUPERACAO_LABEL,
+} from "@/lib/tipo-recuperacao";
 import { useUpdateEstagioEsteira } from "@/hooks/data/useEsteira";
 import type { EsteiraCliente } from "@/services/esteiraService";
 
@@ -190,6 +195,7 @@ function ClienteCard({
     typeof cliente.atrasado === "boolean"
       ? cliente.atrasado
       : isClienteAtrasadoSla(cliente.estagio_esteira, dias);
+  const ramos = ramosVisiveisNoKanban(cliente);
 
   let borderClass = "";
   if (atrasado) borderClass = "border-l-4 border-l-destructive";
@@ -220,10 +226,18 @@ function ClienteCard({
               <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" aria-hidden />
             )}
           </div>
-          <div className="mt-1 flex items-center gap-1.5">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
               {ORIGEM_LABELS[cliente.origem] || cliente.origem}
             </span>
+            {ramos.map((ramo) => (
+              <span
+                key={ramo}
+                className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${TIPO_RECUPERACAO_BADGE[ramo]}`}
+              >
+                {TIPO_RECUPERACAO_LABEL[ramo]}
+              </span>
+            ))}
             {atrasado && (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 font-semibold">
                 SLA

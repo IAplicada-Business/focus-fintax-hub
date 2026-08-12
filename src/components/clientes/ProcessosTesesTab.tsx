@@ -22,6 +22,11 @@ import { toast } from "sonner";
 import { ProcessoFormModal } from "./ProcessoFormModal";
 import { formatCurrencyBR, getStatusContratoConfig, STATUS_PROCESSO } from "@/lib/clientes-constants";
 import { logClienteHistorico } from "@/lib/cliente-historico";
+import {
+  isTipoRecuperacao,
+  TIPO_RECUPERACAO_BADGE,
+  TIPO_RECUPERACAO_LABEL,
+} from "@/lib/tipo-recuperacao";
 
 interface Props {
   clienteId: string;
@@ -269,8 +274,17 @@ export function ProcessosTesesTab({
                   return (
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <span>{p.nome_exibicao}</span>
+                          {isTipoRecuperacao(p.tipo_recuperacao) &&
+                            p.tipo_recuperacao !== "compensacao" && (
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] ${TIPO_RECUPERACAO_BADGE[p.tipo_recuperacao]}`}
+                              >
+                                {TIPO_RECUPERACAO_LABEL[p.tipo_recuperacao]}
+                              </Badge>
+                            )}
                           {p.categoria === "reporto" && (
                             <Badge
                               variant="outline"

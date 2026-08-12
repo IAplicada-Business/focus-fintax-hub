@@ -174,13 +174,15 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
       compensando: 0,
       prevista: 0,
       reporto: 0,
+      ressarcimento: 0,
       judicial: 0,
       encerrado: 0,
       sem_operacao: 0,
     };
     for (const r of statusRows) {
       if (r.status_principal === "reporto") continue;
-      c[r.status_principal]++;
+      const key = r.status_principal as StatusCompensacao;
+      if (key in c) c[key]++;
     }
     return c;
   }, [statusRows]);

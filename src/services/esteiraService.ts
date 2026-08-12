@@ -19,6 +19,10 @@ export interface EsteiraCliente {
   status: string;
   status_operacional: string | null;
   criado_em: string;
+  /** Ramos agregados (Épica 3); opcional até a migration. */
+  tem_ramo_compensacao?: boolean;
+  tem_ramo_ressarcimento?: boolean;
+  tem_ramo_judicial?: boolean;
 }
 
 export async function listEsteiraClientes() {
