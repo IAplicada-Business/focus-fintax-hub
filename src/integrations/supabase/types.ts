@@ -1971,6 +1971,7 @@ export type Database = {
         | "emitir_contrato"
         | "receber_assinado"
         | "em_compensacao"
+        | "encaminhar_financeiro"
         | "concluido"
       tipo_recuperacao:
         | "compensacao"
@@ -2142,6 +2143,7 @@ export const Constants = {
         "emitir_contrato",
         "receber_assinado",
         "em_compensacao",
+        "encaminhar_financeiro",
         "concluido",
       ],
       tipo_recuperacao: [

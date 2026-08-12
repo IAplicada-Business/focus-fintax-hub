@@ -11,6 +11,7 @@ import { listEsteiraClientes, type EsteiraCliente } from "@/services/esteiraServ
 
 export interface EsteiraSlaEtapaRow {
   estagio: EstagioEsteira;
+  label?: string;
   sla_dias: number | null;
   ordem: number;
   clientes_na_etapa: number;

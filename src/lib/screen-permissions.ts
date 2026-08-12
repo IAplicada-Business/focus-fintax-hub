@@ -134,6 +134,7 @@ export function getDefaultPermissions(role: string): ScreenPermission[] {
 /** Map a route path to a screen key */
 export function routeToScreenKey(path: string): string | null {
   if (path.startsWith("/configuracoes/motor")) return "motor_calculo";
+  if (path.startsWith("/configuracoes/esteira-sla")) return "esteira";
   if (path.startsWith("/configuracoes")) return "configuracoes";
   if (path.startsWith("/benchmarks")) return "benchmarks";
   if (path.startsWith("/esteira")) return "esteira";

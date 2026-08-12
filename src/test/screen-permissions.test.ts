@@ -64,6 +64,10 @@ describe("routeToScreenKey", () => {
     expect(routeToScreenKey("/configuracoes/motor")).toBe("motor_calculo");
   });
 
+  it("maps /configuracoes/esteira-sla to esteira", () => {
+    expect(routeToScreenKey("/configuracoes/esteira-sla")).toBe("esteira");
+  });
+
   it("returns null for unknown routes", () => {
     expect(routeToScreenKey("/unknown")).toBeNull();
     expect(routeToScreenKey("/")).toBeNull();

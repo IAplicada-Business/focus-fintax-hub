@@ -4,6 +4,7 @@ export const ESTEIRA_STAGES = [
   { value: "emitir_contrato", label: "Emitir Contrato" },
   { value: "receber_assinado", label: "Receber Assinado" },
   { value: "em_compensacao", label: "Em Compensação" },
+  { value: "encaminhar_financeiro", label: "Encaminhar Financeiro" },
   { value: "concluido", label: "Concluído" },
 ] as const;
 
@@ -11,9 +12,9 @@ export const ESTEIRA_STAGES = [
 export type EstagioEsteira = (typeof ESTEIRA_STAGES)[number]["value"];
 
 /**
- * SLA esperado em dias úteis de calendário (mesmo critério do SQL).
- * `null` = etapa sem meta (concluído).
- * `em_compensacao` = 30d — default operacional (backlog não especificava).
+ * Defaults de SLA (dias de calendário). Fonte de verdade em runtime:
+ * tabela `esteira_sla_config`. Estes valores são fallback + seed.
+ * `null` = etapa sem meta.
  */
 export const ESTEIRA_SLA_DIAS: Record<EstagioEsteira, number | null> = {
   triagem: 1,
@@ -21,8 +22,11 @@ export const ESTEIRA_SLA_DIAS: Record<EstagioEsteira, number | null> = {
   emitir_contrato: 1,
   receber_assinado: 3,
   em_compensacao: 30,
+  encaminhar_financeiro: 5,
   concluido: null,
 };
+
+export type EsteiraSlaMap = Partial<Record<EstagioEsteira, number | null>>;
 
 /**
  * Valida ids que chegam de fontes não tipadas (ex.: `droppableId` do
@@ -33,19 +37,33 @@ export function isEstagioEsteira(value: string): value is EstagioEsteira {
   return ESTEIRA_STAGES.some((s) => s.value === value);
 }
 
-export function slaDiasDaEtapa(estagio: string): number | null {
+export function slaDiasDaEtapa(
+  estagio: string,
+  overrides?: EsteiraSlaMap,
+): number | null {
   if (!isEstagioEsteira(estagio)) return null;
+  if (overrides && Object.prototype.hasOwnProperty.call(overrides, estagio)) {
+    return overrides[estagio] ?? null;
+  }
   return ESTEIRA_SLA_DIAS[estagio];
 }
 
-export function isClienteAtrasadoSla(estagio: string, diasNaEtapa: number): boolean {
-  const sla = slaDiasDaEtapa(estagio);
+export function isClienteAtrasadoSla(
+  estagio: string,
+  diasNaEtapa: number,
+  overrides?: EsteiraSlaMap,
+): boolean {
+  const sla = slaDiasDaEtapa(estagio, overrides);
   if (sla == null) return false;
   return diasNaEtapa > sla;
 }
 
-export function diasAcimaDoSla(estagio: string, diasNaEtapa: number): number {
-  const sla = slaDiasDaEtapa(estagio);
+export function diasAcimaDoSla(
+  estagio: string,
+  diasNaEtapa: number,
+  overrides?: EsteiraSlaMap,
+): number {
+  const sla = slaDiasDaEtapa(estagio, overrides);
   if (sla == null) return 0;
   return Math.max(0, diasNaEtapa - sla);
 }
@@ -66,14 +84,15 @@ export type ProjetaoAtrasoEtapa = {
  */
 export function projetarAtrasoPorEtapa(
   clientes: Array<{ estagio_esteira: string; dias_na_etapa: number }>,
+  overrides?: EsteiraSlaMap,
 ): ProjetaoAtrasoEtapa[] {
   return ESTEIRA_STAGES.map((stage) => {
     const naEtapa = clientes.filter((c) => c.estagio_esteira === stage.value);
-    const sla = ESTEIRA_SLA_DIAS[stage.value];
+    const sla = slaDiasDaEtapa(stage.value, overrides);
     let atrasados = 0;
     let atrasoAcumuladoDias = 0;
     for (const c of naEtapa) {
-      const acima = diasAcimaDoSla(stage.value, c.dias_na_etapa ?? 0);
+      const acima = diasAcimaDoSla(stage.value, c.dias_na_etapa ?? 0, overrides);
       if (acima > 0) {
         atrasados += 1;
         atrasoAcumuladoDias += acima;

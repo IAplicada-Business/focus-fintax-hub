@@ -30,6 +30,7 @@ const MapaCreditos = lazy(() => import("@/pages/MapaCreditos"));
 const CompensacoesLinear = lazy(() => import("@/pages/CompensacoesLinear"));
 const Diagnostico = lazy(() => import("@/pages/Diagnostico"));
 const MotorConfig = lazy(() => import("@/pages/MotorConfig"));
+const EsteiraSlaConfig = lazy(() => import("@/pages/EsteiraSlaConfig"));
 const Intimacoes = lazy(() => import("@/pages/Intimacoes"));
 const OAuthConsent = lazy(() => import("@/pages/OAuthConsent"));
 const MarketingLayout    = lazy(() => import("@/pages/marketing/MarketingLayout"));
@@ -102,6 +103,7 @@ const App = () => (
                         </Route>
                         <Route path="/benchmarks" element={<Benchmarks />} />
                         <Route path="/configuracoes/motor" element={<MotorConfig />} />
+                        <Route path="/configuracoes/esteira-sla" element={<EsteiraSlaConfig />} />
                         <Route path="/usuarios" element={<UserManagement />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>

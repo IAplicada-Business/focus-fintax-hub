@@ -1,10 +1,12 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router-dom";
+import { Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEsteiraClientes } from "@/hooks/data/useEsteira";
 import { EsteiraKanban } from "@/components/esteira/EsteiraKanban";
 import { SkeletonTable } from "@/components/dashboard/SkeletonTable";
-import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 export default function Esteira() {
   const queryClient = useQueryClient();
@@ -26,11 +28,19 @@ export default function Esteira() {
   // depender de um calc(100vh - N) que nunca bate com o header real.
   return (
     <div className="h-full min-h-0 flex flex-col">
-      <div className="mb-4 shrink-0">
-        <h1 className="text-xl font-bold text-foreground">Esteira Administrativa</h1>
-        <p className="text-sm text-muted-foreground">
-          Acompanhamento operacional dos clientes ativos, do BPMN oficial (ramo Compensação).
-        </p>
+      <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Esteira Administrativa</h1>
+          <p className="text-sm text-muted-foreground">
+            Fluxo operacional dos clientes ativos (triagem → financeiro → concluído).
+          </p>
+        </div>
+        <Button asChild size="sm" variant="outline" className="shrink-0">
+          <Link to="/configuracoes/esteira-sla">
+            <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+            Configurar SLA
+          </Link>
+        </Button>
       </div>
 
       {isLoading ? (

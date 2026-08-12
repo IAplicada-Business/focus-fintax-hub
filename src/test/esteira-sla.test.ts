@@ -17,8 +17,9 @@ describe("ESTEIRA_SLA_DIAS (épica Painel SLA)", () => {
     expect(ESTEIRA_SLA_DIAS.receber_assinado).toBe(3);
   });
 
-  it("define default operacional pra Em Compensação e sem meta pra Concluído", () => {
+  it("define default operacional pra Em Compensação, Financeiro e sem meta pra Concluído", () => {
     expect(ESTEIRA_SLA_DIAS.em_compensacao).toBe(30);
+    expect(ESTEIRA_SLA_DIAS.encaminhar_financeiro).toBe(5);
     expect(ESTEIRA_SLA_DIAS.concluido).toBeNull();
   });
 
@@ -67,6 +68,18 @@ describe("isClienteAtrasadoSla", () => {
   it("Em Compensação: >30d é atraso", () => {
     expect(isClienteAtrasadoSla("em_compensacao", 30)).toBe(false);
     expect(isClienteAtrasadoSla("em_compensacao", 31)).toBe(true);
+  });
+
+  it("Encaminhar Financeiro: >5d é atraso", () => {
+    expect(isClienteAtrasadoSla("encaminhar_financeiro", 5)).toBe(false);
+    expect(isClienteAtrasadoSla("encaminhar_financeiro", 6)).toBe(true);
+  });
+
+  it("aceita override de SLA (config editável)", () => {
+    expect(isClienteAtrasadoSla("triagem", 2)).toBe(true);
+    expect(isClienteAtrasadoSla("triagem", 2, { triagem: 5 })).toBe(false);
+    expect(slaDiasDaEtapa("encaminhar_financeiro")).toBe(5);
+    expect(slaDiasDaEtapa("encaminhar_financeiro", { encaminhar_financeiro: 10 })).toBe(10);
   });
 
   it("Concluído nunca atrasa", () => {
