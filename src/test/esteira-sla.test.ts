@@ -7,6 +7,7 @@ import {
   isEstagioEsteira,
   projetarAtrasoPorEtapa,
   slaDiasDaEtapa,
+  visibleEsteiraStages,
 } from "@/lib/esteira-constants";
 
 describe("ESTEIRA_SLA_DIAS (épica Painel SLA)", () => {
@@ -126,5 +127,29 @@ describe("projetarAtrasoPorEtapa", () => {
     const proj = projetarAtrasoPorEtapa([]);
     expect(proj).toHaveLength(ESTEIRA_STAGES.length);
     expect(proj.every((p) => p.clientes === 0 && p.atrasados === 0)).toBe(true);
+  });
+});
+
+describe("visibleEsteiraStages (estágios configuráveis)", () => {
+  const config = [
+    { estagio: "triagem", label: "Triagem", ativo: true },
+    { estagio: "levantamento", label: "Levantamento", ativo: false },
+    { estagio: "concluido", label: "Concluído", ativo: true },
+  ];
+
+  it("mostra etapa ativa e some com a inativa sem cliente", () => {
+    const stages = visibleEsteiraStages(config, []);
+    expect(stages.map((s) => s.value)).toEqual(["triagem", "concluido"]);
+  });
+
+  it("nunca esconde cliente: etapa inativa com cliente alocado continua visível", () => {
+    const stages = visibleEsteiraStages(config, ["levantamento"]);
+    expect(stages.map((s) => s.value)).toEqual(["triagem", "levantamento", "concluido"]);
+  });
+
+  it("preserva a ordem recebida (quem chama já ordena por `ordem`)", () => {
+    const reordered = [config[2], config[0]];
+    const stages = visibleEsteiraStages(reordered, []);
+    expect(stages.map((s) => s.value)).toEqual(["concluido", "triagem"]);
   });
 });

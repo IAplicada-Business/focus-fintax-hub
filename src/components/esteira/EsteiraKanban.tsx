@@ -17,12 +17,23 @@ import {
 import { useUpdateEstagioEsteira } from "@/hooks/data/useEsteira";
 import type { EsteiraCliente } from "@/services/esteiraService";
 
+export interface EsteiraKanbanStage {
+  value: string;
+  label: string;
+}
+
 interface Props {
   clientes: EsteiraCliente[];
   onClienteClick?: (id: string) => void;
+  /**
+   * Colunas a renderizar, na ordem desejada. Default = ESTEIRA_STAGES (7
+   * etapas fixas) — usado só como fallback/teste; a tela real (Esteira.tsx)
+   * passa a lista derivada de `esteira_sla_config` (ordem/ativo editáveis).
+   */
+  stages?: readonly EsteiraKanbanStage[];
 }
 
-export function EsteiraKanban({ clientes, onClienteClick }: Props) {
+export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGES }: Props) {
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const [optimisticMoves, setOptimisticMoves] = useState<Record<string, string>>({});
   const updateEstagio = useUpdateEstagioEsteira();
@@ -45,14 +56,14 @@ export function EsteiraKanban({ clientes, onClienteClick }: Props) {
 
   const grouped = useMemo(() => {
     const map: Record<string, EsteiraCliente[]> = {};
-    ESTEIRA_STAGES.forEach((s) => (map[s.value] = []));
+    stages.forEach((s) => (map[s.value] = []));
     effectiveClientes.forEach((c) => {
       const stage = c.estagio_esteira || "triagem";
       if (map[stage]) map[stage].push(c);
-      else map["triagem"].push(c);
+      else if (map["triagem"]) map["triagem"].push(c);
     });
     return map;
-  }, [effectiveClientes]);
+  }, [effectiveClientes, stages]);
 
   const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
@@ -81,7 +92,7 @@ export function EsteiraKanban({ clientes, onClienteClick }: Props) {
         aria-label="Esteira administrativa"
         className="flex-1 min-h-0 flex gap-3 overflow-x-auto pb-4"
       >
-        {ESTEIRA_STAGES.map((stage) => {
+        {stages.map((stage) => {
           const stageClientes = grouped[stage.value] || [];
           const isCollapsed = collapsedStages.has(stage.value);
           const atrasadosNaEtapa = stageClientes.filter((c) =>

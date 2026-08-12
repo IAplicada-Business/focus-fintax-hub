@@ -1381,6 +1381,7 @@ export type Database = {
           regimes_elegiveis: string[]
           segmentos_elegiveis: string[]
           tese: string
+          tipo_recuperacao_padrao: Database["public"]["Enums"]["tipo_recuperacao"]
         }
         Insert: {
           ativo?: boolean | null
@@ -1395,6 +1396,7 @@ export type Database = {
           regimes_elegiveis?: string[]
           segmentos_elegiveis?: string[]
           tese: string
+          tipo_recuperacao_padrao?: Database["public"]["Enums"]["tipo_recuperacao"]
         }
         Update: {
           ativo?: boolean | null
@@ -1409,6 +1411,7 @@ export type Database = {
           regimes_elegiveis?: string[]
           segmentos_elegiveis?: string[]
           tese?: string
+          tipo_recuperacao_padrao?: Database["public"]["Enums"]["tipo_recuperacao"]
         }
         Relationships: []
       }

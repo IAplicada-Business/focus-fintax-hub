@@ -11,7 +11,7 @@ import { STATUS_CONTRATO, STATUS_PROCESSO } from "@/lib/clientes-constants";
 import {
   TIPOS_RECUPERACAO,
   isTipoRecuperacao,
-  sugerirTipoRecuperacao,
+  resolveTipoRecuperacao,
   type TipoRecuperacao,
 } from "@/lib/tipo-recuperacao";
 
@@ -24,6 +24,12 @@ interface Props {
   /** Pré-seleciona tese ao abrir para criação */
   presetTese?: string | null;
   onSuccess: () => void;
+}
+
+interface TeseOption {
+  tese: string;
+  nome_exibicao: string;
+  tipo_recuperacao_padrao?: string | null;
 }
 
 const EMPTY_FORM = {
@@ -48,13 +54,17 @@ export function ProcessoFormModal({
   onSuccess,
 }: Props) {
   const [saving, setSaving] = useState(false);
-  const [teses, setTeses] = useState<{ tese: string; nome_exibicao: string }[]>([]);
+  const [teses, setTeses] = useState<TeseOption[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
-    supabase.from("motor_teses_config").select("tese, nome_exibicao").eq("ativo", true).then(({ data }) => {
-      if (data) setTeses(data);
-    });
+    supabase
+      .from("motor_teses_config")
+      .select("tese, nome_exibicao, tipo_recuperacao_padrao")
+      .eq("ativo", true)
+      .then(({ data }) => {
+        if (data) setTeses(data as TeseOption[]);
+      });
   }, []);
 
   useEffect(() => {
@@ -84,7 +94,7 @@ export function ProcessoFormModal({
         tese: presetTese,
         nome_exibicao: nome,
         categoria: isReporto ? "reporto" : "compensacao",
-        tipo_recuperacao: sugerirTipoRecuperacao(presetTese, nome),
+        tipo_recuperacao: resolveTipoRecuperacao(t?.tipo_recuperacao_padrao, presetTese, nome),
       });
       return;
     }
@@ -105,7 +115,7 @@ export function ProcessoFormModal({
       tese: value,
       nome_exibicao: nome,
       categoria: isReporto ? "reporto" : p.categoria,
-      tipo_recuperacao: sugerirTipoRecuperacao(value, nome),
+      tipo_recuperacao: resolveTipoRecuperacao(t?.tipo_recuperacao_padrao, value, nome),
     }));
   };
 

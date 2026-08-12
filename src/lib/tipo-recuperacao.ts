@@ -46,6 +46,23 @@ export function sugerirTipoRecuperacao(
   return "compensacao";
 }
 
+/**
+ * Resolve o ramo de recuperação de uma tese: prioriza o padrão configurado
+ * em `motor_teses_config.tipo_recuperacao_padrao` (editável em
+ * /configuracoes/motor); cai pra heurística de regex só quando a tese ainda
+ * não tem padrão configurado (linha pré-existente, ou tabela indisponível).
+ */
+export function resolveTipoRecuperacao(
+  tipoRecuperacaoPadrao: string | null | undefined,
+  tese: string,
+  nomeExibicao = "",
+): TipoRecuperacao {
+  if (tipoRecuperacaoPadrao && isTipoRecuperacao(tipoRecuperacaoPadrao)) {
+    return tipoRecuperacaoPadrao;
+  }
+  return sugerirTipoRecuperacao(tese, nomeExibicao);
+}
+
 /** Tags não-default para o Kanban (compensação pura não polui o card). */
 export function ramosVisiveisNoKanban(flags: {
   tem_ramo_ressarcimento?: boolean | null;

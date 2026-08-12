@@ -109,6 +109,28 @@ export function projetarAtrasoPorEtapa(
   });
 }
 
+export interface EsteiraStageConfigLike {
+  estagio: string;
+  label: string;
+  ativo: boolean;
+}
+
+/**
+ * Colunas visíveis no kanban a partir da config editável (ordem já vem
+ * aplicada por quem chama — normalmente `esteira_sla_config` ordenada).
+ * Etapa inativa some, EXCETO quando ainda tem cliente alocado nela: nunca
+ * esconder cliente por um toggle administrativo.
+ */
+export function visibleEsteiraStages(
+  config: EsteiraStageConfigLike[],
+  estagiosComCliente: Iterable<string>,
+): { value: string; label: string }[] {
+  const comCliente = new Set(estagiosComCliente);
+  return config
+    .filter((s) => s.ativo || comCliente.has(s.estagio))
+    .map((s) => ({ value: s.estagio, label: s.label }));
+}
+
 export const ORIGEM_LABELS: Record<string, string> = {
   manual: "Manual",
   referencia: "Referência",

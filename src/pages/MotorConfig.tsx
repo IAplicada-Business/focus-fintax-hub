@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { toastError } from "@/lib/handle-error";
 import { Plus, Pencil, Calculator, AlertTriangle, Clock, ShieldCheck, BarChart3 } from "lucide-react";
+import { TIPOS_RECUPERACAO, isTipoRecuperacao, type TipoRecuperacao } from "@/lib/tipo-recuperacao";
 
 interface TeseConfig {
   id: string;
@@ -29,6 +30,7 @@ interface TeseConfig {
   percentual_max: number;
   ativo: boolean;
   ordem_exibicao: number;
+  tipo_recuperacao_padrao: TipoRecuperacao;
   atualizado_em: string;
   atualizado_por: string | null;
 }
@@ -98,6 +100,7 @@ const emptyTese: Omit<TeseConfig, "id" | "atualizado_em" | "atualizado_por"> = {
   percentual_max: 0,
   ativo: true,
   ordem_exibicao: 0,
+  tipo_recuperacao_padrao: "compensacao",
 };
 
 function formatCurrency(v: number): string {
@@ -246,6 +249,9 @@ export default function MotorConfig() {
       percentual_max: t.percentual_max,
       ativo: t.ativo,
       ordem_exibicao: t.ordem_exibicao,
+      tipo_recuperacao_padrao: isTipoRecuperacao(t.tipo_recuperacao_padrao)
+        ? t.tipo_recuperacao_padrao
+        : "compensacao",
     });
     setEditOpen(true);
   };
@@ -267,6 +273,7 @@ export default function MotorConfig() {
       percentual_max: editData.percentual_max,
       ativo: editData.ativo,
       ordem_exibicao: editData.ordem_exibicao,
+      tipo_recuperacao_padrao: editData.tipo_recuperacao_padrao,
       atualizado_em: new Date().toISOString(),
       atualizado_por: userId,
     };
@@ -548,6 +555,26 @@ export default function MotorConfig() {
               </div>
               <p className="text-[11px] text-muted-foreground mt-1">
                 Uma tese pode cobrir mais de um tributo (ex: Subvenção ICMS → IRPJ + CSLL).
+              </p>
+            </div>
+            <div>
+              <Label>Ramo de recuperação padrão</Label>
+              <Select
+                value={editData.tipo_recuperacao_padrao}
+                onValueChange={(v) => {
+                  if (isTipoRecuperacao(v)) setEditData({ ...editData, tipo_recuperacao_padrao: v });
+                }}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TIPOS_RECUPERACAO.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Sugerido automaticamente ao escolher esta tese num processo — o usuário ainda
+                pode sobrescrever por cliente.
               </p>
             </div>
           </div>

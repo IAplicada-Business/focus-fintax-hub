@@ -1,17 +1,27 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useEsteiraClientes } from "@/hooks/data/useEsteira";
+import { useEsteiraClientes, useEsteiraSlaConfig } from "@/hooks/data/useEsteira";
 import { EsteiraKanban } from "@/components/esteira/EsteiraKanban";
 import { SkeletonTable } from "@/components/dashboard/SkeletonTable";
 import { Button } from "@/components/ui/button";
+import { visibleEsteiraStages } from "@/lib/esteira-constants";
 
 export default function Esteira() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { data: clientes, isLoading } = useEsteiraClientes();
+  const { data: slaConfig } = useEsteiraSlaConfig();
+
+  const stages = useMemo(() => {
+    if (!slaConfig) return undefined;
+    return visibleEsteiraStages(
+      slaConfig,
+      (clientes ?? []).map((c) => c.estagio_esteira || "triagem"),
+    );
+  }, [slaConfig, clientes]);
 
   useEffect(() => {
     const channel = supabase
@@ -48,6 +58,7 @@ export default function Esteira() {
       ) : (
         <EsteiraKanban
           clientes={clientes ?? []}
+          stages={stages}
           onClienteClick={(id) => navigate(`/clientes/${id}`)}
         />
       )}

@@ -11,6 +11,7 @@ export interface EsteiraSlaConfigRow {
   label: string;
   sla_dias: number | null;
   ordem: number;
+  ativo: boolean;
   atualizado_em?: string;
 }
 
@@ -21,6 +22,7 @@ export function defaultEsteiraSlaConfig(): EsteiraSlaConfigRow[] {
     label: s.label,
     sla_dias: ESTEIRA_SLA_DIAS[s.value],
     ordem: i + 1,
+    ativo: true,
   }));
 }
 
@@ -33,7 +35,7 @@ export function configToSlaMap(rows: EsteiraSlaConfigRow[]): EsteiraSlaMap {
 export async function listEsteiraSlaConfig(): Promise<EsteiraSlaConfigRow[]> {
   const { data, error } = await (supabase as any)
     .from("esteira_sla_config")
-    .select("estagio, label, sla_dias, ordem, atualizado_em")
+    .select("estagio, label, sla_dias, ordem, ativo, atualizado_em")
     .order("ordem", { ascending: true });
 
   if (error || !data?.length) {
@@ -56,6 +58,7 @@ export async function listEsteiraSlaConfig(): Promise<EsteiraSlaConfigRow[]> {
         label: s.label,
         sla_dias: ESTEIRA_SLA_DIAS[s.value],
         ordem: i + 1,
+        ativo: true,
       }
     );
   }).sort((a, b) => a.ordem - b.ordem);
@@ -65,6 +68,8 @@ export type EsteiraSlaConfigUpdate = {
   estagio: EstagioEsteira;
   sla_dias: number | null;
   label?: string;
+  ordem?: number;
+  ativo?: boolean;
 };
 
 export async function updateEsteiraSlaConfig(
@@ -77,6 +82,8 @@ export async function updateEsteiraSlaConfig(
       atualizado_em: now,
     };
     if (u.label != null) payload.label = u.label;
+    if (u.ordem != null) payload.ordem = u.ordem;
+    if (u.ativo != null) payload.ativo = u.ativo;
 
     const { error } = await (supabase as any)
       .from("esteira_sla_config")
