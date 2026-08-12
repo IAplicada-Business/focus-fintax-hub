@@ -6,8 +6,9 @@ import { ptBR } from "date-fns/locale";
 import { greeting, ROLE_LABELS } from "@/components/dashboard/dashboard-utils";
 import { ResumoSemanalTab } from "@/components/dashboard/gestao/ResumoSemanalTab";
 import { CicloSlaTab } from "@/components/dashboard/gestao/CicloSlaTab";
+import { EsteiraSlaTab } from "@/components/dashboard/gestao/EsteiraSlaTab";
 
-type GestaoTab = "resumo" | "ciclo";
+type GestaoTab = "resumo" | "ciclo" | "esteira_sla";
 
 export default function DashboardGestao() {
   const { profile, userRole, permissions } = useAuth();
@@ -18,7 +19,8 @@ export default function DashboardGestao() {
 
   const [tab, setTab] = useState<GestaoTab>(() => {
     const stored = localStorage.getItem("dash_gestao_tab");
-    return stored === "ciclo" ? "ciclo" : "resumo";
+    if (stored === "ciclo" || stored === "esteira_sla") return stored;
+    return "resumo";
   });
 
   useEffect(() => {
@@ -32,6 +34,7 @@ export default function DashboardGestao() {
   const tabs: { key: GestaoTab; label: string }[] = [
     { key: "resumo", label: "Pulso da semana" },
     { key: "ciclo", label: "Ciclo & SLA" },
+    { key: "esteira_sla", label: "SLA por Etapa" },
   ];
 
   return (
@@ -74,7 +77,9 @@ export default function DashboardGestao() {
       </div>
 
       <div className="px-7 pt-[18px] pb-9 w-full">
-        {tab === "resumo" ? <ResumoSemanalTab /> : <CicloSlaTab />}
+        {tab === "resumo" && <ResumoSemanalTab />}
+        {tab === "ciclo" && <CicloSlaTab />}
+        {tab === "esteira_sla" && <EsteiraSlaTab />}
       </div>
     </div>
   );

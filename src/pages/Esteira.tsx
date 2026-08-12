@@ -22,9 +22,11 @@ export default function Esteira() {
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
+  // h-full + min-h-0: o kanban ocupa a altura restante do <main> em vez de
+  // depender de um calc(100vh - N) que nunca bate com o header real.
   return (
-    <div className="p-6">
-      <div className="mb-4">
+    <div className="h-full min-h-0 flex flex-col">
+      <div className="mb-4 shrink-0">
         <h1 className="text-xl font-bold text-foreground">Esteira Administrativa</h1>
         <p className="text-sm text-muted-foreground">
           Acompanhamento operacional dos clientes ativos, do BPMN oficial (ramo Compensação).

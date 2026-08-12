@@ -10,6 +10,9 @@ export interface EsteiraCliente {
   estagio_esteira: string;
   data_entrada_estagio: string;
   dias_na_etapa: number;
+  /** Presente após migration do painel SLA; opcional no fallback. */
+  sla_dias?: number | null;
+  atrasado?: boolean;
   responsavel_id: string | null;
   responsavel_nome: string | null;
   origem: string;
