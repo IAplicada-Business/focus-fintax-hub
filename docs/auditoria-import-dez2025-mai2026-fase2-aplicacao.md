@@ -62,5 +62,7 @@ sem necessidade de correção.
 - `segmento` vazio em 14 clientes — falta o valor real de cada um.
 - Qual CNPJ de "REZENDE ALIMENTOS CDD LTDA" é o correto (`28732157000120` vs `28782157000120`).
 - Competência maio/2026 continua sem fonte comparável — falta a aba "fluxo caixa junho 2026".
-- O bug de "mapa"/saldo em lançamentos manuais de julho/2026 reportado pela Focus Fintax
-  (telas em anexo) — investigação ainda não iniciada; falta identificar o cliente das telas.
+- ~~O bug de "mapa"/saldo em lançamentos manuais de julho/2026 reportado pela Focus Fintax
+  (telas em anexo) — investigação ainda não iniciada; falta identificar o cliente das telas.~~
+  Resolvido — cliente identificado (Supermercado Liberdade) e corrigido, ver
+  [fase3-mapa-liberdade](./auditoria-import-dez2025-mai2026-fase3-mapa-liberdade.md).
