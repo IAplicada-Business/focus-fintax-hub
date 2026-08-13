@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -507,14 +508,12 @@ export default function CompensacoesLinear() {
                         {readOnly ? (
                           <span>{formatCompetenciaPT(c.mes_referencia)}</span>
                         ) : (
-                          <Input
-                            type="month"
-                            defaultValue={monthKey(c.mes_referencia)}
-                            onBlur={(e) => {
-                              const v = e.target.value;
+                          <MonthPicker
+                            value={monthKey(c.mes_referencia)}
+                            onChange={(v) => {
                               if (v && v !== monthKey(c.mes_referencia)) patchRow(c.id, { mes_referencia: `${v}-01` });
                             }}
-                            className="h-7 text-xs w-32"
+                            className="h-7 w-32 text-xs"
                           />
                         )}
                       </TableCell>

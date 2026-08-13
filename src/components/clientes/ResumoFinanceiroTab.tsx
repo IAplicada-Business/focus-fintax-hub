@@ -1,5 +1,3 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { formatCurrencyBR } from "@/lib/clientes-constants";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,6 +6,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { FileDown, TrendingUp, BarChart3, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useAuth } from "@/hooks/useAuth";
+import { useClienteCompensacoes, useClienteProcessos } from "@/hooks/data/useClienteOperacional";
 
 // Cargos que podem enxergar KPIs internos financeiros (Honorários, Economia,
 // Saldo Restante). Comercial e cliente veem apenas os totais brutos.
@@ -22,27 +21,9 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
   const { userRole } = useAuth();
   const canSeeInternalFinancials = userRole ? INTERNAL_FINANCIAL_ROLES.has(userRole) : false;
 
-  const [processos, setProcessos] = useState<any[]>([]);
-  const [compensacoes, setCompensacoes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const [{ data: proc }, { data: comp }] = await Promise.all([
-        supabase.from("processos_teses").select("*").eq("cliente_id", clienteId),
-        supabase
-          .from("compensacoes_mensais")
-          .select("*, processos_teses!compensacoes_mensais_processo_tese_id_fkey(id, tese, nome_exibicao, percentual_honorario, valor_credito)")
-          .eq("cliente_id", clienteId)
-          .order("mes_referencia", { ascending: false }),
-      ]);
-      setProcessos(proc || []);
-      setCompensacoes(comp || []);
-      setLoading(false);
-    };
-    fetchData();
-  }, [clienteId]);
+  const { data: processos = [], isPending: loadingProc } = useClienteProcessos(clienteId);
+  const { data: compensacoes = [], isPending: loadingComp } = useClienteCompensacoes(clienteId);
+  const loading = (loadingProc || loadingComp) && processos.length === 0 && compensacoes.length === 0;
 
   // Fox: gráficos/KPIs do cliente excluem Reporto (possíveis futuros) — nunca entra em compensado
   const assinados = processos.filter((p) => p.status_contrato === "assinado");

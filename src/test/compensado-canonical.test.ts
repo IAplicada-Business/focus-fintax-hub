@@ -3,6 +3,7 @@ import {
   compMatchesTese,
   filterCompensadoCanonical,
   inferTeseCodigoFromTributo,
+  splitCreditosCalculo,
   statusUtilizacaoFromSaldo,
   sumCompensadoCanonical,
   sumCompensadoForTese,
@@ -173,5 +174,37 @@ describe("statusUtilizacaoFromSaldo", () => {
     expect(statusUtilizacaoFromSaldo(100, 0)).toBe("a_utilizar");
     expect(statusUtilizacaoFromSaldo(100, 40)).toBe("em_uso");
     expect(statusUtilizacaoFromSaldo(100, 100)).toBe("utilizado");
+  });
+});
+
+describe("splitCreditosCalculo", () => {
+  const reporto = new Set(["tese-reporto"]);
+
+  it("soma só teses no cálculo e joga REPORTO para possíveis futuros", () => {
+    const r = splitCreditosCalculo(
+      [
+        { tese_id: "insumos", valor_apurado_inicial: 2000000, incluir_no_calculo: true },
+        { tese_id: "subvencao", valor_apurado_inicial: 1523005.14, incluir_no_calculo: true },
+        { tese_id: "tese-reporto", valor_apurado_inicial: 755091, incluir_no_calculo: true },
+        { tese_id: "icms", valor_apurado_inicial: 100, incluir_no_calculo: false },
+      ],
+      reporto,
+    );
+    expect(r.creditoApurado).toBeCloseTo(3523005.14, 2);
+    expect(r.possiveisFuturos).toBeCloseTo(755191, 2);
+    expect(r.tesesNoCalculo).toBe(2);
+  });
+
+  it("saldo restante = apurado − compensado da aba (não usa snapshot da view)", () => {
+    const r = splitCreditosCalculo(
+      [
+        { tese_id: "insumos", valor_apurado_inicial: 3523005.14, incluir_no_calculo: true },
+      ],
+      reporto,
+    );
+    const compensadoAba = 1783942.04;
+    const saldo = r.creditoApurado - compensadoAba;
+    expect(saldo).toBeCloseTo(1739063.1, 2);
+    expect(saldo).not.toBeCloseTo(1270297.3, 2);
   });
 });

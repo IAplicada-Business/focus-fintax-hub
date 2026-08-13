@@ -1,13 +1,24 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  invalidateClienteOperacional,
+  useClienteCompensacoes,
+  useClienteCreditos,
+  useClienteProcessos,
+  useTesesTributarias,
+} from "@/hooks/data/useClienteOperacional";
 import { EmptyState } from "@/components/EmptyState";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { MonthPicker } from "@/components/ui/month-picker";
+import { parseMoneyBR } from "@/lib/money-mask";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, FileText, MessageCircle, Printer, Copy, Mail, Trash2, Pencil } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -72,13 +83,14 @@ interface Props {
 }
 
 export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensacoesChanged }: Props) {
+  const qc = useQueryClient();
+  const compsQ = useClienteCompensacoes(clienteId);
+  const processosQ = useClienteProcessos(clienteId);
+  const tesesQ = useTesesTributarias();
+  const creditosQ = useClienteCreditos(clienteId);
+
   const [compensacoes, setCompensacoes] = useState<any[]>([]);
   const [processos, setProcessos] = useState<any[]>([]);
-  /** codigo tese → id em teses_tributarias (para bater órfãs / tese_origem no mapa) */
-  const [teseIdByCodigo, setTeseIdByCodigo] = useState<Record<string, string>>({});
-  /** credito apurado por código de tese (Detalhamento) — base do saldo no mapa */
-  const [creditoByCodigo, setCreditoByCodigo] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filterTese, setFilterTese] = useState("all");
@@ -89,44 +101,56 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
   // Mapa Tributário state
   const [mapaOpen, setMapaOpen] = useState(false);
   const [mapaMes, setMapaMes] = useState("");
+  const [mapaTese, setMapaTese] = useState("all");
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   // WhatsApp state
   const [whatsOpen, setWhatsOpen] = useState(false);
   const [whatsMes, setWhatsMes] = useState("");
 
-  const fetchData = useCallback(async () => {
-    const [{ data: comp }, { data: proc }, { data: teses }, { data: creditos }] = await Promise.all([
-      supabase
-        .from("compensacoes_mensais")
-        .select("*, processos_teses!compensacoes_mensais_processo_tese_id_fkey(nome_exibicao, tese)")
-        .eq("cliente_id", clienteId)
-        .order("mes_referencia", { ascending: false }),
-      supabase.from("processos_teses").select("id, nome_exibicao, tese, valor_credito, percentual_honorario").eq("cliente_id", clienteId),
-      (supabase as any).from("teses_tributarias").select("id, codigo"),
-      (supabase as any)
-        .from("creditos_apurados")
-        .select("tese_id, valor_apurado_inicial, incluir_no_calculo")
-        .eq("cliente_id", clienteId),
-    ]);
-    setCompensacoes(comp || []);
-    setProcessos(proc || []);
+  const teses = tesesQ.data ?? [];
+  const creditos = creditosQ.data ?? [];
+
+  const fetchData = async () => {
+    await invalidateClienteOperacional(qc, clienteId);
+  };
+
+  useEffect(() => {
+    if (compsQ.data) setCompensacoes(compsQ.data);
+  }, [compsQ.data]);
+
+  useEffect(() => {
+    if (processosQ.data) setProcessos(processosQ.data);
+  }, [processosQ.data]);
+
+  const teseIdByCodigo = useMemo(() => {
     const idByCod: Record<string, string> = {};
-    for (const t of (teses as { id: string; codigo: string }[]) || []) {
+    for (const t of teses) {
       if (t.codigo) idByCod[t.codigo.toUpperCase()] = t.id;
     }
-    setTeseIdByCodigo(idByCod);
+    return idByCod;
+  }, [teses]);
+
+  const creditoByCodigo = useMemo(() => {
     const credByCod: Record<string, number> = {};
-    for (const c of (creditos as { tese_id: string; valor_apurado_inicial: number }[]) || []) {
-      const codigo = Object.entries(idByCod).find(([, id]) => id === c.tese_id)?.[0];
+    for (const c of creditos) {
+      const codigo = Object.entries(teseIdByCodigo).find(([, id]) => id === c.tese_id)?.[0];
       if (codigo) credByCod[codigo] = Number(c.valor_apurado_inicial || 0);
     }
-    setCreditoByCodigo(credByCod);
-    setLoading(false);
-    onTotalChange?.(sumCompensadoCanonical((comp as any[]) || []));
-  }, [clienteId, onTotalChange]);
+    return credByCod;
+  }, [creditos, teseIdByCodigo]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const loading = compsQ.isPending && compsQ.data === undefined;
+
+  useEffect(() => {
+    const reportoTeseIds = new Set(
+      teses.filter((t) => (t.codigo || "").toUpperCase() === "REPORTO").map((t) => t.id),
+    );
+    const reportoProcessoIds = new Set(
+      processos.filter((p: { tese?: string }) => p.tese === "REPORTO").map((p: { id: string }) => p.id),
+    );
+    onTotalChange?.(sumCompensadoCanonical(compensacoes, { reportoTeseIds, reportoProcessoIds }));
+  }, [compensacoes, processos, teses, onTotalChange]);
 
   const filtered = compensacoes.filter((c) => {
     if (filterTese !== "all" && c.processo_tese_id !== filterTese) return false;
@@ -135,17 +159,25 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
     if (mesFim && mes > mesFim) return false;
     return true;
   });
+  const reportoTeseIds = new Set(
+    Object.entries(teseIdByCodigo)
+      .filter(([codigo]) => codigo === "REPORTO")
+      .map(([, id]) => id),
+  );
+  const reportoProcessoIds = new Set(
+    processos.filter((p) => p.tese === "REPORTO").map((p) => p.id),
+  );
   // Total da tabela = mesmo critério do card Total Compensado
-  const totalFiltered = sumCompensadoCanonical(filtered);
+  const totalFiltered = sumCompensadoCanonical(filtered, { reportoTeseIds, reportoProcessoIds });
   const totalHonorariosFiltered = filtered
-    .filter((c) => !isReportoCompensacao(c))
+    .filter((c) => !isReportoCompensacao(c, { reportoTeseIds, reportoProcessoIds }))
     .reduce((s, c) => s + Number(c.honorario_valor ?? c.valor_nf_servico ?? 0), 0);
 
   const selectedProc = processos.find((p) => p.id === form.processo_tese_id);
   const percHonorario = form.honorario_percentual !== ""
     ? Number(form.honorario_percentual) / 100
     : Number(selectedProc?.percentual_honorario || 0);
-  const honorarioAuto = Math.round(Number(form.valor_compensado || 0) * percHonorario * 100) / 100;
+  const honorarioAuto = Math.round(parseMoneyBR(form.valor_compensado) * percHonorario * 100) / 100;
 
   // Available months
   const availableMonths = [...new Set(compensacoes.map((c) => (c.mes_referencia as string).slice(0, 7)))].sort().reverse();
@@ -182,9 +214,9 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
       toast.error("Processo e mês são obrigatórios.");
       return;
     }
-    const valorComp = Number(form.valor_compensado) || 0;
+    const valorComp = parseMoneyBR(form.valor_compensado);
     const honorarioValor = form.valor_nf_servico !== ""
-      ? Number(form.valor_nf_servico) || 0
+      ? parseMoneyBR(form.valor_nf_servico)
       : honorarioAuto;
     const procSel = processos.find((p) => p.id === form.processo_tese_id);
     const [{ data: cli }, { data: teseRow }] = await Promise.all([
@@ -256,10 +288,24 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
     });
   };
 
+  const tesesMapaOptions = processos
+    .filter((p) => String(p.tese || "").toUpperCase() !== "REPORTO")
+    .reduce<{ codigo: string; label: string }[]>((acc, p) => {
+      const codigo = String(p.tese || "").toUpperCase();
+      if (!codigo || acc.some((t) => t.codigo === codigo)) return acc;
+      acc.push({ codigo, label: p.nome_exibicao || p.tese });
+      return acc;
+    }, []);
+  const mapaTeseLabel =
+    mapaTese === "all"
+      ? "Todas as teses"
+      : tesesMapaOptions.find((t) => t.codigo === mapaTese)?.label || mapaTese;
+
   const mesProcessos = processos.filter((p) => {
     if (!mapaMes) return false;
     const codigo = String(p.tese || "").toUpperCase();
     if (!codigo || codigo === "REPORTO") return false;
+    if (mapaTese !== "all" && codigo !== mapaTese) return false;
     return compsForProcesso(p).some((c) => String(c.mes_referencia || "").startsWith(mapaMes));
   });
 
@@ -370,12 +416,13 @@ Equipe Focus.`;
     try {
       const razao = sanitizePdfFileName(cliente?.empresa || "");
       const comp = mapaMes.replace(/-/g, "");
-      await exportElementToPdf(element, `MapaTributario_${razao}_${comp}`);
+      const teseSlug = mapaTese === "all" ? "geral" : sanitizePdfFileName(mapaTese);
+      await exportElementToPdf(element, `MapaTributario_${razao}_${teseSlug}_${comp}`);
       toast.success("PDF gerado com sucesso!");
       logClienteHistorico(
         clienteId,
         "mapa_tributario_exportado",
-        `Mapa Tributário exportado em PDF — competência ${formatMesPT(mapaMes)}`,
+        `Mapa Tributário exportado em PDF — ${mapaTeseLabel} · competência ${formatMesPT(mapaMes)}`,
       );
     } catch (err) {
       console.error("Erro ao gerar PDF do Mapa Tributário:", err);
@@ -390,38 +437,50 @@ Equipe Focus.`;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Select value={filterTese} onValueChange={setFilterTese}>
-            <SelectTrigger className="w-48"><SelectValue placeholder="Filtrar por tese" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as teses</SelectItem>
-              {processos.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_exibicao}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Input
-            type="month"
-            className="h-9 w-36 text-xs"
-            value={mesInicio}
-            onChange={(e) => setMesInicio(e.target.value)}
-            title="Período início"
-          />
-          <span className="text-xs text-muted-foreground">até</span>
-          <Input
-            type="month"
-            className="h-9 w-36 text-xs"
-            value={mesFim}
-            onChange={(e) => setMesFim(e.target.value)}
-            title="Período fim"
-          />
-          {(mesInicio || mesFim) && (
-            <button type="button" className="text-xs text-primary underline" onClick={() => { setMesInicio(""); setMesFim(""); }}>
-              Limpar
-            </button>
-          )}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Tese</span>
+            <Select value={filterTese} onValueChange={setFilterTese}>
+              <SelectTrigger className="h-8 w-[13rem] text-xs">
+                <SelectValue placeholder="Todas as teses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as teses</SelectItem>
+                {processos.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.nome_exibicao}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Período</span>
+            <MonthPicker
+              aria-label="Período de"
+              value={mesInicio}
+              onChange={setMesInicio}
+              placeholder="mês/ano"
+            />
+            <span className="text-[11px] text-ink-35">até</span>
+            <MonthPicker
+              aria-label="Período até"
+              value={mesFim}
+              onChange={setMesFim}
+              placeholder="mês/ano"
+            />
+            {(mesInicio || mesFim) && (
+              <button
+                type="button"
+                className="text-xs text-primary underline"
+                onClick={() => { setMesInicio(""); setMesFim(""); }}
+              >
+                Limpar
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => { setMapaMes(""); setMapaOpen(true); }}>
+          <Button size="sm" variant="outline" onClick={() => { setMapaMes(""); setMapaTese("all"); setMapaOpen(true); }}>
             <FileText className="h-4 w-4 mr-1" /> Mapa Tributário
           </Button>
           <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50" onClick={() => { setWhatsMes(""); setWhatsOpen(true); }}>
@@ -570,11 +629,12 @@ Equipe Focus.`;
           if (!open) resetFormModal();
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[90vh] max-w-md flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="shrink-0 space-y-1 px-6 pb-3 pt-6 pr-12 text-left">
             <DialogTitle>{editingId ? "Editar Compensação" : "Registrar Compensação"}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-2">
+          <div className="min-h-0 flex-1 overflow-y-auto px-6">
+          <div className="grid gap-3 py-2">
             <div className="space-y-1.5">
               <Label>Processo / Tese *</Label>
               <Select
@@ -596,12 +656,21 @@ Equipe Focus.`;
             </div>
             <div className="space-y-1.5">
               <Label>Mês de Referência *</Label>
-              <Input type="month" value={form.mes_referencia} onChange={(e) => setForm((p) => ({ ...p, mes_referencia: e.target.value }))} />
+              <MonthPicker
+                aria-label="Mês de referência"
+                value={form.mes_referencia}
+                onChange={(v) => setForm((p) => ({ ...p, mes_referencia: v }))}
+                placeholder="mês/ano"
+                className="h-10 w-full"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Valor Compensado (R$)</Label>
-                <Input type="number" value={form.valor_compensado} onChange={(e) => setForm((p) => ({ ...p, valor_compensado: e.target.value }))} />
+                <CurrencyInput
+                  value={form.valor_compensado}
+                  onValueChange={(v) => setForm((p) => ({ ...p, valor_compensado: v }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>% Honorário</Label>
@@ -638,10 +707,9 @@ Equipe Focus.`;
             </div>
             <div className="space-y-1.5">
               <Label>Honorários / NF Serviço (R$)</Label>
-              <Input
-                type="number"
-                value={form.valor_nf_servico !== "" ? form.valor_nf_servico : (form.valor_compensado ? String(honorarioAuto) : "")}
-                onChange={(e) => setForm((p) => ({ ...p, valor_nf_servico: e.target.value }))}
+              <CurrencyInput
+                value={form.valor_nf_servico !== "" ? form.valor_nf_servico : (form.valor_compensado ? honorarioAuto.toFixed(2) : "")}
+                onValueChange={(v) => setForm((p) => ({ ...p, valor_nf_servico: v }))}
               />
               <p className="text-[11px] text-muted-foreground">
                 Calculado automaticamente: valor × {(percHonorario * 100).toFixed(1)}% = {formatCurrencyBR(honorarioAuto)}
@@ -652,7 +720,8 @@ Equipe Focus.`;
               <Textarea value={form.observacao} onChange={(e) => setForm((p) => ({ ...p, observacao: e.target.value }))} rows={2} />
             </div>
           </div>
-          <DialogFooter>
+          </div>
+          <DialogFooter className="shrink-0 border-t border-[var(--ink-06)] px-6 py-4">
             <Button variant="outline" onClick={() => { setModalOpen(false); resetFormModal(); }}>Cancelar</Button>
             <Button onClick={handleSave}>{editingId ? "Salvar alterações" : "Salvar"}</Button>
           </DialogFooter>
@@ -661,51 +730,67 @@ Equipe Focus.`;
 
       {/* Mapa Tributário Modal */}
       <Dialog open={mapaOpen} onOpenChange={setMapaOpen}>
-        <DialogContent className="max-w-[900px] h-[90vh] overflow-auto print:shadow-none print:border-none">
-          <DialogHeader className="flex flex-row items-center justify-between gap-4 print:hidden">
+        <DialogContent className="flex max-h-[90vh] w-[min(960px,calc(100vw-1.5rem))] max-w-none flex-col gap-0 overflow-hidden p-0 print:shadow-none print:border-none">
+          <DialogHeader className="space-y-1 border-b border-[var(--ink-06)] px-6 py-5 pr-14 text-left">
             <DialogTitle>Mapa Tributário</DialogTitle>
-            <div className="flex items-center gap-3">
-              <Select value={mapaMes} onValueChange={setMapaMes}>
-                <SelectTrigger className="w-40"><SelectValue placeholder="Selecionar mês" /></SelectTrigger>
-                <SelectContent>
-                  {availableMonths.map((m) => <SelectItem key={m} value={m}>{formatMesPT(m)}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {mapaMes && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={handleDownloadMapaPdf}
-                  disabled={downloadingPdf || mesProcessos.length === 0}
-                >
-                  <Printer className="h-4 w-4" />
-                  {downloadingPdf ? "Gerando PDF..." : "Baixar PDF"}
-                </Button>
-              )}
-            </div>
+            <DialogDescription>
+              Escolha a competência e, se quiser, uma tese específica. O geral do mês inclui todas as teses.
+            </DialogDescription>
           </DialogHeader>
 
+          <div className="grid gap-3 border-b border-[var(--ink-06)] bg-[rgba(10,21,100,0.03)] px-6 py-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Competência</Label>
+              <Select value={mapaMes} onValueChange={setMapaMes}>
+                <SelectTrigger className="h-10 bg-background">
+                  <SelectValue placeholder="Selecionar mês" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableMonths.map((m) => (
+                    <SelectItem key={m} value={m}>{formatMesPT(m)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Tese</Label>
+              <Select value={mapaTese} onValueChange={setMapaTese}>
+                <SelectTrigger className="h-10 bg-background">
+                  <SelectValue placeholder="Todas as teses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as teses (geral do mês)</SelectItem>
+                  {tesesMapaOptions.map((t) => (
+                    <SelectItem key={t.codigo} value={t.codigo}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-auto bg-[#f4f5f7] px-4 py-5">
           {!mapaMes ? (
-            <p className="text-center text-muted-foreground py-12">Selecione um mês para gerar o mapa tributário.</p>
+            <EmptyState
+              icon={<FileText className="h-5 w-5 text-[var(--navy)]" />}
+              title="Selecione a competência"
+              subtitle="Depois você pode gerar o mapa geral do mês ou filtrar por uma tese."
+            />
           ) : (
             <div
               id="mapa-tributario-pdf"
-              className="mapa-tributario-report"
+              className="mapa-tributario-report mx-auto overflow-hidden rounded-sm shadow-[0_8px_32px_rgba(15,17,23,0.12)]"
               style={{
                 width: "794px",
-                margin: "0 auto",
                 background: "white",
                 fontFamily: "sans-serif",
                 color: "#111",
               }}
             >
-              {/* Letterhead compacto (substitui a capa 100vh) */}
               <div
                 style={{
                   background: "#0a1564",
                   color: "white",
-                  padding: "20px 32px",
+                  padding: "28px 32px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
@@ -715,19 +800,18 @@ Equipe Focus.`;
                 <img
                   src={logoFintax}
                   alt="Focus FinTax"
-                  style={{ height: "36px", filter: "brightness(0) invert(1)" }}
+                  style={{ height: "64px", width: "auto", filter: "brightness(0) invert(1)" }}
                 />
                 <div style={{ textAlign: "right" }}>
-                  <p style={{ fontSize: "9px", letterSpacing: "3px", textTransform: "uppercase", opacity: 0.75, margin: 0 }}>
-                    Grupo Focus · Focus FinTax
+                  <p style={{ fontSize: "11px", letterSpacing: "3px", textTransform: "uppercase", opacity: 0.85, margin: 0 }}>
+                    Focus FinTax
                   </p>
-                  <p style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "1px", margin: "4px 0 0" }}>
+                  <p style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "1px", margin: "6px 0 0" }}>
                     MAPA TRIBUTÁRIO DAS COMPENSAÇÕES
                   </p>
                 </div>
               </div>
 
-              {/* Identificação do cliente — logo abaixo do letterhead, sem página em branco */}
               <div
                 style={{
                   padding: "20px 32px",
@@ -751,6 +835,10 @@ Equipe Focus.`;
                   <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>{formatMesPT(mapaMes)}</p>
                 </div>
                 <div>
+                  <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Tese</p>
+                  <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>{mapaTeseLabel}</p>
+                </div>
+                <div>
                   <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Gerado em</p>
                   <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>
                     {new Date().toLocaleDateString("pt-BR")}
@@ -758,11 +846,12 @@ Equipe Focus.`;
                 </div>
               </div>
 
-              {/* Report Pages — one per processo */}
               {mesProcessos.length === 0 ? (
                 <p style={{ padding: "48px 32px", textAlign: "center", color: "#6b7280", fontSize: "13px" }}>
-                  Não há processos com compensação em {formatMesPT(mapaMes)}.
-                  Selecione outro mês ou confira se as compensações estão vinculadas a um processo.
+                  {mapaTese === "all"
+                    ? `Não há processos com compensação em ${formatMesPT(mapaMes)}.`
+                    : `Não há compensação de ${mapaTeseLabel} em ${formatMesPT(mapaMes)}.`}
+                  {" "}Selecione outro mês ou tese, ou confira se as compensações estão vinculadas a um processo.
                 </p>
               ) : (
               mesProcessos.map((proc, procIdx) => {
@@ -918,7 +1007,7 @@ Equipe Focus.`;
 
                     {/* Footer */}
                     <div style={{ textAlign: "center", borderTop: "2px solid #0a1564", paddingTop: "16px", marginTop: "32px" }}>
-                      <p style={{ fontWeight: "bold", color: "#0a1564", fontSize: "14px" }}>GRUPO FOCUS FINTAX</p>
+                      <p style={{ fontWeight: "bold", color: "#0a1564", fontSize: "14px" }}>FOCUS FINTAX</p>
                     </div>
                   </div>
                 );
@@ -926,6 +1015,30 @@ Equipe Focus.`;
               )}
             </div>
           )}
+          </div>
+
+          <DialogFooter className="border-t border-[var(--ink-06)] px-6 py-4 sm:justify-between">
+            <p className="hidden text-xs text-muted-foreground sm:block">
+              {mapaMes
+                ? mesProcessos.length > 0
+                  ? `${mesProcessos.length} processo${mesProcessos.length > 1 ? "s" : ""} · ${mapaTeseLabel}`
+                  : "Nenhum processo neste recorte"
+                : "Selecione o mês para pré-visualizar"}
+            </p>
+            <div className="flex w-full gap-2 sm:w-auto">
+              <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setMapaOpen(false)}>
+                Fechar
+              </Button>
+              <Button
+                className="flex-1 gap-2 sm:flex-none"
+                onClick={handleDownloadMapaPdf}
+                disabled={!mapaMes || downloadingPdf || mesProcessos.length === 0}
+              >
+                <Printer className="h-4 w-4" />
+                {downloadingPdf ? "Gerando PDF..." : "Baixar PDF"}
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -1,5 +1,6 @@
-import { useEffect, useState, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { listStatusCompensacaoRows } from "@/services/clientesService";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,31 +48,21 @@ export const STATUS_COMPENSACAO_COLORS: Record<StatusCompensacao, string> = {
 // -----------------------------------------------------------------------------
 
 export function useStatusCompensacao() {
-  const [statusMap, setStatusMap] = useState<Map<string, StatusCompensacao>>(new Map());
-  const [loading, setLoading] = useState(true);
+  const { data, isPending } = useQuery({
+    queryKey: ["catalog", "status_compensacao"],
+    queryFn: listStatusCompensacaoRows,
+    staleTime: 60_000,
+  });
 
-  useEffect(() => {
-    const fetch = async () => {
-      setLoading(true);
-      const { data, error } = await (supabase as any)
-        .from("v_clientes_status_compensacao")
-        .select("cliente_id, status_principal");
-      if (error) {
-        setStatusMap(new Map());
-        setLoading(false);
-        return;
-      }
-      const m = new Map<string, StatusCompensacao>();
-      for (const row of (data || []) as { cliente_id: string; status_principal: StatusCompensacao }[]) {
-        m.set(row.cliente_id, row.status_principal);
-      }
-      setStatusMap(m);
-      setLoading(false);
-    };
-    fetch();
-  }, []);
+  const statusMap = useMemo(() => {
+    const m = new Map<string, StatusCompensacao>();
+    for (const row of data ?? []) {
+      m.set(row.cliente_id, row.status_principal as StatusCompensacao);
+    }
+    return m;
+  }, [data]);
 
-  return { statusMap, loading };
+  return { statusMap, loading: isPending && !data };
 }
 
 // -----------------------------------------------------------------------------

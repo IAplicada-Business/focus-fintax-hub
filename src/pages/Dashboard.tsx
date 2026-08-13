@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,14 +16,28 @@ async function fetchDashboardData() {
   const d14 = new Date(now.getTime() - 14 * 86400000).toISOString();
   const d3 = new Date(now.getTime() - 3 * 86400000).toISOString();
 
-  // ═══ COMMERCIAL KPIs ═══
-  const [pipelineRes, newWeekRes, prevWeekRes, contratosRes, clientesAtivosRes, totalEverRes] = await Promise.all([
+  const [
+    pipelineRes, newWeekRes, prevWeekRes, contratosRes, clientesAtivosRes, totalEverRes,
+    allLeadsRes, recentRes, stalledRes, diagRes, tesesRes,
+    clientesRes, allCompRes, allProcRes, totalAtivosRes, totaisRes, intimRes,
+  ] = await Promise.all([
     supabase.from("leads").select("id", { count: "exact", head: true }).not("status_funil", "in", "(perdido,nao_vai_fazer)"),
     supabase.from("leads").select("id", { count: "exact", head: true }).gte("criado_em", d7),
     supabase.from("leads").select("id", { count: "exact", head: true }).gte("criado_em", d14).lt("criado_em", d7),
     supabase.from("leads").select("id", { count: "exact", head: true }).eq("status_funil", "contrato_emitido"),
     supabase.from("clientes").select("id", { count: "exact", head: true }).eq("status", "ativo"),
     supabase.from("leads").select("id", { count: "exact", head: true }),
+    supabase.from("leads").select("id, status_funil, segmento, origem, score_lead").not("status_funil", "in", "(perdido,nao_vai_fazer)").limit(5000),
+    supabase.from("leads").select("empresa, segmento, criado_em, id, score_lead").not("status_funil", "in", "(perdido,nao_vai_fazer)").order("criado_em", { ascending: false }).limit(4),
+    supabase.from("leads").select("empresa, status_funil_atualizado_em, id").eq("status_funil", "contrato_emitido").lt("status_funil_atualizado_em", d3),
+    supabase.from("diagnosticos_leads").select("lead_id"),
+    supabase.from("motor_teses_config").select("id", { count: "exact", head: true }).eq("ativo", true),
+    supabase.from("clientes").select("id, empresa", { count: "exact" }).eq("status", "ativo").limit(5000),
+    supabase.from("compensacoes_mensais").select("valor_compensado, valor_nf_servico, honorario_valor, mes_referencia, cliente_id, tese_origem_id").limit(5000),
+    supabase.from("processos_teses").select("id, cliente_id, valor_credito, percentual_honorario, valor_honorario").limit(5000),
+    supabase.from("clientes").select("id", { count: "exact", head: true }).eq("status", "ativo"),
+    (supabase as any).from("v_cliente_totais_calculo").select("cliente_id, credito_apurado, total_compensado, saldo_restante").limit(5000),
+    supabase.from("intimacoes").select("id, status, prazo_vencimento").in("status", ["pendente", "informado_aline", "em_andamento"]),
   ]);
 
   const comLeads = pipelineRes.count ?? 0;
@@ -34,18 +48,16 @@ async function fetchDashboardData() {
   const totalEver = totalEverRes.count ?? 0;
   const comTaxaConversao = totalEver > 0 ? Math.min(Math.round((comClientesAtivos / totalEver) * 100), 100) : 0;
 
-  // ═══ COMMERCIAL CHARTS ═══
-  const { data: allLeads } = await supabase.from("leads").select("id, status_funil, segmento, origem, score_lead").not("status_funil", "in", "(perdido,nao_vai_fazer)").limit(5000);
-  const activeLeads = allLeads ?? [];
-  const activeIds = activeLeads.map(l => l.id);
-
-  let comPotencial = 0;
+  const activeLeads = allLeadsRes.data ?? [];
+  const recent = recentRes.data ?? [];
+  const recentIds = recent.map((r) => r.id);
+  const relIds = [...new Set([...activeLeads.map((l) => l.id), ...recentIds])];
   let potByLead: Record<string, number> = {};
-  if (activeIds.length) {
-    const { data: rels } = await supabase.from("relatorios_leads").select("lead_id, estimativa_total_maxima").in("lead_id", activeIds);
-    (rels ?? []).forEach(r => { potByLead[r.lead_id] = Math.max(potByLead[r.lead_id] ?? 0, Number(r.estimativa_total_maxima)); });
-    comPotencial = Object.values(potByLead).reduce((s, v) => s + v, 0);
+  if (relIds.length) {
+    const { data: rels } = await supabase.from("relatorios_leads").select("lead_id, estimativa_total_maxima").in("lead_id", relIds);
+    (rels ?? []).forEach((r) => { potByLead[r.lead_id] = Math.max(potByLead[r.lead_id] ?? 0, Number(r.estimativa_total_maxima)); });
   }
+  const comPotencial = Object.values(potByLead).reduce((s, v) => s + v, 0);
 
   const fCounts: Record<string, { count: number; ids: string[] }> = {};
   FUNNEL_STAGES_COM.forEach(s => { fCounts[s.value] = { count: 0, ids: [] }; });
@@ -76,38 +88,19 @@ async function fetchDashboardData() {
     scoreDistribution[letter] = (scoreDistribution[letter] ?? 0) + 1;
   });
 
-  const { data: recent } = await supabase.from("leads").select("empresa, segmento, criado_em, id, score_lead")
-    .not("status_funil", "in", "(perdido,nao_vai_fazer)").order("criado_em", { ascending: false }).limit(4);
-  const recentIds = (recent ?? []).map(r => r.id);
-  let rPotMap: Record<string, number> = {};
-  if (recentIds.length) {
-    const { data: rRels } = await supabase.from("relatorios_leads").select("lead_id, estimativa_total_maxima").in("lead_id", recentIds);
-    (rRels ?? []).forEach(r => { rPotMap[r.lead_id] = Math.max(rPotMap[r.lead_id] ?? 0, Number(r.estimativa_total_maxima)); });
-  }
-  const recentLeads: RecentLead[] = (recent ?? []).map(r => ({ id: r.id, empresa: r.empresa, segmento: r.segmento, criado_em: r.criado_em, potencial: rPotMap[r.id] ?? 0, score: r.score_lead }));
+  const recentLeads: RecentLead[] = recent.map((r) => ({
+    id: r.id, empresa: r.empresa, segmento: r.segmento, criado_em: r.criado_em,
+    potencial: potByLead[r.id] ?? 0, score: r.score_lead,
+  }));
 
-  const { data: stalled } = await supabase.from("leads").select("empresa, status_funil_atualizado_em, id")
-    .eq("status_funil", "contrato_emitido").lt("status_funil_atualizado_em", d3);
-  const stalledLeads = (stalled ?? []).map(l => ({ empresa: l.empresa || "Sem empresa", days: daysSince(l.status_funil_atualizado_em!), id: l.id })).sort((a, b) => b.days - a.days);
+  const stalledLeads = (stalledRes.data ?? [])
+    .map((l) => ({ empresa: l.empresa || "Sem empresa", days: daysSince(l.status_funil_atualizado_em!), id: l.id }))
+    .sort((a, b) => b.days - a.days);
 
-  const [diagRes, tesesRes] = await Promise.all([
-    supabase.from("diagnosticos_leads").select("lead_id"),
-    supabase.from("motor_teses_config").select("id", { count: "exact", head: true }).eq("ativo", true),
-  ]);
-  const uniqueDiagLeads = new Set((diagRes.data ?? []).map(d => d.lead_id));
+  const uniqueDiagLeads = new Set((diagRes.data ?? []).map((d) => d.lead_id));
   const motorDiagnosticos = uniqueDiagLeads.size;
   const motorTesesAtivas = tesesRes.count ?? 0;
 
-  // ═══ OPERATIONAL ═══
-  // Fox Review: saldos/gráficos usam v_cliente_totais_calculo (só Insumos+Subvenção)
-  // e processos sem categoria reporto — evita inflar com REPORTO.
-  const [clientesRes, allCompRes, allProcRes, totalAtivosRes, totaisRes] = await Promise.all([
-    supabase.from("clientes").select("id, empresa", { count: "exact" }).eq("status", "ativo").limit(5000),
-    supabase.from("compensacoes_mensais").select("valor_compensado, valor_nf_servico, honorario_valor, mes_referencia, cliente_id, tese_origem_id").limit(5000),
-    supabase.from("processos_teses").select("id, cliente_id, valor_credito, percentual_honorario, valor_honorario").limit(5000),
-    supabase.from("clientes").select("id", { count: "exact", head: true }).eq("status", "ativo"),
-    (supabase as any).from("v_cliente_totais_calculo").select("cliente_id, credito_apurado, total_compensado, saldo_restante").limit(5000),
-  ]);
   const clientes = clientesRes.data ?? [];
   const allComp = allCompRes.data ?? [];
   const allProc = (allProcRes.data ?? []).filter((p: any) => p.categoria !== "reporto");
@@ -172,11 +165,10 @@ async function fetchDashboardData() {
   const topCompensado = [...rankings].sort((a, b) => b.compensado - a.compensado).slice(0, 8);
   const topSaldo = [...rankings].sort((a, b) => b.saldo - a.saldo).filter(r => r.saldo > 0).slice(0, 8);
 
-  // ═══ INTIMAÇÕES ═══
-  const { data: intimData } = await supabase.from("intimacoes").select("id, status, prazo_vencimento").in("status", ["pendente", "informado_aline", "em_andamento"]);
-  const intimacoesPendentes = intimData?.length ?? 0;
+  const intimData = intimRes.data ?? [];
+  const intimacoesPendentes = intimData.length;
   const in15 = new Date(now.getTime() + 15 * 86400000).toISOString().slice(0, 10);
-  const intimacoesVencendo = intimData?.filter(i => i.prazo_vencimento && i.prazo_vencimento <= in15).length ?? 0;
+  const intimacoesVencendo = intimData.filter((i) => i.prazo_vencimento && i.prazo_vencimento <= in15).length;
 
   // ═══ DATA HEALTH ═══
   const compCount = allComp.length;
@@ -225,7 +217,7 @@ export default function Dashboard() {
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard"],
     queryFn: fetchDashboardData,
-    staleTime: 20_000,
+    staleTime: 60_000,
   });
 
   const kpiLoading = isLoading;
@@ -233,11 +225,21 @@ export default function Dashboard() {
 
   // Realtime subscription
   useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const bump = () => {
+      if (t) clearTimeout(t);
+      t = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      }, 2000);
+    };
     const channel = supabase.channel("dashboard-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => queryClient.invalidateQueries({ queryKey: ["dashboard"] }))
-      .on("postgres_changes", { event: "*", schema: "public", table: "compensacoes_mensais" }, () => queryClient.invalidateQueries({ queryKey: ["dashboard"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "compensacoes_mensais" }, bump)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (t) clearTimeout(t);
+      supabase.removeChannel(channel);
+    };
   }, [queryClient]);
 
   const d = data;

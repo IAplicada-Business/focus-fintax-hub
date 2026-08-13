@@ -1,9 +1,16 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  invalidateClienteOperacional,
+  useClienteProcessos,
+  useMotorTesesAtivas,
+} from "@/hooks/data/useClienteOperacional";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Pencil, Plus, AlertTriangle, Trash2, Layers } from "lucide-react";
@@ -44,43 +51,27 @@ export function ProcessosTesesTab({
   presetTese = null,
   onProcessosChanged,
 }: Props) {
+  const qc = useQueryClient();
+  const processosQ = useClienteProcessos(clienteId);
+  const motorQ = useMotorTesesAtivas();
+  const processosRemote = processosQ.data;
   const [processos, setProcessos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const loading = processosQ.isPending && processosQ.data === undefined;
   const [modalOpen, setModalOpen] = useState(false);
   const [editProcesso, setEditProcesso] = useState<any>(null);
   const [modalPreset, setModalPreset] = useState<string | null>(null);
-  const [opcoesTese, setOpcoesTese] = useState<{ tese: string; nome_exibicao: string }[]>([]);
+  const opcoesTese = motorQ.data ?? [];
   const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const lastSignal = useRef(0);
 
-  const fetchProcessos = useCallback(async () => {
-    const { data } = await supabase
-      .from("processos_teses")
-      .select("*")
-      .eq("cliente_id", clienteId)
-      .order("criado_em");
-    setProcessos(data || []);
-    setLoading(false);
-  }, [clienteId]);
+  useEffect(() => {
+    if (processosRemote) setProcessos(processosRemote);
+  }, [processosRemote]);
 
-  const refreshAll = useCallback(async () => {
-    await fetchProcessos();
+  const refreshAll = async () => {
+    await invalidateClienteOperacional(qc, clienteId);
     onProcessosChanged?.();
-  }, [fetchProcessos, onProcessosChanged]);
-
-  useEffect(() => {
-    fetchProcessos();
-  }, [fetchProcessos]);
-
-  useEffect(() => {
-    supabase
-      .from("motor_teses_config")
-      .select("tese, nome_exibicao")
-      .eq("ativo", true)
-      .then(({ data }) => {
-        if (data) setOpcoesTese(data);
-      });
-  }, []);
+  };
 
   useEffect(() => {
     if (!addTeseSignal || addTeseSignal === lastSignal.current) return;
@@ -120,7 +111,7 @@ export function ProcessosTesesTab({
         .update(updateData as any)
         .eq("id", id);
       if (error) toast.error("Erro ao salvar.");
-      else fetchProcessos();
+      else void refreshAll();
     }, 800);
   };
 
@@ -139,7 +130,7 @@ export function ProcessosTesesTab({
       { status_processo: oldStatus },
       { status_processo: value },
     );
-    fetchProcessos();
+    void refreshAll();
   };
 
   const assinados = processos.filter((p) => p.status_contrato === "assinado");
@@ -296,13 +287,11 @@ export function ProcessosTesesTab({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="h-7 w-28 text-xs"
+                        <CurrencyInput
+                          className="h-7 w-36 text-xs"
                           value={p.valor_credito ?? ""}
-                          onChange={(e) =>
-                            handleInlineUpdate(p.id, "valor_credito", Number(e.target.value))
+                          onValueChange={(v) =>
+                            handleInlineUpdate(p.id, "valor_credito", Number(v) || 0)
                           }
                         />
                       </TableCell>

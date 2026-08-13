@@ -69,45 +69,61 @@ export default function ClientesList() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 25;
 
-  const getClienteStats = (clienteId: string) => {
-    const cp = processos.filter((p) => p.cliente_id === clienteId);
-    const assinados = cp.filter((p) => p.status_contrato === "assinado");
-    const totalCredito = assinados.reduce((s, p) => s + Number(p.valor_credito || 0), 0);
-    const totalCompensado = compensacoes
-      .filter((c) => c.cliente_id === clienteId)
-      .reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
-
+  const allStats = useMemo(() => {
+    const processosByCliente = new Map<string, typeof processos>();
+    for (const p of processos) {
+      const arr = processosByCliente.get(p.cliente_id);
+      if (arr) arr.push(p);
+      else processosByCliente.set(p.cliente_id, [p]);
+    }
+    const compensadoByCliente = new Map<string, number>();
+    for (const c of compensacoes) {
+      compensadoByCliente.set(
+        c.cliente_id,
+        (compensadoByCliente.get(c.cliente_id) ?? 0) + Number(c.valor_compensado || 0),
+      );
+    }
     const now = Date.now();
-    const hasAlertAguardando = cp.some(
-      (p) => p.status_contrato === "aguardando_assinatura" && (now - new Date(p.criado_em).getTime()) > 7 * 86400000
-    );
-    const hasAlertNaoProtocolado = cp.some(
-      (p) => p.status_processo === "nao_protocolado" && (now - new Date(p.atualizado_em).getTime()) > 15 * 86400000
-    );
+    return clientes.map((c) => {
+      const cp = processosByCliente.get(c.id) ?? [];
+      const assinados = cp.filter((p) => p.status_contrato === "assinado");
+      const totalCredito = assinados.reduce((s, p) => s + Number(p.valor_credito || 0), 0);
+      const totalCompensado = compensadoByCliente.get(c.id) ?? 0;
+      const hasAlertAguardando = cp.some(
+        (p) => p.status_contrato === "aguardando_assinatura" && (now - new Date(p.criado_em).getTime()) > 7 * 86400000,
+      );
+      const hasAlertNaoProtocolado = cp.some(
+        (p) => p.status_processo === "nao_protocolado" && (now - new Date(p.atualizado_em).getTime()) > 15 * 86400000,
+      );
+      return {
+        ...c,
+        tesesAtivas: assinados.length,
+        totalCredito,
+        totalCompensado,
+        saldo: totalCredito - totalCompensado,
+        hasAlertAguardando,
+        hasAlertNaoProtocolado,
+      };
+    });
+  }, [clientes, processos, compensacoes]);
 
-    return { tesesAtivas: assinados.length, totalCredito, totalCompensado, saldo: totalCredito - totalCompensado, hasAlertAguardando, hasAlertNaoProtocolado };
-  };
-
-  // Global stats
-  const allStats = clientes.map((c) => ({ ...c, ...getClienteStats(c.id) }));
   const totalClientes = clientes.length;
   const totalCompensando = allStats.filter((c) => c.totalCompensado > 0).length;
   const globalCredito = allStats.reduce((s, c) => s + c.totalCredito, 0);
   const globalCompensado = allStats.reduce((s, c) => s + c.totalCompensado, 0);
 
-  // Filtering
-  let filtered = allStats;
-  if (search) {
-    const q = search.toLowerCase();
-    filtered = filtered.filter((c) => c.empresa?.toLowerCase().includes(q) || c.cnpj?.includes(q));
-  }
-  if (filterSegmento !== "all") filtered = filtered.filter((c) => c.segmento === filterSegmento);
-  if (filterStatus === "compensando") filtered = filtered.filter((c) => c.totalCompensado > 0);
-  else if (filterStatus !== "all") filtered = filtered.filter((c) => c.status === filterStatus);
-
-  // Status compensação (view v_clientes_status_compensacao) — filtro multi-select
-  const statusCompPredicate = makeStatusFilterPredicate(filterStatusCompensacao, statusCompMap);
-  filtered = filtered.filter((c) => statusCompPredicate(c.id));
+  const filtered = useMemo(() => {
+    let next = allStats;
+    if (search) {
+      const q = search.toLowerCase();
+      next = next.filter((c) => c.empresa?.toLowerCase().includes(q) || c.cnpj?.includes(q));
+    }
+    if (filterSegmento !== "all") next = next.filter((c) => c.segmento === filterSegmento);
+    if (filterStatus === "compensando") next = next.filter((c) => c.totalCompensado > 0);
+    else if (filterStatus !== "all") next = next.filter((c) => c.status === filterStatus);
+    const statusCompPredicate = makeStatusFilterPredicate(filterStatusCompensacao, statusCompMap);
+    return next.filter((c) => statusCompPredicate(c.id));
+  }, [allStats, search, filterSegmento, filterStatus, filterStatusCompensacao, statusCompMap]);
 
   const statusCompCounts = useMemo(
     () => countByStatus(allStats.map((c) => c.id), statusCompMap),
@@ -130,20 +146,26 @@ export default function ClientesList() {
   const reportDate = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
   // Breakdown por tese
-  const teseBreakdown = (() => {
-    const assinados = processos.filter((p) => p.status_contrato === "assinado");
+  const teseBreakdown = useMemo(() => {
+    const compensadoByProcesso = new Map<string, number>();
+    for (const c of compensacoes) {
+      if (!c.processo_tese_id) continue;
+      compensadoByProcesso.set(
+        c.processo_tese_id,
+        (compensadoByProcesso.get(c.processo_tese_id) ?? 0) + Number(c.valor_compensado || 0),
+      );
+    }
     const map: Record<string, { nome: string; clientes: Set<string>; identificado: number; compensado: number }> = {};
-    assinados.forEach((p) => {
+    for (const p of processos) {
+      if (p.status_contrato !== "assinado") continue;
       const key = p.tese || p.nome_exibicao;
       if (!map[key]) map[key] = { nome: p.nome_exibicao || p.tese, clientes: new Set(), identificado: 0, compensado: 0 };
       map[key].clientes.add(p.cliente_id);
       map[key].identificado += Number(p.valor_credito || 0);
-      map[key].compensado += compensacoes
-        .filter((c) => c.processo_tese_id === p.id)
-        .reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
-    });
+      map[key].compensado += compensadoByProcesso.get(p.id) ?? 0;
+    }
     return Object.values(map).sort((a, b) => b.identificado - a.identificado);
-  })();
+  }, [processos, compensacoes]);
 
   const getClienteHealth = (c: any) => {
     if (c.saldo <= 0) return 'amarelo';

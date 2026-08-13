@@ -33,6 +33,12 @@ const Index = () => {
         // Inject body content
         containerRef.current.innerHTML = doc.body.innerHTML;
 
+        // Config do projeto atual — a LP é HTML estático e não lê import.meta.env
+        (window as unknown as { __FT_SUPABASE__?: { url: string; anonKey: string } }).__FT_SUPABASE__ = {
+          url: import.meta.env.VITE_SUPABASE_URL,
+          anonKey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        };
+
         // Extract and execute scripts
         const scripts = doc.querySelectorAll("script");
         scripts.forEach((script) => {

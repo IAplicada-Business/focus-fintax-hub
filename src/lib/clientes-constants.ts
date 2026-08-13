@@ -149,7 +149,7 @@ export function filterCompensadoCanonical(
   });
 }
 
-/** Soma compensações no mesmo critério do card Total Compensado (sem Reporto / sem órfã duplicada). */
+/** Soma compensações no mesmo critério do card Total Compensado e da aba Compensações (sem Reporto / sem órfã duplicada). Não misturar com valor_compensado_manual da view. */
 export function sumCompensadoCanonical(
   rows: CompensacaoSumRow[],
   opts?: { reportoTeseIds?: Set<string>; reportoProcessoIds?: Set<string> },
@@ -213,4 +213,43 @@ export function statusUtilizacaoFromSaldo(
   if (compensado <= 0.011) return "a_utilizar";
   if (apurado - compensado <= 0.011) return "utilizado";
   return "em_uso";
+}
+
+export type CreditoApuradoRow = {
+  tese_id: string;
+  valor_apurado_inicial?: number | null;
+  incluir_no_calculo?: boolean | null;
+};
+
+/**
+ * Crédito Apurado / possíveis futuros a partir de creditos_apurados (ao vivo).
+ * Não usa v_cliente_totais_calculo (essa view mistura GREATEST com snapshot legado).
+ * REPORTO fica em possíveis futuros. Teses marcadas no cálculo entram no apurado.
+ */
+export function splitCreditosCalculo(
+  rows: CreditoApuradoRow[],
+  reportoTeseIds?: Set<string>,
+): {
+  creditoApurado: number;
+  possiveisFuturos: number;
+  tesesNoCalculo: number;
+  teseIdsNoCalculo: Set<string>;
+} {
+  const hasFlag = rows.some((c) => c.incluir_no_calculo === true || c.incluir_no_calculo === false);
+  const inCalculo: CreditoApuradoRow[] = [];
+  const foraCalculo: CreditoApuradoRow[] = [];
+  for (const c of rows) {
+    const isReporto = !!c.tese_id && !!reportoTeseIds?.has(c.tese_id);
+    const incluido = !hasFlag || c.incluir_no_calculo === true;
+    if (!isReporto && incluido) inCalculo.push(c);
+    else foraCalculo.push(c);
+  }
+  const sum = (list: CreditoApuradoRow[]) =>
+    list.reduce((s, c) => s + Number(c.valor_apurado_inicial || 0), 0);
+  return {
+    creditoApurado: sum(inCalculo),
+    possiveisFuturos: sum(foraCalculo),
+    tesesNoCalculo: inCalculo.length,
+    teseIdsNoCalculo: new Set(inCalculo.map((c) => c.tese_id)),
+  };
 }

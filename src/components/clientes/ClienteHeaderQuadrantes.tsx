@@ -1,17 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { TrendingUp, TrendingDown, PieChart, Layers, RefreshCw, Plus } from "lucide-react";
-import { formatCurrencyBR, formatCompetenciaPT, isReportoCompensacao, sumCompensadoCanonical } from "@/lib/clientes-constants";
+import { formatCurrencyBR, formatCompetenciaPT, isReportoCompensacao, splitCreditosCalculo, sumCompensadoCanonical } from "@/lib/clientes-constants";
 import {
   STATUS_COMPENSACAO_LABELS,
   STATUS_COMPENSACAO_COLORS,
   type StatusCompensacao,
 } from "@/components/StatusCompensacaoFilter";
 import { TrocaTeseAtivaModal } from "@/components/clientes/TrocaTeseAtivaModal";
+import {
+  invalidateClienteOperacional,
+  useClienteCompensacoes,
+  useClienteCreditos,
+  useClienteProcessos,
+  useClienteRecord,
+  useClienteStatusCompensacao,
+  useMotorTesesAtivas,
+  useTesesTributarias,
+} from "@/hooks/data/useClienteOperacional";
 
 interface Props {
   clienteId: string;
@@ -64,184 +73,101 @@ const EMPTY: Dados = {
 };
 
 export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0 }: Props) {
-  const [dadosBase, setDadosBase] = useState<Dados>(EMPTY);
-  const [comps, setComps] = useState<CompRow[]>([]);
-  const [totalCompensadoView, setTotalCompensadoView] = useState<number | null>(null);
-  const [reportoTeseIds, setReportoTeseIds] = useState<Set<string>>(new Set());
-  const [reportoProcessoIds, setReportoProcessoIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const qc = useQueryClient();
+  const creditosQ = useClienteCreditos(clienteId);
+  const compsQ = useClienteCompensacoes(clienteId);
+  const processosQ = useClienteProcessos(clienteId);
+  const tesesQ = useTesesTributarias();
+  const motorQ = useMotorTesesAtivas();
+  const statusQ = useClienteStatusCompensacao(clienteId);
+  const clienteQ = useClienteRecord(clienteId);
+
   const [mesInicio, setMesInicio] = useState("");
   const [mesFim, setMesFim] = useState("");
-  const [teseAtivaId, setTeseAtivaId] = useState<string | null>(null);
-  const [teseAtivaLabel, setTeseAtivaLabel] = useState<string | null>(null);
   const [trocaOpen, setTrocaOpen] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0);
-  const [processosCount, setProcessosCount] = useState(0);
-  const [opcoesTese, setOpcoesTese] = useState<{ tese: string; nome_exibicao: string }[]>([]);
-  const loadedOnceRef = useRef(false);
 
   useEffect(() => {
-    loadedOnceRef.current = false;
-  }, [clienteId]);
+    if (!refreshToken) return;
+    void invalidateClienteOperacional(qc, clienteId);
+    void qc.invalidateQueries({ queryKey: ["cliente", clienteId, "record"] });
+  }, [refreshToken, clienteId, qc]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const fetchDados = async () => {
-      // Skeleton só no 1º load do cliente — refresh não remonta o bloco (evita header duplicado)
-      if (!loadedOnceRef.current) setLoading(true);
-      const [
-        { data: creditos },
-        { data: compsData },
-        { data: view },
-        { data: totaisView },
-        { data: cli },
-        { count: procCount },
-        { data: motorTeses },
-        { data: reportoTes },
-        { data: reportoProcs },
-      ] = await Promise.all([
-        (supabase as any)
-          .from("creditos_apurados")
-          .select("valor_apurado_inicial, tese_id, incluir_no_calculo")
-          .eq("cliente_id", clienteId),
-        // Filtra Reporto por processo.tese / tese_origem — não só tese_origem_id
-        // (linhas importadas muitas vezes vêm com tese_origem_id nulo).
-        supabase
-          .from("compensacoes_mensais")
-          .select("valor_compensado, valor_nf_servico, mes_referencia, honorario_valor, tese_origem_id, processo_tese_id, tributo, tributo_enum, processos_teses:processo_tese_id(tese, nome_exibicao)")
-          .eq("cliente_id", clienteId),
-        (supabase as any)
-          .from("v_clientes_status_compensacao")
-          .select("status_principal, tem_reporto, tem_tese_ativa, ultima_competencia_compensada")
-          .eq("cliente_id", clienteId)
-          .maybeSingle(),
-        (supabase as any)
-          .from("v_cliente_totais_calculo")
-          .select("credito_apurado, total_compensado, saldo_restante, possiveis_creditos_futuros, teses_no_calculo")
-          .eq("cliente_id", clienteId)
-          .maybeSingle(),
-        supabase.from("clientes").select("tese_ativa_id").eq("id", clienteId).maybeSingle(),
-        supabase
-          .from("processos_teses")
-          .select("id", { count: "exact", head: true })
-          .eq("cliente_id", clienteId),
-        supabase.from("motor_teses_config").select("tese, nome_exibicao").eq("ativo", true),
-        (supabase as any).from("teses_tributarias").select("id").eq("codigo", "REPORTO"),
-        supabase.from("processos_teses").select("id").eq("cliente_id", clienteId).eq("tese", "REPORTO"),
-      ]);
+  const creditos = (creditosQ.data ?? []) as CreditoRow[];
+  const compsRaw = (compsQ.data ?? []) as CompRow[];
+  const processos = processosQ.data ?? [];
+  const teses = tesesQ.data ?? [];
+  const opcoesTese = motorQ.data ?? [];
+  const view = statusQ.data;
+  const teseAtivaId = (clienteQ.data as { tese_ativa_id?: string | null } | undefined)?.tese_ativa_id ?? null;
+  const teseAtivaLabel = teses.find((t) => t.id === teseAtivaId)?.label ?? null;
 
-      const reportoIds = new Set(
-        ((reportoTes as { id: string }[]) || []).map((t) => t.id)
-      );
-      const reportoProcIds = new Set(
-        ((reportoProcs as { id: string }[]) || []).map((p) => p.id)
-      );
+  const reportoTeseIds = useMemo(
+    () => new Set(teses.filter((t) => (t.codigo || "").toUpperCase() === "REPORTO").map((t) => t.id)),
+    [teses],
+  );
+  const reportoProcessoIds = useMemo(
+    () => new Set(processos.filter((p) => p.tese === "REPORTO").map((p) => p.id)),
+    [processos],
+  );
 
-      if (!cancelled) {
-        setProcessosCount(procCount ?? 0);
-        setOpcoesTese((motorTeses as { tese: string; nome_exibicao: string }[]) || []);
-        setReportoTeseIds(reportoIds);
-        setReportoProcessoIds(reportoProcIds);
-      }
+  const comps = useMemo(
+    () => compsRaw.filter((c) => !isReportoCompensacao(c, { reportoTeseIds, reportoProcessoIds })),
+    [compsRaw, reportoTeseIds, reportoProcessoIds],
+  );
 
-      const ativaId = (cli as any)?.tese_ativa_id ?? null;
-      setTeseAtivaId(ativaId);
-      if (ativaId) {
-        const { data: t } = await (supabase as any)
-          .from("teses_tributarias")
-          .select("label")
-          .eq("id", ativaId)
-          .maybeSingle();
-        if (!cancelled) setTeseAtivaLabel(t?.label ?? null);
-      } else if (!cancelled) {
-        setTeseAtivaLabel(null);
-      }
-
-      if (cancelled) return;
-
-      const creditosRows = ((creditos as CreditoRow[]) || []);
-      const incluirIds = new Set(
-        creditosRows.filter((c) => c.incluir_no_calculo !== false).map((c) => c.tese_id)
-      );
-      // Se a coluna ainda não existe / veio null em tudo, fallback: todos
-      const hasFlag = creditosRows.some((c) => c.incluir_no_calculo === true || c.incluir_no_calculo === false);
-      const teseSet = hasFlag
-        ? new Set(creditosRows.filter((c) => c.incluir_no_calculo).map((c) => c.tese_id))
-        : new Set(creditosRows.map((c) => c.tese_id));
-
-      const fromView = totaisView as {
-        credito_apurado?: number;
-        total_compensado?: number;
-        possiveis_creditos_futuros?: number;
-        teses_no_calculo?: number;
-      } | null;
-
-      const totalApurado = fromView?.credito_apurado != null
-        ? Number(fromView.credito_apurado)
-        : creditosRows
-            .filter((c) => !hasFlag || c.incluir_no_calculo)
-            .reduce((s, c) => s + Number(c.valor_apurado_inicial || 0), 0);
-
-      const possiveisFuturos = fromView?.possiveis_creditos_futuros != null
-        ? Number(fromView.possiveis_creditos_futuros)
-        : creditosRows
-            .filter((c) => hasFlag && !c.incluir_no_calculo)
-            .reduce((s, c) => s + Number(c.valor_apurado_inicial || 0), 0);
-
-      const compsRows = ((compsData as CompRow[]) || []).filter(
-        (c) => !isReportoCompensacao(c, { reportoTeseIds: reportoIds, reportoProcessoIds: reportoProcIds })
-      );
-
-      const compsNoCalculo = compsRows.filter(
-        (c) => !c.tese_origem_id || teseSet.has(c.tese_origem_id) || incluirIds.size === 0
-      );
-
-      const totalHonorarios = compsNoCalculo.reduce(
-        (s, c) => s + Number(c.honorario_valor ?? c.valor_nf_servico ?? 0),
-        0
-      );
-      const compsPagos = compsNoCalculo.filter((c) => Number(c.valor_compensado || 0) > 0);
-      const ultimaCompetencia = compsPagos.length > 0
-        ? compsPagos.reduce((a, b) => (a.mes_referencia > b.mes_referencia ? a : b)).mes_referencia
-        : (view as any)?.ultima_competencia_compensada ?? null;
-
-      setComps(compsRows);
-      setTotalCompensadoView(fromView?.total_compensado != null ? Number(fromView.total_compensado) : null);
-
-      setDadosBase({
-        totalApurado,
-        tesesAtivas: fromView?.teses_no_calculo ?? teseSet.size,
-        totalCompensado: 0, // recalculado com filtro de período
-        ultimaCompetencia,
-        totalHonorarios,
-        statusPrincipal: ((view as any)?.status_principal ?? null) as StatusCompensacao | null,
-        tem_reporto: !!(view as any)?.tem_reporto,
-        tem_tese_ativa: !!(view as any)?.tem_tese_ativa,
-        possiveisFuturos,
-      });
-      loadedOnceRef.current = true;
-      setLoading(false);
+  const dadosBase = useMemo<Dados>(() => {
+    if (!creditosQ.data && !compsQ.data) return EMPTY;
+    const split = splitCreditosCalculo(creditos, reportoTeseIds);
+    const incluirIds = new Set(
+      creditos.filter((c) => c.incluir_no_calculo !== false).map((c) => c.tese_id),
+    );
+    const teseSet = split.teseIdsNoCalculo;
+    const compsNoCalculo = comps.filter(
+      (c) => !c.tese_origem_id || teseSet.has(c.tese_origem_id) || incluirIds.size === 0,
+    );
+    const totalHonorarios = compsNoCalculo.reduce(
+      (s, c) => s + Number(c.honorario_valor ?? c.valor_nf_servico ?? 0),
+      0,
+    );
+    const compsPagos = compsNoCalculo.filter((c) => Number(c.valor_compensado || 0) > 0);
+    const ultimaCompetencia = compsPagos.length > 0
+      ? compsPagos.reduce((a, b) => (a.mes_referencia > b.mes_referencia ? a : b)).mes_referencia
+      : view?.ultima_competencia_compensada ?? null;
+    return {
+      totalApurado: split.creditoApurado,
+      tesesAtivas: split.tesesNoCalculo,
+      totalCompensado: 0,
+      ultimaCompetencia,
+      totalHonorarios,
+      statusPrincipal: (view?.status_principal ?? null) as StatusCompensacao | null,
+      tem_reporto: !!view?.tem_reporto,
+      tem_tese_ativa: !!view?.tem_tese_ativa,
+      possiveisFuturos: split.possiveisFuturos,
     };
-    fetchDados();
-    return () => { cancelled = true; };
-  }, [clienteId, reloadKey, refreshToken]);
+  }, [creditos, creditosQ.data, compsQ.data, comps, reportoTeseIds, view]);
+
+  const processosCount = processos.length;
+  const hasCached =
+    compsQ.data !== undefined || creditosQ.data !== undefined || processosQ.data !== undefined;
+  const loading =
+    !hasCached && (compsQ.isPending || creditosQ.isPending || processosQ.isPending);
 
   const totalCompensadoPeriodo = useMemo(() => {
-    // Fonte = aba Compensações (com órfãs por tributo, sem gêmeas duplicadas).
-    // Sem filtro de período: piso com a view/Detalhamento para não subestimar
-    // clientes como Maravista (histórico no Detalhamento + fluxo parcial).
+    // Fonte única = aba Compensações (sem Reporto, sem órfãs duplicadas).
+    // Não misturar com v_cliente_totais_calculo: a view usa GREATEST com
+    // valor_compensado_manual (snapshot de planilha) e infla o card
+    // (AP MEDEIROS, Liberdade, etc.).
     const noPeriodo = comps.filter((c) => {
       const mes = (c.mes_referencia || "").slice(0, 7);
       if (mesInicio && mes < mesInicio) return false;
       if (mesFim && mes > mesFim) return false;
       return true;
     });
-    const fromAba = sumCompensadoCanonical(noPeriodo, { reportoTeseIds, reportoProcessoIds });
-    if (mesInicio || mesFim) return fromAba;
-    if (comps.length === 0) return totalCompensadoView ?? fromAba;
-    return Math.max(fromAba, totalCompensadoView ?? 0);
-  }, [comps, reportoTeseIds, reportoProcessoIds, mesInicio, mesFim, totalCompensadoView]);
+    return sumCompensadoCanonical(noPeriodo, { reportoTeseIds, reportoProcessoIds });
+  }, [comps, reportoTeseIds, reportoProcessoIds, mesInicio, mesFim]);
 
+  // Saldo = apurado ao vivo − compensado da aba. Nunca view.saldo_restante
+  // (essa coluna da view subtrai GREATEST com snapshot legado).
   const saldo = dadosBase.totalApurado - totalCompensadoPeriodo;
   const pctUtilizado = dadosBase.totalApurado > 0
     ? (totalCompensadoPeriodo / dadosBase.totalApurado) * 100
@@ -255,142 +181,149 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="card-base h-24 animate-pulse bg-muted/40" />
-        ))}
+      <div className="mb-4 space-y-2.5">
+        <div className="h-8 w-full max-w-xl animate-pulse rounded-md bg-muted/40" />
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,1fr)]">
+          <div className="card-base h-[6.5rem] animate-pulse bg-muted/40" />
+          <div className="card-base h-[6.5rem] animate-pulse bg-muted/40" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3 mb-6">
-      {/* Filtro de período — total compensado flexível (Review Fox 08/jul) */}
-      <div className="flex flex-wrap items-end gap-3 card-base px-4 py-3">
-        <div className="space-y-1">
-          <Label className="text-[10px] uppercase tracking-[0.8px] text-ink-35">Compensado de</Label>
-          <Input
-            type="month"
-            className="h-8 w-40 text-xs"
+    <div className="mb-4 space-y-2.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Compensado</span>
+          <MonthPicker
+            aria-label="Compensado de"
             value={mesInicio}
-            onChange={(e) => setMesInicio(e.target.value)}
+            onChange={setMesInicio}
+            placeholder="mês/ano"
           />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-[10px] uppercase tracking-[0.8px] text-ink-35">até</Label>
-          <Input
-            type="month"
-            className="h-8 w-40 text-xs"
+          <span className="text-[11px] text-ink-35">até</span>
+          <MonthPicker
+            aria-label="Compensado até"
             value={mesFim}
-            onChange={(e) => setMesFim(e.target.value)}
+            onChange={setMesFim}
+            placeholder="mês/ano"
           />
+          {(mesInicio || mesFim) && (
+            <button
+              type="button"
+              className="text-xs text-primary underline"
+              onClick={() => { setMesInicio(""); setMesFim(""); }}
+            >
+              Limpar
+            </button>
+          )}
         </div>
-        {(mesInicio || mesFim) && (
-          <button
-            type="button"
-            className="text-xs text-primary underline pb-1.5"
-            onClick={() => { setMesInicio(""); setMesFim(""); }}
-          >
-            Limpar período
-          </button>
-        )}
-        <p className="text-[11px] text-ink-35 pb-1.5 ml-auto">
+        <p className="text-[11px] text-ink-35 sm:ml-auto">
           Totais usam só teses marcadas no cálculo (padrão: Insumos + Subvenção)
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <Quadrante
-          label="Crédito Apurado"
-          icon={<Layers className="w-3.5 h-3.5" />}
-          valor={formatCurrencyBR(dadosBase.totalApurado)}
-          cor="var(--navy)"
-          rodape={
-            dadosBase.tesesAtivas > 0
-              ? `${dadosBase.tesesAtivas} tese${dadosBase.tesesAtivas > 1 ? "s" : ""} no cálculo`
-              : "Sem créditos no cálculo"
-          }
-        />
+      <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,1fr)]">
+        <div className="card-base grid grid-cols-1 divide-y divide-[var(--ink-06)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <KpiCell
+            label="Crédito Apurado"
+            icon={<Layers className="h-4 w-4" />}
+            valor={formatCurrencyBR(dadosBase.totalApurado)}
+            cor="var(--navy)"
+            rodape={
+              dadosBase.tesesAtivas > 0
+                ? `${dadosBase.tesesAtivas} tese${dadosBase.tesesAtivas > 1 ? "s" : ""} no cálculo`
+                : "Sem créditos no cálculo"
+            }
+          />
+          <KpiCell
+            label="Total Compensado"
+            icon={<TrendingUp className="h-4 w-4" />}
+            valor={formatCurrencyBR(totalCompensadoPeriodo)}
+            cor="var(--dash-green)"
+            rodape={periodoLabel}
+          />
+          <KpiCell
+            label="Saldo Restante"
+            icon={<PieChart className="h-4 w-4" />}
+            valor={formatCurrencyBR(saldo)}
+            cor={saldo > 0 ? "var(--navy)" : "var(--ink-35)"}
+            rodape={
+              dadosBase.totalApurado > 0
+                ? `${pctUtilizado.toFixed(1)}% do apurado utilizado`
+                : "—"
+            }
+            extra={
+              dadosBase.totalApurado > 0 && (
+                <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--ink-06)]">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${Math.min(pctUtilizado, 100)}%`, background: "var(--dash-green)" }}
+                  />
+                </div>
+              )
+            }
+          />
+        </div>
 
-        <Quadrante
-          label="Total Compensado"
-          icon={<TrendingUp className="w-3.5 h-3.5" />}
-          valor={formatCurrencyBR(totalCompensadoPeriodo)}
-          cor="var(--dash-green)"
-          rodape={periodoLabel}
-        />
-
-        <Quadrante
-          label="Saldo Restante"
-          icon={<PieChart className="w-3.5 h-3.5" />}
-          valor={formatCurrencyBR(saldo)}
-          cor={saldo > 0 ? "var(--navy)" : "var(--ink-35)"}
-          rodape={
-            dadosBase.totalApurado > 0
-              ? `${pctUtilizado.toFixed(1)}% do apurado utilizado`
-              : "—"
-          }
-          extra={
-            dadosBase.totalApurado > 0 && (
-              <div className="mt-2 h-1 rounded-full bg-[var(--ink-06)] overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{ width: `${Math.min(pctUtilizado, 100)}%`, background: "var(--dash-green)" }}
-                />
-              </div>
-            )
-          }
-        />
-
-        <div className="card-base px-4 py-3.5 flex flex-col">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <TrendingDown className="w-3.5 h-3.5 text-ink-35" />
-            <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Status</p>
+        <div className="card-base flex h-full flex-col gap-2.5 px-4 py-3.5">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <TrendingDown className="h-3.5 w-3.5 text-ink-35" />
+              <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Status</p>
+            </div>
+            {processosCount > 0 && (
+              dadosBase.statusPrincipal && dadosBase.statusPrincipal !== "reporto" ? (
+                <Badge
+                  variant="outline"
+                  className={`${STATUS_COMPENSACAO_COLORS[dadosBase.statusPrincipal]} text-[10px]`}
+                >
+                  {STATUS_COMPENSACAO_LABELS[dadosBase.statusPrincipal]}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                  Em configuração
+                </Badge>
+              )
+            )}
           </div>
 
           {processosCount === 0 ? (
             <>
               <Badge
                 variant="outline"
-                className={`${STATUS_COMPENSACAO_COLORS.sem_operacao} text-xs mb-2 w-fit`}
+                className={`${STATUS_COMPENSACAO_COLORS.sem_operacao} w-fit text-[10px]`}
               >
                 Sem operação
               </Badge>
-              <p className="text-[12px] text-foreground font-medium leading-snug">
+              <p className="text-[12px] font-medium leading-snug text-foreground">
                 Nenhuma tese cadastrada
               </p>
-              <p className="text-[11px] text-muted-foreground mt-1 mb-3">
-                Adicione uma tese para iniciar o processo e definir o status de compensação.
-              </p>
               {opcoesTese.length > 0 ? (
-                <div className="flex flex-col gap-1.5 mt-auto">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.8px] text-ink-35">
-                    Adicionar tese
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {opcoesTese.slice(0, 6).map((t) => (
-                      <Button
-                        key={t.tese}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-[11px] px-2"
-                        onClick={() => onAddTese?.(t.tese)}
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        {t.nome_exibicao}
-                      </Button>
-                    ))}
-                  </div>
-                  {opcoesTese.length > 6 && (
+                <div className="mt-auto flex flex-wrap gap-1.5">
+                  {opcoesTese.slice(0, 4).map((t) => (
+                    <Button
+                      key={t.tese}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-[11px]"
+                      onClick={() => onAddTese?.(t.tese)}
+                    >
+                      <Plus className="mr-1 h-3 w-3" />
+                      {t.nome_exibicao}
+                    </Button>
+                  ))}
+                  {opcoesTese.length > 4 && (
                     <Button
                       type="button"
                       variant="secondary"
                       size="sm"
-                      className="h-7 text-[11px] w-full mt-1"
+                      className="h-7 text-[11px]"
                       onClick={() => onAddTese?.()}
                     >
-                      Ver todas as teses
+                      Ver todas
                     </Button>
                   )}
                 </div>
@@ -398,54 +331,46 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
                 <Button
                   type="button"
                   size="sm"
-                  className="h-8 text-[11px] w-full mt-auto"
+                  className="mt-auto h-8 text-[11px]"
                   onClick={() => onAddTese?.()}
                 >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  <Plus className="mr-1 h-3.5 w-3.5" />
                   Adicionar tese
                 </Button>
               )}
             </>
           ) : (
             <>
-              {dadosBase.statusPrincipal && dadosBase.statusPrincipal !== "reporto" ? (
-                <Badge
-                  variant="outline"
-                  className={`${STATUS_COMPENSACAO_COLORS[dadosBase.statusPrincipal]} text-xs mb-2 w-fit`}
-                >
-                  {STATUS_COMPENSACAO_LABELS[dadosBase.statusPrincipal]}
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-xs mb-2 w-fit text-muted-foreground">
-                  Em configuração
-                </Badge>
-              )}
-              <div className="flex flex-wrap gap-1 mt-1">
+              <div className="flex flex-wrap gap-1">
                 {dadosBase.tem_tese_ativa && (
-                  <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 text-[9px]">
+                  <Badge variant="outline" className="border-blue-200 bg-blue-50 text-[9px] text-blue-800">
                     Compensação
                   </Badge>
                 )}
                 {(dadosBase.tem_reporto || dadosBase.possiveisFuturos > 0) && (
-                  <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 text-[9px]">
+                  <Badge variant="outline" className="border-slate-200 bg-slate-50 text-[9px] text-slate-700">
                     Possíveis futuros
                   </Badge>
                 )}
               </div>
-              {dadosBase.possiveisFuturos > 0 && (
-                <p className="text-[10px] text-muted-foreground mt-2">
-                  Fora do cálculo:{" "}
-                  <strong className="text-foreground">{formatCurrencyBR(dadosBase.possiveisFuturos)}</strong>
-                </p>
+              {(dadosBase.possiveisFuturos > 0 || dadosBase.totalHonorarios > 0) && (
+                <div className="space-y-0.5 text-[10px] text-muted-foreground">
+                  {dadosBase.possiveisFuturos > 0 && (
+                    <p>
+                      Fora do cálculo:{" "}
+                      <strong className="text-foreground">{formatCurrencyBR(dadosBase.possiveisFuturos)}</strong>
+                    </p>
+                  )}
+                  {dadosBase.totalHonorarios > 0 && (
+                    <p>
+                      Honorários:{" "}
+                      <strong className="text-foreground">{formatCurrencyBR(dadosBase.totalHonorarios)}</strong>
+                    </p>
+                  )}
+                </div>
               )}
-              {dadosBase.totalHonorarios > 0 && (
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  Honorários acumulados:{" "}
-                  <strong className="text-foreground">{formatCurrencyBR(dadosBase.totalHonorarios)}</strong>
-                </p>
-              )}
-              <div className="mt-3 pt-2 border-t border-[var(--ink-06)] mt-auto">
-                <p className="text-[10px] text-muted-foreground mb-1">
+              <div className="mt-auto border-t border-[var(--ink-06)] pt-2">
+                <p className="mb-1.5 text-[10px] leading-snug text-muted-foreground">
                   Tese em uso:{" "}
                   <strong className="text-foreground">{teseAtivaLabel || "não definida"}</strong>
                 </p>
@@ -454,10 +379,10 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[11px] w-full"
+                    className="h-7 w-full text-[11px]"
                     onClick={() => setTrocaOpen(true)}
                   >
-                    <RefreshCw className="h-3 w-3 mr-1" />
+                    <RefreshCw className="mr-1 h-3 w-3" />
                     {teseAtivaId ? "Trocar tese em uso" : "Definir tese em uso"}
                   </Button>
                 ) : (
@@ -465,10 +390,10 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[11px] w-full"
+                    className="h-7 w-full text-[11px]"
                     onClick={() => onAddTese?.()}
                   >
-                    <Plus className="h-3 w-3 mr-1" />
+                    <Plus className="mr-1 h-3 w-3" />
                     Adicionar tese ao cálculo
                   </Button>
                 )}
@@ -483,13 +408,16 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
         onOpenChange={setTrocaOpen}
         clienteId={clienteId}
         teseAtivaId={teseAtivaId}
-        onChanged={() => setReloadKey((k) => k + 1)}
+        onChanged={() => {
+          void invalidateClienteOperacional(qc, clienteId);
+          void qc.invalidateQueries({ queryKey: ["cliente", clienteId, "record"] });
+        }}
       />
     </div>
   );
 }
 
-function Quadrante({
+function KpiCell({
   label,
   icon,
   valor,
@@ -505,15 +433,15 @@ function Quadrante({
   extra?: React.ReactNode;
 }) {
   return (
-    <div className="card-base px-4 py-3.5">
-      <div className="flex items-center gap-1.5 mb-1.5">
+    <div className="flex min-w-0 flex-col justify-center px-5 py-5">
+      <div className="mb-2 flex items-center gap-1.5">
         <span className="text-ink-35">{icon}</span>
-        <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">{label}</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.8px] text-ink-35">{label}</p>
       </div>
-      <p className="font-display text-[22px] font-bold leading-none" style={{ color: cor }}>
+      <p className="font-display text-[26px] font-bold leading-none tracking-tight" style={{ color: cor }}>
         {valor}
       </p>
-      {rodape && <p className="text-[11px] text-ink-35 mt-1.5">{rodape}</p>}
+      {rodape && <p className="mt-2 text-xs text-ink-35">{rodape}</p>}
       {extra}
     </div>
   );

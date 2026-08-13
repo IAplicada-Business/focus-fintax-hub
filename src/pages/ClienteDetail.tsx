@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,18 +42,39 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { sumCompensadoCanonical } from "@/lib/clientes-constants";
+import {
+  useClienteCompensacoes,
+  useClienteProcessos,
+  useTesesTributarias,
+  invalidateClienteOperacional,
+} from "@/hooks/data/useClienteOperacional";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function ClienteDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { userRole, permissions } = useAuth();
+  const queryClient = useQueryClient();
   const [cliente, setCliente] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [compensacoesTotal, setCompensacoesTotal] = useState(0);
   const [historico, setHistorico] = useState<any[]>([]);
   const obsDebounce = useRef<NodeJS.Timeout>();
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [obsSaved, setObsSaved] = useState(false);
+
+  const { data: compensacoesCached = [] } = useClienteCompensacoes(id);
+  const { data: processosCached = [] } = useClienteProcessos(id);
+  const { data: tesesCached = [] } = useTesesTributarias();
+
+  const compensacoesTotal = useMemo(() => {
+    const reportoTeseIds = new Set(
+      tesesCached.filter((t) => (t.codigo || "").toUpperCase() === "REPORTO").map((t) => t.id),
+    );
+    const reportoProcessoIds = new Set(
+      processosCached.filter((p) => p.tese === "REPORTO").map((p) => p.id),
+    );
+    return sumCompensadoCanonical(compensacoesCached as any[], { reportoTeseIds, reportoProcessoIds });
+  }, [compensacoesCached, processosCached, tesesCached]);
 
   const fetchHistorico = useCallback(async () => {
     if (!id) return;
@@ -87,29 +108,6 @@ export default function ClienteDetail() {
     fetchHistorico();
   }, [fetchHistorico]);
 
-  /** Mesmo critério do Total Compensado do header (sem REPORTO) — atualiza mesmo na aba Processos */
-  const fetchCompensacoesTotal = useCallback(async () => {
-    if (!id) return;
-    const [{ data: comp }, { data: reportoTes }, { data: reportoProcs }, { data: view }] = await Promise.all([
-      supabase
-        .from("compensacoes_mensais")
-        .select("valor_compensado, tese_origem_id, processo_tese_id, mes_referencia, tributo, tributo_enum, processos_teses:processo_tese_id(tese, nome_exibicao)")
-        .eq("cliente_id", id),
-      (supabase as any).from("teses_tributarias").select("id").eq("codigo", "REPORTO"),
-      supabase.from("processos_teses").select("id").eq("cliente_id", id).eq("tese", "REPORTO"),
-      (supabase as any)
-        .from("v_cliente_totais_calculo")
-        .select("total_compensado")
-        .eq("cliente_id", id)
-        .maybeSingle(),
-    ]);
-    const reportoTeseIds = new Set(((reportoTes as { id: string }[]) || []).map((t) => t.id));
-    const reportoProcessoIds = new Set(((reportoProcs as { id: string }[]) || []).map((p) => p.id));
-    const fromAba = sumCompensadoCanonical((comp as any[]) || [], { reportoTeseIds, reportoProcessoIds });
-    const fromView = Number((view as { total_compensado?: number } | null)?.total_compensado || 0);
-    setCompensacoesTotal(Math.max(fromAba, fromView));
-  }, [id]);
-
   // Laratex CSV import state
   const [laratexOpen, setLatatexOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -126,17 +124,14 @@ export default function ClienteDetail() {
   const [importing, setImporting] = useState(false);
   const [tabKey, setTabKey] = useState(0);
   const [activeTab, setActiveTab] = useState("processos");
+  const [visitedTabs, setVisitedTabs] = useState({ processos: true, compensacoes: false, resumo: false });
   const [addTeseSignal, setAddTeseSignal] = useState(0);
   const [addTesePreset, setAddTesePreset] = useState<string | null>(null);
-  const [headerReload, setHeaderReload] = useState(0);
   const [intimacoesPendentes, setIntimacoesPendentes] = useState(0);
-
-  useEffect(() => {
-    fetchCompensacoesTotal();
-  }, [fetchCompensacoesTotal, headerReload]);
 
   const requestAddTese = useCallback((teseCodigo?: string) => {
     setActiveTab("processos");
+    setVisitedTabs((v) => ({ ...v, processos: true }));
     setAddTesePreset(teseCodigo ?? null);
     setAddTeseSignal((n) => n + 1);
   }, []);
@@ -292,6 +287,7 @@ export default function ClienteDetail() {
       setCsvData([]);
       setCsvHeaders([]);
       fetchHistorico();
+      if (id) void invalidateClienteOperacional(queryClient, id);
       setTabKey((k) => k + 1);
       setCliente((prev: any) => ({ ...prev, atualizado_em: new Date().toISOString() }));
     } catch (err: any) {
@@ -352,7 +348,6 @@ export default function ClienteDetail() {
           <ClienteHeaderQuadrantes
             clienteId={id}
             onAddTese={requestAddTese}
-            refreshToken={headerReload}
           />
         )}
         {(() => {
@@ -372,7 +367,14 @@ export default function ClienteDetail() {
             { value: "resumo", label: "Resumo Financeiro" },
           ];
           return (
-            <Tabs key={tabKey} value={activeTab} onValueChange={setActiveTab}>
+            <Tabs
+              key={tabKey}
+              value={activeTab}
+              onValueChange={(v) => {
+                setActiveTab(v);
+                setVisitedTabs((prev) => ({ ...prev, [v]: true }));
+              }}
+            >
               <TabsList>
                 {tabs.map((t) => (
                   <TabsTrigger key={t.value} value={t.value}>
@@ -380,30 +382,29 @@ export default function ClienteDetail() {
                   </TabsTrigger>
                 ))}
               </TabsList>
-              <TabsContent value="processos">
+              <TabsContent value="processos" forceMount className={activeTab !== "processos" ? "hidden" : undefined}>
                 <ProcessosTesesTab
                   clienteId={id!}
                   compensacoesTotal={compensacoesTotal}
                   addTeseSignal={addTeseSignal}
                   presetTese={addTesePreset}
-                  onProcessosChanged={() => setHeaderReload((n) => n + 1)}
+                  onProcessosChanged={() => { void fetchHistorico(); }}
                 />
               </TabsContent>
-              <TabsContent value="compensacoes">
-                <CompensacoesTab
-                  clienteId={id!}
-                  cliente={cliente}
-                  onTotalChange={() => { void fetchCompensacoesTotal(); }}
-                  onCompensacoesChanged={() => {
-                    // Só remonta o header — não remonta as abas (evita flicker / perda de contexto)
-                    setHeaderReload((n) => n + 1);
-                    fetchHistorico();
-                  }}
-                />
-              </TabsContent>
-              <TabsContent value="resumo">
-                <ResumoFinanceiroTab clienteId={id!} cliente={cliente} />
-              </TabsContent>
+              {visitedTabs.compensacoes && (
+                <TabsContent value="compensacoes" forceMount className={activeTab !== "compensacoes" ? "hidden" : undefined}>
+                  <CompensacoesTab
+                    clienteId={id!}
+                    cliente={cliente}
+                    onCompensacoesChanged={() => { void fetchHistorico(); }}
+                  />
+                </TabsContent>
+              )}
+              {visitedTabs.resumo && (
+                <TabsContent value="resumo" forceMount className={activeTab !== "resumo" ? "hidden" : undefined}>
+                  <ResumoFinanceiroTab clienteId={id!} cliente={cliente} />
+                </TabsContent>
+              )}
             </Tabs>
           );
         })()}

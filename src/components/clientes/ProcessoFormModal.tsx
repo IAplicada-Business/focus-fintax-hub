@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { parseMoneyBR } from "@/lib/money-mask";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -127,7 +129,7 @@ export function ProcessoFormModal({
       cliente_id: clienteId,
       tese: form.tese,
       nome_exibicao: form.nome_exibicao,
-      valor_credito: Number(form.valor_credito) || 0,
+      valor_credito: parseMoneyBR(form.valor_credito),
       percentual_honorario: Number(form.percentual_honorario) || 0,
       status_contrato: form.status_contrato,
       status_processo: form.status_processo,
@@ -150,11 +152,12 @@ export function ProcessoFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90vh] max-w-md flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 space-y-1 px-6 pb-3 pt-6 pr-12 text-left">
           <DialogTitle>{processo ? "Editar Processo" : "Adicionar Tese"}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 py-2">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6">
+        <div className="grid gap-3 py-2">
           <div className="space-y-1.5">
             <Label>Tese *</Label>
             <Select value={form.tese} onValueChange={handleTesePick} disabled={!!processo}>
@@ -200,7 +203,7 @@ export function ProcessoFormModal({
           </div>
           <div className="space-y-1.5">
             <Label>Valor do Crédito (R$)</Label>
-            <Input type="number" value={form.valor_credito} onChange={(e) => update("valor_credito", e.target.value)} />
+            <CurrencyInput value={form.valor_credito} onValueChange={(v) => update("valor_credito", v)} />
           </div>
           <div className="space-y-1.5">
             <Label>% Honorário</Label>
@@ -229,7 +232,8 @@ export function ProcessoFormModal({
             <Textarea value={form.observacao} onChange={(e) => update("observacao", e.target.value)} rows={2} />
           </div>
         </div>
-        <DialogFooter>
+        </div>
+        <DialogFooter className="shrink-0 border-t border-[var(--ink-06)] px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSave} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
         </DialogFooter>

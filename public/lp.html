@@ -942,7 +942,9 @@ async function runDiag(){
   if(btn){btn.textContent='Analisando...';btn.disabled=true;}
 
   const payload={nome,empresa,cnpj,whatsapp,email,segmento,regime,faturamento:fat};
-  const SUPABASE_URL='https://klfpgpymgkfurylwpkrc.supabase.co';
+  const cfg=(window.__FT_SUPABASE__||{});
+  const SUPABASE_URL=cfg.url||'https://qzkqrhamqtchboxtwpnz.supabase.co';
+  const SUPABASE_ANON=cfg.anonKey||'';
   const SUBMIT_URL=SUPABASE_URL+'/functions/v1/submit-lead-public';
 
   // Retry com backoff exponencial (250ms, 750ms, 2s). Fallback só se todas
@@ -951,12 +953,17 @@ async function runDiag(){
   async function trySubmit(){
     const delays=[0,250,750,2000];
     let lastErr=null;
+    const headers={'Content-Type':'application/json'};
+    if(SUPABASE_ANON){
+      headers.apikey=SUPABASE_ANON;
+      headers.Authorization='Bearer '+SUPABASE_ANON;
+    }
     for(let i=0;i<delays.length;i++){
       if(delays[i]>0)await new Promise(r=>setTimeout(r,delays[i]));
       try{
         const resp=await fetch(SUBMIT_URL,{
           method:'POST',
-          headers:{'Content-Type':'application/json'},
+          headers:headers,
           body:JSON.stringify(payload)
         });
         const data=await resp.json();

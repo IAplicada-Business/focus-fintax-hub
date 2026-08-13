@@ -355,7 +355,7 @@ export default function MapaCreditos() {
           style={{
             background: "#0a1564",
             color: "white",
-            padding: "20px 32px",
+            padding: "28px 32px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -365,13 +365,13 @@ export default function MapaCreditos() {
           <img
             src={logoFintax}
             alt="Focus FinTax"
-            style={{ height: "36px", filter: "brightness(0) invert(1)" }}
+            style={{ height: "64px", width: "auto", filter: "brightness(0) invert(1)" }}
           />
           <div style={{ textAlign: "right" }}>
-            <p style={{ fontSize: "9px", letterSpacing: "3px", textTransform: "uppercase", opacity: 0.75, margin: 0 }}>
-              Grupo Focus · Focus FinTax
+            <p style={{ fontSize: "11px", letterSpacing: "3px", textTransform: "uppercase", opacity: 0.85, margin: 0 }}>
+              Focus FinTax
             </p>
-            <p style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "1px", margin: "4px 0 0" }}>
+            <p style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "1px", margin: "6px 0 0" }}>
               MAPA DE CRÉDITOS TRIBUTÁRIOS
             </p>
           </div>

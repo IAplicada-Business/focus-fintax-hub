@@ -340,12 +340,12 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
       {/* Header */}
       <header className="dg-header dg-fade-up dg-d1" style={{
         background: "#0a1564",
-        padding: "16px 48px",
+        padding: "12px 48px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        <img src={logoFocusWhite} alt="Focus FinTax" style={{ height: 64, width: "auto" }} />
+        <img src={logoFocusWhite} alt="Focus FinTax" style={{ height: 80, width: "auto" }} />
         <div style={{
           display: "flex", alignItems: "center", gap: 8,
           background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)",

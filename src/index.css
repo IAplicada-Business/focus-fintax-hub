@@ -1,6 +1,3 @@
-
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap');
-
 :root {
   --navy: #0a1564;
   --navy-10: rgba(10,21,100,0.08);
@@ -22,17 +19,17 @@
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .animate-slide-up {
-  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: slideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-.delay-1 { animation-delay: 40ms; }
-.delay-2 { animation-delay: 80ms; }
-.delay-3 { animation-delay: 120ms; }
-.delay-4 { animation-delay: 160ms; }
-.delay-5 { animation-delay: 200ms; }
+.delay-1 { animation-delay: 20ms; }
+.delay-2 { animation-delay: 40ms; }
+.delay-3 { animation-delay: 60ms; }
+.delay-4 { animation-delay: 80ms; }
+.delay-5 { animation-delay: 100ms; }
 
 .card-base {
   background: #ffffff;
@@ -42,10 +39,10 @@
     0 1px 2px rgba(6,8,31,0.04),
     0 8px 24px -12px rgba(6,8,31,0.10);
   border: none;
-  transition: box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .card-hover {
-  transition: box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1), transform 160ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .card-hover:hover {
   box-shadow:
@@ -53,6 +50,29 @@
     0 4px 12px rgba(6,8,31,0.08),
     0 18px 40px -16px rgba(6,8,31,0.16);
   transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-up,
+  .delay-1, .delay-2, .delay-3, .delay-4, .delay-5 {
+    animation: none !important;
+  }
+  .card-base,
+  .card-hover,
+  .link-arrow,
+  .link-arrow svg {
+    transition: none !important;
+  }
+  .card-hover:hover,
+  .link-arrow:hover svg {
+    transform: none !important;
+  }
+  [data-state="open"].animate-in,
+  [data-state="closed"].animate-out,
+  [data-state="open"][class*="animate-in"],
+  [data-state="closed"][class*="animate-out"] {
+    animation: none !important;
+  }
 }
 .card-flush {
   background: #ffffff;
