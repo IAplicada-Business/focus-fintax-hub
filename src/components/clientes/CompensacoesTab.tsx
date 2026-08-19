@@ -32,7 +32,7 @@ import {
   filterCompsForTese,
   STATUS_PAGAMENTO,
 } from "@/lib/clientes-constants";
-import logoFintax from "@/assets/logo-focus-fintax.svg";
+import logoFintax from "@/assets/logo-focus-fintax-cropped.svg";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 import { exportElementToPdf, sanitizePdfFileName } from "@/lib/export-element-pdf";
 
@@ -800,7 +800,7 @@ Equipe Focus.`;
                 <img
                   src={logoFintax}
                   alt="Focus FinTax"
-                  style={{ height: "64px", width: "auto", filter: "brightness(0) invert(1)" }}
+                  style={{ height: "80px", width: "auto", filter: "brightness(0) invert(1)" }}
                 />
                 <div style={{ textAlign: "right" }}>
                   <p style={{ fontSize: "11px", letterSpacing: "3px", textTransform: "uppercase", opacity: 0.85, margin: 0 }}>

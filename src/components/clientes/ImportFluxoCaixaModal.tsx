@@ -28,6 +28,15 @@ const normChave = (s: string | null | undefined) =>
     .replace(/[.,;]+$/g, "")
     .trim();
 
+// Nome de exibição pro processo criado automaticamente quando a tese é
+// inferida do tributo e o cliente ainda não tem um processo cadastrado
+// para ela — mesma convenção usada nos processos cadastrados manualmente.
+const NOME_EXIBICAO_POR_CODIGO: Record<string, string> = {
+  INSUMOS: "PIS/COFINS Insumos",
+  SUBVENCAO: "Subvenção ICMS",
+  ICMS_ST: "ICMS-ST",
+};
+
 export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props) {
   const [step, setStep] = useState<"upload" | "preview" | "importing" | "done">("upload");
   const [resultado, setResultado] = useState<ImportFluxoResultado | null>(null);
@@ -101,6 +110,19 @@ export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props)
       ((tesesCat as { id: string; codigo: string }[]) || []).map((t) => [t.codigo.toUpperCase(), t.id]),
     );
 
+    // processo_tese_id: sem ele a compensação não aparece na coluna "Tese" nem
+    // no Mapa Tributário (que itera processos_teses do cliente, não o catálogo
+    // genérico). Busca ou cria o processo do cliente para a tese inferida —
+    // mesmo padrão do ImportCompensacoesModal.
+    const { data: procsExistentes } = clienteIds.length
+      ? await supabase.from("processos_teses").select("id, cliente_id, tese").in("cliente_id", clienteIds)
+      : { data: [] as any[] };
+    const processoIdByClienteTese = new Map<string, string>(
+      ((procsExistentes as { id: string; cliente_id: string; tese: string | null }[]) || [])
+        .filter((p) => p.tese)
+        .map((p) => [`${p.cliente_id}|${String(p.tese).toUpperCase()}`, p.id]),
+    );
+
     let linhasInseridas = 0;
     let dcompsInseridas = 0;
     let linhasSemMatchCliente = 0;
@@ -120,6 +142,29 @@ export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props)
           teseAtivaByCliente.get(p.clienteId) ??
           null;
 
+        let processoTeseId: string | null = null;
+        if (inferred) {
+          const key = `${p.clienteId}|${inferred}`;
+          processoTeseId = processoIdByClienteTese.get(key) ?? null;
+          if (!processoTeseId) {
+            const { data: novoProc, error: procErr } = await supabase
+              .from("processos_teses")
+              .insert({
+                cliente_id: p.clienteId,
+                tese: inferred,
+                nome_exibicao: NOME_EXIBICAO_POR_CODIGO[inferred] || inferred,
+                status_contrato: "assinado",
+                status_processo: "compensando",
+              } as any)
+              .select("id")
+              .single();
+            if (!procErr && novoProc) {
+              processoTeseId = novoProc.id;
+              processoIdByClienteTese.set(key, processoTeseId);
+            }
+          }
+        }
+
         const insertPayload: any = {
           cliente_id: p.clienteId,
           mes_referencia: c.competencia,
@@ -132,6 +177,7 @@ export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props)
           vencimento_debito: c.vencimento_debito?.toISOString().slice(0, 10) ?? null,
           nfse_valor: c.nfse_valor,
           tese_origem_id: teseOrigem,
+          processo_tese_id: processoTeseId,
           observacao:
             [
               t.observacao_agregacao,

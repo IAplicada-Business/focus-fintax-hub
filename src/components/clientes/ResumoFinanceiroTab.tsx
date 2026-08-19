@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { formatCurrencyBR } from "@/lib/clientes-constants";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/EmptyState";
-import { FileDown, TrendingUp, BarChart3, Download } from "lucide-react";
+import { FileDown, TrendingUp, BarChart3, Download, Loader2 } from "lucide-react";
 import * as XLSX from "xlsx";
+import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useClienteCompensacoes, useClienteProcessos } from "@/hooks/data/useClienteOperacional";
+import { exportElementToPdf, sanitizePdfFileName } from "@/lib/export-element-pdf";
 
 // Cargos que podem enxergar KPIs internos financeiros (Honorários, Economia,
 // Saldo Restante). Comercial e cliente veem apenas os totais brutos.
@@ -20,6 +23,7 @@ interface Props {
 export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
   const { userRole } = useAuth();
   const canSeeInternalFinancials = userRole ? INTERNAL_FINANCIAL_ROLES.has(userRole) : false;
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const { data: processos = [], isPending: loadingProc } = useClienteProcessos(clienteId);
   const { data: compensacoes = [], isPending: loadingComp } = useClienteCompensacoes(clienteId);
@@ -74,14 +78,40 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
 
   const barColor = pctUtilizado > 80 ? "var(--dash-green)" : pctUtilizado > 40 ? "var(--navy)" : "var(--dash-amber)";
 
+  // Usa o mesmo pipeline (clone isolado + html2canvas + jsPDF) do Mapa
+  // Tributário — window.print() aqui saía quebrado porque #report-content
+  // fica dentro de um container com overflow-y-auto e usa breakpoints
+  // Tailwind (grid responsivo, gráfico Recharts) que o paginador nativo do
+  // Chrome não recalcula certo pra impressão.
+  const handleExportPdf = async () => {
+    if (downloadingPdf) return;
+    setDownloadingPdf(true);
+    try {
+      // deixa o cabeçalho/rodapé de impressão (agora controlados por state,
+      // não mais por @media print) renderizarem antes de clonar o elemento
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const element = document.getElementById("report-content");
+      if (!element) throw new Error("Conteúdo do resumo não encontrado na tela.");
+      const nome = sanitizePdfFileName(cliente?.empresa || "Cliente");
+      await exportElementToPdf(element, `ResumoFinanceiro_${nome}_${new Date().toISOString().slice(0, 10)}`);
+      toast.success("PDF gerado com sucesso!");
+    } catch (err) {
+      console.error("Erro ao gerar PDF do Resumo Financeiro:", err);
+      const msg = err instanceof Error ? err.message : "Falha desconhecida ao gerar o PDF.";
+      toast.error("Erro ao gerar PDF", { description: msg });
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center py-16 text-sm text-ink-35">Carregando resumo...</div>;
   }
 
   return (
     <div id="report-content" className="space-y-5">
-      {/* PRINT HEADER — hidden on screen */}
-      <div className="hidden print:block mb-6">
+      {/* PDF HEADER — só aparece durante a exportação (ver handleExportPdf) */}
+      <div className={downloadingPdf ? "block mb-6" : "hidden"}>
         <h1 className="text-lg font-bold text-[var(--navy)]">Resumo Financeiro — Focus FinTax</h1>
         <p className="text-sm text-ink-60">{cliente?.empresa || "—"} · CNPJ: {cliente?.cnpj || "—"}</p>
         <p className="text-xs text-ink-35 mt-1">
@@ -128,11 +158,12 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
           Exportar Excel
         </button>
         <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg border border-[var(--dash-border)] bg-white hover:bg-[rgba(10,21,100,0.03)] transition-colors"
+          onClick={handleExportPdf}
+          disabled={downloadingPdf}
+          className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg border border-[var(--dash-border)] bg-white hover:bg-[rgba(10,21,100,0.03)] transition-colors disabled:opacity-60"
         >
-          <FileDown className="w-3.5 h-3.5" />
-          Exportar PDF
+          {downloadingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
+          {downloadingPdf ? "Gerando PDF..." : "Exportar PDF"}
         </button>
       </div>
 
@@ -309,8 +340,8 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
         )}
       </div>
 
-      {/* PRINT FOOTER */}
-      <div className="hidden print:block mt-8 pt-4 border-t text-center">
+      {/* PDF FOOTER — só aparece durante a exportação (ver handleExportPdf) */}
+      <div className={downloadingPdf ? "block mt-8 pt-4 border-t text-center" : "hidden"}>
         <p className="text-[10px] text-ink-35">Focus FinTax · Grupo Focus · A Contabilidade do Supermercado</p>
       </div>
     </div>
