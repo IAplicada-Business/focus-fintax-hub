@@ -32,7 +32,7 @@ export interface EsteiraSlaData {
 }
 
 function emptyEtapas(): EsteiraSlaEtapaRow[] {
-  return ESTEIRA_STAGES.map((s, i) => ({
+  return ESTEIRA_STAGES.map((s, i): EsteiraSlaEtapaRow => ({
     estagio: s.value,
     sla_dias: ESTEIRA_SLA_DIAS[s.value],
     ordem: i + 1,

@@ -175,8 +175,12 @@ export function compMatchesTese(c: CompensacaoSumRow, opts: TeseMatchOpts): bool
 
   // Processo explícito manda (usuário escolheu a tese na UI)
   if (c.processo_tese_id && opts.processoIds?.has(c.processo_tese_id)) return true;
+
+  // Linha vinculada a processo: a tese do processo decide nos DOIS sentidos.
+  // Sem o `false`, a inferência abaixo puxaria o PIS/COFINS/INSS de jul/2026 da
+  // Maravista (processo Subvenção) também para Insumos, contando 256 mil duas vezes.
   const procTese = (c.processos_teses?.tese || "").toUpperCase();
-  if (procTese && procTese === codigo) return true;
+  if (procTese) return procTese === codigo;
 
   // Tributo com mapeamento claro (IRPJ→Subvenção, PIS→Insumos) corrige tese_origem
   // errada do FIFO/tese_ativa — funciona sem rodar SQL no Lovable.
@@ -252,4 +256,64 @@ export function splitCreditosCalculo(
     tesesNoCalculo: inCalculo.length,
     teseIdsNoCalculo: new Set(inCalculo.map((c) => c.tese_id)),
   };
+}
+
+export type TeseBreakdownRow = {
+  teseId: string;
+  codigo: string;
+  label: string;
+  apurado: number;
+  compensado: number;
+  saldo: number;
+};
+
+/**
+ * Apurado / compensado / saldo por tese, no mesmo recorte dos cards.
+ *
+ * Sem isso os KPIs somam Insumos + Subvenção num número só, o que cruza
+ * apurado de uma tese com compensado de outra em cliente multi-tese
+ * (Maravista, São Fernando).
+ */
+export function breakdownPorTese(params: {
+  creditos: CreditoApuradoRow[];
+  comps: CompensacaoSumRow[];
+  teseInfo: Map<string, { codigo?: string | null; label?: string | null }>;
+  processoIdsByTese?: Map<string, Set<string>>;
+  reportoTeseIds?: Set<string>;
+  reportoProcessoIds?: Set<string>;
+}): TeseBreakdownRow[] {
+  const { creditos, comps, teseInfo, processoIdsByTese, reportoTeseIds, reportoProcessoIds } =
+    params;
+  const split = splitCreditosCalculo(creditos, reportoTeseIds);
+
+  const apuradoByTese = new Map<string, number>();
+  for (const c of creditos) {
+    if (!split.teseIdsNoCalculo.has(c.tese_id)) continue;
+    apuradoByTese.set(
+      c.tese_id,
+      (apuradoByTese.get(c.tese_id) ?? 0) + Number(c.valor_apurado_inicial || 0),
+    );
+  }
+
+  return Array.from(apuradoByTese.entries())
+    .map(([teseId, apurado]) => {
+      const info = teseInfo.get(teseId);
+      const codigo = String(info?.codigo || "").toUpperCase();
+      const compensado = sumCompensadoForTese(comps, {
+        teseCodigo: codigo,
+        teseId,
+        processoIds: processoIdsByTese?.get(codigo),
+        reportoTeseIds,
+        reportoProcessoIds,
+      });
+      return {
+        teseId,
+        codigo,
+        label: info?.label || codigo || "Tese",
+        apurado,
+        compensado,
+        saldo: apurado - compensado,
+      };
+    })
+    .sort((a, b) => b.apurado - a.apurado);
 }

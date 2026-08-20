@@ -29,11 +29,10 @@ describe("getDefaultPermissions", () => {
     expect(pipeline?.can_access).toBe(true);
   });
 
-  it("marks gestor_tributario as read-only for pipeline", () => {
+  it("keeps gestor_tributario out of pipeline (RLS de public.leads não libera o papel)", () => {
     const perms = getDefaultPermissions("gestor_tributario");
     const pipeline = perms.find((p) => p.screen_key === "pipeline");
-    expect(pipeline?.can_access).toBe(true);
-    expect(pipeline?.read_only).toBe(true);
+    expect(pipeline?.can_access).toBe(false);
   });
 
   it("defaults unknown role to cliente with minimal access", () => {

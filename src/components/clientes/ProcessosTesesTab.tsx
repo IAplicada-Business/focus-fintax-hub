@@ -33,6 +33,7 @@ import {
   isTipoRecuperacao,
   TIPO_RECUPERACAO_BADGE,
   TIPO_RECUPERACAO_LABEL,
+  type TipoRecuperacao,
 } from "@/lib/tipo-recuperacao";
 
 interface Props {
@@ -262,20 +263,22 @@ export function ProcessosTesesTab({
               ) : (
                 processos.map((p) => {
                   const sc = getStatusContratoConfig(p.status_contrato);
+                  const tipoRec: TipoRecuperacao | null = isTipoRecuperacao(p.tipo_recuperacao)
+                    ? (p.tipo_recuperacao as TipoRecuperacao)
+                    : null;
                   return (
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span>{p.nome_exibicao}</span>
-                          {isTipoRecuperacao(p.tipo_recuperacao) &&
-                            p.tipo_recuperacao !== "compensacao" && (
-                              <Badge
-                                variant="outline"
-                                className={`text-[10px] ${TIPO_RECUPERACAO_BADGE[p.tipo_recuperacao]}`}
-                              >
-                                {TIPO_RECUPERACAO_LABEL[p.tipo_recuperacao]}
-                              </Badge>
-                            )}
+                          {tipoRec && tipoRec !== "compensacao" && (
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] ${TIPO_RECUPERACAO_BADGE[tipoRec]}`}
+                            >
+                              {TIPO_RECUPERACAO_LABEL[tipoRec]}
+                            </Badge>
+                          )}
                           {p.categoria === "reporto" && (
                             <Badge
                               variant="outline"

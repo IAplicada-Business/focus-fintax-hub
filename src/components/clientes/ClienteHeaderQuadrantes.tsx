@@ -4,7 +4,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MonthPicker } from "@/components/ui/month-picker";
 import { TrendingUp, TrendingDown, PieChart, Layers, RefreshCw, Plus } from "lucide-react";
-import { formatCurrencyBR, formatCompetenciaPT, isReportoCompensacao, splitCreditosCalculo, sumCompensadoCanonical } from "@/lib/clientes-constants";
+import {
+  breakdownPorTese,
+  formatCurrencyBR,
+  formatCompetenciaPT,
+  isReportoCompensacao,
+  splitCreditosCalculo,
+  sumCompensadoCanonical,
+} from "@/lib/clientes-constants";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   STATUS_COMPENSACAO_LABELS,
   STATUS_COMPENSACAO_COLORS,
@@ -60,6 +68,8 @@ interface Dados {
   possiveisFuturos: number;
 }
 
+const TODAS_AS_TESES = "todas";
+
 const EMPTY: Dados = {
   totalApurado: 0,
   tesesAtivas: 0,
@@ -85,6 +95,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
   const [mesInicio, setMesInicio] = useState("");
   const [mesFim, setMesFim] = useState("");
   const [trocaOpen, setTrocaOpen] = useState(false);
+  const [teseFiltro, setTeseFiltro] = useState<string>(TODAS_AS_TESES);
 
   useEffect(() => {
     if (!refreshToken) return;
@@ -152,25 +163,63 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
   const loading =
     !hasCached && (compsQ.isPending || creditosQ.isPending || processosQ.isPending);
 
-  const totalCompensadoPeriodo = useMemo(() => {
+  const compsNoPeriodo = useMemo(
+    () =>
+      comps.filter((c) => {
+        const mes = (c.mes_referencia || "").slice(0, 7);
+        if (mesInicio && mes < mesInicio) return false;
+        if (mesFim && mes > mesFim) return false;
+        return true;
+      }),
+    [comps, mesInicio, mesFim],
+  );
+
+  const totalCompensadoPeriodo = useMemo(
     // Fonte única = aba Compensações (sem Reporto, sem órfãs duplicadas).
     // Não misturar com v_cliente_totais_calculo: a view usa GREATEST com
     // valor_compensado_manual (snapshot de planilha) e infla o card
     // (AP MEDEIROS, Liberdade, etc.).
-    const noPeriodo = comps.filter((c) => {
-      const mes = (c.mes_referencia || "").slice(0, 7);
-      if (mesInicio && mes < mesInicio) return false;
-      if (mesFim && mes > mesFim) return false;
-      return true;
-    });
-    return sumCompensadoCanonical(noPeriodo, { reportoTeseIds, reportoProcessoIds });
-  }, [comps, reportoTeseIds, reportoProcessoIds, mesInicio, mesFim]);
+    () => sumCompensadoCanonical(compsNoPeriodo, { reportoTeseIds, reportoProcessoIds }),
+    [compsNoPeriodo, reportoTeseIds, reportoProcessoIds],
+  );
+
+  const processoIdsByTese = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const p of processos as { id: string; tese?: string | null }[]) {
+      const cod = String(p.tese || "").toUpperCase();
+      if (!cod) continue;
+      if (!map.has(cod)) map.set(cod, new Set());
+      map.get(cod)!.add(p.id);
+    }
+    return map;
+  }, [processos]);
+
+  const porTese = useMemo(
+    () =>
+      breakdownPorTese({
+        creditos,
+        comps: compsNoPeriodo,
+        teseInfo: new Map(teses.map((t) => [t.id, { codigo: t.codigo, label: t.label }])),
+        processoIdsByTese,
+        reportoTeseIds,
+        reportoProcessoIds,
+      }),
+    [creditos, compsNoPeriodo, teses, processoIdsByTese, reportoTeseIds, reportoProcessoIds],
+  );
+
+  const multiTese = porTese.length > 1;
+  const teseAtual = porTese.find((t) => t.teseId === teseFiltro) ?? null;
+
+  // Filtro por tese existe porque somar Insumos + Subvenção num card só cruza
+  // o apurado de uma tese com o compensado de outra.
+  const apuradoExibido = teseAtual ? teseAtual.apurado : dadosBase.totalApurado;
+  const compensadoExibido = teseAtual ? teseAtual.compensado : totalCompensadoPeriodo;
 
   // Saldo = apurado ao vivo − compensado da aba. Nunca view.saldo_restante
   // (essa coluna da view subtrai GREATEST com snapshot legado).
-  const saldo = dadosBase.totalApurado - totalCompensadoPeriodo;
-  const pctUtilizado = dadosBase.totalApurado > 0
-    ? (totalCompensadoPeriodo / dadosBase.totalApurado) * 100
+  const saldo = apuradoExibido - compensadoExibido;
+  const pctUtilizado = apuradoExibido > 0
+    ? (compensadoExibido / apuradoExibido) * 100
     : 0;
 
   const periodoLabel = mesInicio || mesFim
@@ -219,28 +268,66 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
             </button>
           )}
         </div>
+        {multiTese && (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Tese</span>
+            <Select value={teseFiltro} onValueChange={setTeseFiltro}>
+              <SelectTrigger className="h-8 w-[220px] text-xs" aria-label="Filtrar cards por tese">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TODAS_AS_TESES}>Todas as teses (consolidado)</SelectItem>
+                {porTese.map((t) => (
+                  <SelectItem key={t.teseId} value={t.teseId}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <p className="text-[11px] text-ink-35 sm:ml-auto">
-          Totais usam só teses marcadas no cálculo (padrão: Insumos + Subvenção)
+          {teseAtual
+            ? `Cards filtrados por ${teseAtual.label}`
+            : "Totais usam só teses marcadas no cálculo (padrão: Insumos + Subvenção)"}
         </p>
       </div>
+
+      {multiTese && !teseAtual && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {porTese.map((t) => (
+            <button
+              key={t.teseId}
+              type="button"
+              onClick={() => setTeseFiltro(t.teseId)}
+              className="rounded-full border border-[var(--ink-06)] px-2.5 py-1 text-[10px] text-ink-35 transition-colors hover:border-primary hover:text-foreground"
+            >
+              <strong className="text-foreground">{t.label}</strong>{" "}
+              {formatCurrencyBR(t.apurado)} apurado · {formatCurrencyBR(t.saldo)} saldo
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,1fr)]">
         <div className="card-base grid grid-cols-1 divide-y divide-[var(--ink-06)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           <KpiCell
             label="Crédito Apurado"
             icon={<Layers className="h-4 w-4" />}
-            valor={formatCurrencyBR(dadosBase.totalApurado)}
+            valor={formatCurrencyBR(apuradoExibido)}
             cor="var(--navy)"
             rodape={
-              dadosBase.tesesAtivas > 0
-                ? `${dadosBase.tesesAtivas} tese${dadosBase.tesesAtivas > 1 ? "s" : ""} no cálculo`
-                : "Sem créditos no cálculo"
+              teseAtual
+                ? teseAtual.label
+                : dadosBase.tesesAtivas > 0
+                  ? `${dadosBase.tesesAtivas} tese${dadosBase.tesesAtivas > 1 ? "s" : ""} no cálculo`
+                  : "Sem créditos no cálculo"
             }
           />
           <KpiCell
             label="Total Compensado"
             icon={<TrendingUp className="h-4 w-4" />}
-            valor={formatCurrencyBR(totalCompensadoPeriodo)}
+            valor={formatCurrencyBR(compensadoExibido)}
             cor="var(--dash-green)"
             rodape={periodoLabel}
           />
@@ -250,12 +337,12 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
             valor={formatCurrencyBR(saldo)}
             cor={saldo > 0 ? "var(--navy)" : "var(--ink-35)"}
             rodape={
-              dadosBase.totalApurado > 0
+              apuradoExibido > 0
                 ? `${pctUtilizado.toFixed(1)}% do apurado utilizado`
                 : "—"
             }
             extra={
-              dadosBase.totalApurado > 0 && (
+              apuradoExibido > 0 && (
                 <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--ink-06)]">
                   <div
                     className="h-full rounded-full transition-all"
