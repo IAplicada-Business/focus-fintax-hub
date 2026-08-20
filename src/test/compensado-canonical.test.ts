@@ -9,6 +9,7 @@ import {
   statusUtilizacaoFromSaldo,
   sumCompensadoCanonical,
   sumCompensadoForTese,
+  sumCompensadoNoCalculo,
 } from "@/lib/clientes-constants";
 
 describe("inferTeseCodigoFromTributo", () => {
@@ -264,6 +265,7 @@ describe("breakdownPorTese", () => {
     ["t-insumos", { codigo: "INSUMOS", label: "Insumos" }],
     ["t-subvencao", { codigo: "SUBVENCAO", label: "Subvenção" }],
     ["t-reporto", { codigo: "REPORTO", label: "Reporto" }],
+    ["t-icms", { codigo: "ICMS_ST", label: "Exclusão ICMS-ST" }],
   ]);
 
   it("separa apurado e compensado por tese em vez de somar (caso Maravista)", () => {
@@ -390,5 +392,53 @@ describe("breakdownPorTese", () => {
     });
     expect(rows[0].compensado).toBe(250);
     expect(rows[0].saldo).toBe(750);
+  });
+
+  it("consolidado ignora compensado de tese fora do cálculo (São Fernando)", () => {
+    const rows = breakdownPorTese({
+      creditos: [
+        { tese_id: "t-insumos", valor_apurado_inicial: 1484315.43, incluir_no_calculo: true },
+        { tese_id: "t-subvencao", valor_apurado_inicial: 661751.9, incluir_no_calculo: false },
+      ],
+      comps: [
+        {
+          mes_referencia: "2026-02-01",
+          tese_origem_id: null as string | null,
+          processo_tese_id: "proc-insumos",
+          tributo_enum: "INSS_52",
+          valor_compensado: 651437.83,
+          processos_teses: { tese: "INSUMOS" },
+        },
+        {
+          mes_referencia: "2026-02-01",
+          tese_origem_id: null as string | null,
+          processo_tese_id: "proc-subvencao",
+          tributo_enum: "outros",
+          valor_compensado: 104278.96,
+          processos_teses: { tese: "SUBVENCAO" },
+        },
+        {
+          mes_referencia: "2026-07-01",
+          tese_origem_id: null as string | null,
+          processo_tese_id: "proc-icms",
+          tributo_enum: "IRPJ/CSLL",
+          valor_compensado: 370124.46,
+          processos_teses: { tese: "ICMS_ST" },
+        },
+      ],
+      teseInfo,
+      processoIdsByTese: new Map([
+        ["INSUMOS", new Set(["proc-insumos"])],
+        ["SUBVENCAO", new Set(["proc-subvencao"])],
+        ["ICMS_ST", new Set(["proc-icms"])],
+      ]),
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].codigo).toBe("INSUMOS");
+    expect(sumCompensadoNoCalculo(rows)).toBeCloseTo(651437.83, 2);
+    expect(rows[0].saldo).toBeCloseTo(832877.6, 2);
+    const abaInteira = 651437.83 + 104278.96 + 370124.46;
+    expect(sumCompensadoNoCalculo(rows)).not.toBeCloseTo(abaInteira, 2);
   });
 });

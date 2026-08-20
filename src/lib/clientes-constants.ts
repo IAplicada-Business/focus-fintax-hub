@@ -317,3 +317,8 @@ export function breakdownPorTese(params: {
     })
     .sort((a, b) => b.apurado - a.apurado);
 }
+
+/** Card consolidado: só teses no cálculo. Não mistura ICMS-ST / Subvenção fora da flag. */
+export function sumCompensadoNoCalculo(rows: TeseBreakdownRow[]): number {
+  return rows.reduce((s, r) => s + r.compensado, 0);
+}

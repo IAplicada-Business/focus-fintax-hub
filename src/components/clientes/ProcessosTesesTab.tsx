@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   invalidateClienteOperacional,
+  useClienteCreditos,
   useClienteProcessos,
   useMotorTesesAtivas,
+  useTesesTributarias,
 } from "@/hooks/data/useClienteOperacional";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +57,8 @@ export function ProcessosTesesTab({
   const qc = useQueryClient();
   const processosQ = useClienteProcessos(clienteId);
   const motorQ = useMotorTesesAtivas();
+  const creditosQ = useClienteCreditos(clienteId);
+  const tesesQ = useTesesTributarias();
   const processosRemote = processosQ.data;
   const [processos, setProcessos] = useState<any[]>([]);
   const loading = processosQ.isPending && processosQ.data === undefined;
@@ -140,6 +144,26 @@ export function ProcessosTesesTab({
   const totalACompensar = processos
     .filter((p) => ["a_compensar", "a_iniciar"].includes(p.status_processo) && p.status_contrato === "assinado")
     .reduce((s, p) => s + Number(p.valor_credito || 0), 0);
+
+  // Por que a tese não mexe nos cards do cabeçalho: sem crédito apurado ou
+  // com o checkbox do Mapa de Créditos desmarcado (caso ICMS-ST da São Fernando).
+  const calculoPorCodigo = useMemo(() => {
+    const creditos = creditosQ.data ?? [];
+    const teses = tesesQ.data ?? [];
+    const codigoByTeseId = new Map(
+      teses.map((t) => [t.id, String(t.codigo || "").toUpperCase()]),
+    );
+    const hasFlag = creditos.some(
+      (c) => c.incluir_no_calculo === true || c.incluir_no_calculo === false,
+    );
+    const map = new Map<string, boolean>();
+    for (const c of creditos) {
+      const codigo = codigoByTeseId.get(c.tese_id);
+      if (!codigo) continue;
+      map.set(codigo, !hasFlag || c.incluir_no_calculo === true);
+    }
+    return map;
+  }, [creditosQ.data, tesesQ.data]);
 
   const now = Date.now();
   const alertAguardando = processos.filter(
@@ -266,6 +290,9 @@ export function ProcessosTesesTab({
                   const tipoRec: TipoRecuperacao | null = isTipoRecuperacao(p.tipo_recuperacao)
                     ? (p.tipo_recuperacao as TipoRecuperacao)
                     : null;
+                  const codigoTese = String(p.tese || "").toUpperCase();
+                  const isReporto = codigoTese === "REPORTO" || p.categoria === "reporto";
+                  const noCalculo = calculoPorCodigo.get(codigoTese);
                   return (
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">
@@ -285,6 +312,24 @@ export function ProcessosTesesTab({
                               className="border-slate-200 bg-slate-100 text-[10px] text-slate-700"
                             >
                               Possíveis futuros
+                            </Badge>
+                          )}
+                          {!isReporto && noCalculo === false && (
+                            <Badge
+                              variant="outline"
+                              className="border-amber-200 bg-amber-50 text-[10px] text-amber-800"
+                              title="Desmarcada no Mapa de Créditos — não entra no Crédito Apurado nem no Total Compensado do cabeçalho"
+                            >
+                              Fora do cálculo
+                            </Badge>
+                          )}
+                          {!isReporto && noCalculo === undefined && (
+                            <Badge
+                              variant="outline"
+                              className="border-slate-200 bg-slate-50 text-[10px] text-slate-600"
+                              title="O valor ao lado está só neste processo. Sem crédito no Mapa de Créditos, a tese não entra no Crédito Apurado nem no Total Compensado do cabeçalho."
+                            >
+                              Fora do Mapa de Créditos
                             </Badge>
                           )}
                         </div>

@@ -10,7 +10,7 @@ import {
   formatCompetenciaPT,
   isReportoCompensacao,
   splitCreditosCalculo,
-  sumCompensadoCanonical,
+  sumCompensadoNoCalculo,
 } from "@/lib/clientes-constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -174,15 +174,6 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
     [comps, mesInicio, mesFim],
   );
 
-  const totalCompensadoPeriodo = useMemo(
-    // Fonte única = aba Compensações (sem Reporto, sem órfãs duplicadas).
-    // Não misturar com v_cliente_totais_calculo: a view usa GREATEST com
-    // valor_compensado_manual (snapshot de planilha) e infla o card
-    // (AP MEDEIROS, Liberdade, etc.).
-    () => sumCompensadoCanonical(compsNoPeriodo, { reportoTeseIds, reportoProcessoIds }),
-    [compsNoPeriodo, reportoTeseIds, reportoProcessoIds],
-  );
-
   const processoIdsByTese = useMemo(() => {
     const map = new Map<string, Set<string>>();
     for (const p of processos as { id: string; tese?: string | null }[]) {
@@ -209,11 +200,14 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
 
   const multiTese = porTese.length > 1;
   const teseAtual = porTese.find((t) => t.teseId === teseFiltro) ?? null;
+  const totalCompensadoNoCalculo = sumCompensadoNoCalculo(porTese);
 
   // Filtro por tese existe porque somar Insumos + Subvenção num card só cruza
   // o apurado de uma tese com o compensado de outra.
+  // Consolidado usa só teses no cálculo — senão ICMS-ST fora da flag come o saldo
+  // (São Fernando: apurado Insumos vs compensado de três teses).
   const apuradoExibido = teseAtual ? teseAtual.apurado : dadosBase.totalApurado;
-  const compensadoExibido = teseAtual ? teseAtual.compensado : totalCompensadoPeriodo;
+  const compensadoExibido = teseAtual ? teseAtual.compensado : totalCompensadoNoCalculo;
 
   // Saldo = apurado ao vivo − compensado da aba. Nunca view.saldo_restante
   // (essa coluna da view subtrai GREATEST com snapshot legado).
