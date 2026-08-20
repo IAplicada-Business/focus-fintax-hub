@@ -32,7 +32,6 @@ import {
   filterCompsForTese,
   STATUS_PAGAMENTO,
 } from "@/lib/clientes-constants";
-import logoFintax from "@/assets/logo-focus-fintax-cropped.svg";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 import { exportElementToPdf, sanitizePdfFileName } from "@/lib/export-element-pdf";
 
@@ -797,16 +796,20 @@ Equipe Focus.`;
                   gap: "24px",
                 }}
               >
-                <img
-                  src={logoFintax}
-                  alt="Focus FinTax"
-                  style={{ height: "80px", width: "auto", filter: "brightness(0) invert(1)" }}
-                />
+                <p
+                  style={{
+                    fontFamily: "Barlow, sans-serif",
+                    fontSize: "38px",
+                    fontWeight: 700,
+                    letterSpacing: "-0.02em",
+                    lineHeight: 1,
+                    margin: 0,
+                  }}
+                >
+                  FinTax
+                </p>
                 <div style={{ textAlign: "right" }}>
-                  <p style={{ fontSize: "11px", letterSpacing: "3px", textTransform: "uppercase", opacity: 0.85, margin: 0 }}>
-                    Focus FinTax
-                  </p>
-                  <p style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "1px", margin: "6px 0 0" }}>
+                  <p style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "1px", margin: 0 }}>
                     MAPA TRIBUTÁRIO DAS COMPENSAÇÕES
                   </p>
                 </div>
@@ -1007,7 +1010,17 @@ Equipe Focus.`;
 
                     {/* Footer */}
                     <div style={{ textAlign: "center", borderTop: "2px solid #0a1564", paddingTop: "16px", marginTop: "32px" }}>
-                      <p style={{ fontWeight: "bold", color: "#0a1564", fontSize: "14px" }}>FOCUS FINTAX</p>
+                      <p
+                        style={{
+                          fontFamily: "Barlow, sans-serif",
+                          fontWeight: 700,
+                          letterSpacing: "-0.02em",
+                          color: "#0a1564",
+                          fontSize: "18px",
+                        }}
+                      >
+                        FinTax
+                      </p>
                     </div>
                   </div>
                 );

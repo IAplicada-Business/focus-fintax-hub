@@ -154,7 +154,7 @@ export async function exportElementToPdf(
 
     const pageCount = pdf.getNumberOfPages();
     const nowStr = new Date().toLocaleDateString("pt-BR");
-    const footerLeft = opts?.footerLeft ?? `Focus FinTax · Confidencial · Gerado em ${nowStr}`;
+    const footerLeft = opts?.footerLeft ?? `Fintax · Confidencial · Gerado em ${nowStr}`;
     for (let i = 1; i <= pageCount; i++) {
       pdf.setPage(i);
       pdf.setFontSize(8);

@@ -15,7 +15,6 @@ import {
   sumCompensadoForTese,
 } from "@/lib/clientes-constants";
 import { exportElementToPdf, sanitizePdfFileName } from "@/lib/export-element-pdf";
-import logoFintax from "@/assets/logo-focus-fintax-cropped.svg";
 
 interface LinhaMapa {
   cliente_id: string;
@@ -362,16 +361,20 @@ export default function MapaCreditos() {
             gap: "24px",
           }}
         >
-          <img
-            src={logoFintax}
-            alt="Focus FinTax"
-            style={{ height: "80px", width: "auto", filter: "brightness(0) invert(1)" }}
-          />
+          <p
+            style={{
+              fontFamily: "Barlow, sans-serif",
+              fontSize: "38px",
+              fontWeight: 700,
+              letterSpacing: "-0.02em",
+              lineHeight: 1,
+              margin: 0,
+            }}
+          >
+            FinTax
+          </p>
           <div style={{ textAlign: "right" }}>
-            <p style={{ fontSize: "11px", letterSpacing: "3px", textTransform: "uppercase", opacity: 0.85, margin: 0 }}>
-              Focus FinTax
-            </p>
-            <p style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "1px", margin: "6px 0 0" }}>
+            <p style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "1px", margin: 0 }}>
               MAPA DE CRÉDITOS TRIBUTÁRIOS
             </p>
           </div>
