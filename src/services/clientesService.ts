@@ -58,7 +58,7 @@ export async function getClienteCompensacoes(clienteId: string) {
   const { data, error } = await supabase
     .from("compensacoes_mensais")
     .select(
-      "*, processos_teses:processo_tese_id(id, tese, nome_exibicao, categoria, percentual_honorario, valor_credito)",
+      "*, processos_teses:processo_tese_id(id, tese, nome_exibicao, categoria, percentual_honorario, valor_credito), dcomps(id, numero_declaracao)",
     )
     .eq("cliente_id", clienteId)
     .order("mes_referencia", { ascending: false });
@@ -105,7 +105,7 @@ export async function listTesesTributarias() {
 export async function listMotorTesesAtivas() {
   const { data, error } = await supabase
     .from("motor_teses_config")
-    .select("tese, nome_exibicao")
+    .select("tese, nome_exibicao, tipo_recuperacao_padrao")
     .eq("ativo", true);
   if (error) throw error;
   return data ?? [];

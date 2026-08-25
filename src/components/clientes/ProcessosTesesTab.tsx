@@ -75,6 +75,7 @@ export function ProcessosTesesTab({
 
   const refreshAll = async () => {
     await invalidateClienteOperacional(qc, clienteId);
+    await qc.invalidateQueries({ queryKey: ["cliente", clienteId, "record"] });
     onProcessosChanged?.();
   };
 

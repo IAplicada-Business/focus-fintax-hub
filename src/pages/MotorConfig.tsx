@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -126,6 +127,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function MotorConfig() {
+  const qc = useQueryClient();
   const [teses, setTeses] = useState<TeseConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
@@ -219,7 +221,8 @@ export default function MotorConfig() {
     }).eq("id", id);
     if (error) { toastError(error, "Erro ao salvar configuração"); return; }
     fetchTeses();
-  }, [userId]);
+    void qc.invalidateQueries({ queryKey: ["catalog", "motor_teses_ativas"] });
+  }, [userId, qc]);
 
   const toggleArrayField = useCallback(async (t: TeseConfig, field: "regimes_elegiveis" | "segmentos_elegiveis", item: string) => {
     const arr = t[field];
@@ -291,6 +294,7 @@ export default function MotorConfig() {
       toast({ title: "Tese salva com sucesso" });
       setEditOpen(false);
       fetchTeses();
+      void qc.invalidateQueries({ queryKey: ["catalog", "motor_teses_ativas"] });
     }
     setSaving(false);
   };

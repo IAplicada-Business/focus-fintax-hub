@@ -1,16 +1,30 @@
 import { describe, expect, it } from "vitest";
 import {
   breakdownPorTese,
+  buildProcessoIdsByTese,
   compMatchesTese,
   filterCompensadoCanonical,
   filterCompsForTese,
   inferTeseCodigoFromTributo,
+  normalizeTeseCatalogCodigo,
   splitCreditosCalculo,
   statusUtilizacaoFromSaldo,
   sumCompensadoCanonical,
   sumCompensadoForTese,
   sumCompensadoNoCalculo,
 } from "@/lib/clientes-constants";
+
+describe("normalizeTeseCatalogCodigo", () => {
+  it("mapeia slugs do Motor para o enum do catálogo", () => {
+    expect(normalizeTeseCatalogCodigo("pis_cofins_insumos")).toBe("INSUMOS");
+    expect(normalizeTeseCatalogCodigo("subvencao_icms", "Subvenção ICMS (IRPJ/CSLL)")).toBe("SUBVENCAO");
+    expect(normalizeTeseCatalogCodigo("icms_st")).toBe("ICMS_ST");
+    expect(normalizeTeseCatalogCodigo("ICMS ST")).toBe("ICMS_ST");
+    expect(normalizeTeseCatalogCodigo("reporto")).toBe("REPORTO");
+    expect(normalizeTeseCatalogCodigo("INSUMOS")).toBe("INSUMOS");
+    expect(normalizeTeseCatalogCodigo("")).toBeNull();
+  });
+});
 
 describe("inferTeseCodigoFromTributo", () => {
   it("mapeia PIS/COFINS/INSS → INSUMOS e IRPJ → SUBVENCAO", () => {
@@ -170,6 +184,19 @@ describe("compMatchesTese / sumCompensadoForTese", () => {
       }),
     ).toBe(10);
   });
+
+  it("slug do Motor no processo casa com código do catálogo", () => {
+    const row = {
+      mes_referencia: "2026-07-01",
+      tese_origem_id: null as string | null,
+      processo_tese_id: "proc-1",
+      tributo_enum: "PIS",
+      valor_compensado: 10,
+      processos_teses: { tese: "pis_cofins_insumos", nome_exibicao: "Insumos" },
+    };
+    expect(compMatchesTese(row, { teseCodigo: "INSUMOS" })).toBe(true);
+    expect(compMatchesTese(row, { teseCodigo: "SUBVENCAO" })).toBe(false);
+  });
 });
 
 describe("Mapa Tributário — geral do mês com mais de uma tese", () => {
@@ -217,6 +244,41 @@ describe("Mapa Tributário — geral do mês com mais de uma tese", () => {
       valor_compensado: 1000,
     };
     expect(compsForProcesso([...julRows, orfa], procInsumos)).toHaveLength(1);
+  });
+});
+
+describe("Mapa Tributário — honorários salvos e DCOMP", () => {
+  const honorarioSalvo = (c: { honorario_valor?: number | null; valor_nf_servico?: number | null }) =>
+    Number(c.honorario_valor ?? c.valor_nf_servico ?? 0);
+
+  const formatDcomps = (c: { dcomps?: { numero_declaracao?: string }[] }) => {
+    const nums = (c.dcomps ?? []).map((d) => d.numero_declaracao).filter(Boolean);
+    return nums.length ? nums.join("\n") : "—";
+  };
+
+  it("soma só honorário gravado — não recalcula % nas linhas sem valor", () => {
+    const procComps = [
+      { valor_compensado: 1000, honorario_valor: 150, honorario_percentual: 0.15 },
+      { valor_compensado: 2000, honorario_valor: null, honorario_percentual: 0.15 },
+    ];
+    const total = procComps.reduce((s, c) => s + honorarioSalvo(c), 0);
+    expect(total).toBe(150);
+  });
+
+  it("usa valor_nf_servico quando honorario_valor está vazio", () => {
+    expect(honorarioSalvo({ honorario_valor: null, valor_nf_servico: 80 })).toBe(80);
+  });
+
+  it("formata DCOMPs e reserva traço quando não há declaração", () => {
+    expect(
+      formatDcomps({
+        dcomps: [
+          { numero_declaracao: "12345.12345.123456.1.1.12-2026" },
+          { numero_declaracao: "99999.99999.999999.9.9.99-2026" },
+        ],
+      }),
+    ).toBe("12345.12345.123456.1.1.12-2026\n99999.99999.999999.9.9.99-2026");
+    expect(formatDcomps({ dcomps: [] })).toBe("—");
   });
 });
 
@@ -440,5 +502,54 @@ describe("breakdownPorTese", () => {
     expect(rows[0].saldo).toBeCloseTo(832877.6, 2);
     const abaInteira = 651437.83 + 104278.96 + 370124.46;
     expect(sumCompensadoNoCalculo(rows)).not.toBeCloseTo(abaInteira, 2);
+  });
+
+  it("GRANO: processo Subvenção sem crédito no cálculo entra em Insumos (origem/tributo)", () => {
+    const rows = breakdownPorTese({
+      creditos: [
+        { tese_id: "t-insumos", valor_apurado_inicial: 642805.11, incluir_no_calculo: true },
+      ],
+      comps: [
+        {
+          mes_referencia: "2026-07-01",
+          tese_origem_id: "t-insumos",
+          processo_tese_id: "proc-insumos",
+          tributo_enum: "INSS_52",
+          valor_compensado: 243088.2,
+          processos_teses: { tese: "INSUMOS", nome_exibicao: "PIS/COFINS Insumos" },
+        },
+        {
+          mes_referencia: "2025-11-01",
+          tese_origem_id: "t-insumos",
+          processo_tese_id: "proc-subvencao",
+          tributo_enum: "INSS_52",
+          valor_compensado: 68201.38,
+          processos_teses: { tese: "subvencao", nome_exibicao: "Subvenção de ICMS" },
+        },
+        {
+          mes_referencia: "2025-11-01",
+          tese_origem_id: "t-insumos",
+          processo_tese_id: "proc-subvencao",
+          tributo_enum: "PIS",
+          valor_compensado: 2848.22,
+          processos_teses: { tese: "subvencao", nome_exibicao: "Subvenção de ICMS" },
+        },
+      ],
+      teseInfo,
+      processoIdsByTese: buildProcessoIdsByTese([
+        { id: "proc-insumos", tese: "INSUMOS", nome_exibicao: "PIS/COFINS Insumos" },
+        { id: "proc-subvencao", tese: "subvencao", nome_exibicao: "Subvenção de ICMS" },
+      ]),
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].compensado).toBeCloseTo(314137.8, 2);
+    const footer = sumCompensadoCanonical([
+      { valor_compensado: 243088.2 },
+      { valor_compensado: 68201.38 },
+      { valor_compensado: 2848.22 },
+    ]);
+    expect(footer).toBeCloseTo(314137.8, 2);
+    expect(rows[0].compensado).toBeCloseTo(footer, 2);
   });
 });

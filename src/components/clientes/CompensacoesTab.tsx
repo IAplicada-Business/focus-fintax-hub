@@ -328,6 +328,12 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
 
   const getTributo = (c: any) => (c as any).tributo || c.observacao || "INSS";
 
+  const formatDcomps = (c: any) => {
+    const list = (c?.dcomps as { numero_declaracao?: string }[] | undefined) ?? [];
+    const nums = list.map((d) => d.numero_declaracao).filter(Boolean);
+    return nums.length ? nums.join("\n") : "—";
+  };
+
   const isSubvencao = (tese: string) => tese?.toLowerCase().includes("subven");
 
   // ——— WhatsApp helpers ———
@@ -866,6 +872,13 @@ Equipe Focus.`;
                 const acumulado = getCompensacoesAteOmes(proc, mapaMes);
                 const creditoBase = creditoProcesso(proc);
                 const saldo = creditoBase - acumulado;
+                const totalHonorariosMes = procComps.reduce(
+                  (s, c) => s + Number(c.honorario_valor ?? c.valor_nf_servico ?? 0),
+                  0,
+                );
+                const honorarioPercSource =
+                  procComps.find((c) => Number(c.honorario_percentual ?? 0) > 0) ?? procComps[0];
+                const percLabel = resolvePercLabel(honorarioPercSource ?? {}, proc);
                 const isSub = isSubvencao(proc.tese);
 
                 return (
@@ -905,17 +918,20 @@ Equipe Focus.`;
                         </tr>
                       </thead>
                       <tbody>
-                        {[
-                          ["Escopo do Trabalho", proc.nome_exibicao],
-                          ["Competência", formatMesPT(mapaMes)],
-                          ["Modalidade do Benefício", "Compensação"],
-                          ["Valor Total do Benefício Tributário", formatCurrencyBR(creditoBase)],
-                          ["Valor Utilizado na Compensação do Mês", formatCurrencyBR(valorComp)],
-                          ["Saldo Disp. para Compensações Futuras", formatCurrencyBR(saldo)],
-                        ].map(([desc, val], i) => (
+                        {([
+                          ["Escopo do Trabalho", proc.nome_exibicao, false],
+                          ["Competência", formatMesPT(mapaMes), false],
+                          ["Modalidade do Benefício", "Compensação", false],
+                          ["Valor Total do Benefício Tributário", formatCurrencyBR(creditoBase), true],
+                          ["Valor Utilizado na Compensação do Mês", formatCurrencyBR(valorComp), true],
+                          ["Honorários", percLabel, true],
+                          ["Valor dos Honorários do Mês", formatCurrencyBR(totalHonorariosMes), true],
+                          ["Economia Líquida do Mês", formatCurrencyBR(valorComp - totalHonorariosMes), true],
+                          ["Saldo Disp. para Compensações Futuras", formatCurrencyBR(saldo), true],
+                        ] as [string, string, boolean][]).map(([desc, val, bold], i) => (
                           <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#f9f9f9" : "white" }}>
                             <td style={{ padding: "6px 10px", fontSize: "12px" }}>{desc}</td>
-                            <td style={{ padding: "6px 10px", textAlign: "right", fontSize: "12px", fontWeight: i >= 3 ? "bold" : "normal" }}>{val}</td>
+                            <td style={{ padding: "6px 10px", textAlign: "right", fontSize: "12px", fontWeight: bold ? "bold" : "normal" }}>{val}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -926,8 +942,8 @@ Equipe Focus.`;
                     <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px" }}>
                       <thead>
                         <tr style={{ background: "#0a1564", color: "white" }}>
-                          {["Tributo", "Cód. DARF", "Valor Débito", "Multa", "Juros"].map((h) => (
-                            <th key={h} style={{ padding: "6px 10px", textAlign: h === "Tributo" ? "left" : "right", fontSize: "11px" }}>{h}</th>
+                          {["Tributo", "DCOMP", "Valor Débito", "Multa", "Juros"].map((h) => (
+                            <th key={h} style={{ padding: "6px 10px", textAlign: h === "Tributo" || h === "DCOMP" ? "left" : "right", fontSize: "11px" }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -935,7 +951,7 @@ Equipe Focus.`;
                         {procComps.map((c, i) => (
                           <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
                             <td style={{ padding: "6px 10px", fontSize: "12px" }}>{getTributo(c)}</td>
-                            <td style={{ padding: "6px 10px", textAlign: "right", fontSize: "12px" }}>—</td>
+                            <td style={{ padding: "6px 10px", textAlign: "left", fontSize: "10px", whiteSpace: "pre-line", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{formatDcomps(c)}</td>
                             <td style={{ padding: "6px 10px", textAlign: "right", fontSize: "12px", fontWeight: "bold" }}>{formatCurrencyBR(Number(c.valor_compensado || 0))}</td>
                             <td style={{ padding: "6px 10px", textAlign: "right", fontSize: "12px" }}>—</td>
                             <td style={{ padding: "6px 10px", textAlign: "right", fontSize: "12px" }}>—</td>
