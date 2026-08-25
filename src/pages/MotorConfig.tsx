@@ -271,7 +271,6 @@ export default function MotorConfig() {
       descricao_comercial: editData.descricao_comercial || null,
       regimes_elegiveis: editData.regimes_elegiveis,
       segmentos_elegiveis: editData.segmentos_elegiveis,
-      tributos: editData.tributos,
       percentual_min: editData.percentual_min,
       percentual_max: editData.percentual_max,
       ativo: editData.ativo,
