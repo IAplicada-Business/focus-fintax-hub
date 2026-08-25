@@ -6,11 +6,13 @@ import { MonthPicker } from "@/components/ui/month-picker";
 import { TrendingUp, TrendingDown, PieChart, Layers, RefreshCw, Plus } from "lucide-react";
 import {
   breakdownPorTese,
+  buildProcessoIdsByTese,
   formatCurrencyBR,
   formatCompetenciaPT,
   isReportoCompensacao,
+  normalizeTeseCatalogCodigo,
   splitCreditosCalculo,
-  sumCompensadoNoCalculo,
+  sumCompensadoCanonical,
 } from "@/lib/clientes-constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -117,7 +119,12 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
     [teses],
   );
   const reportoProcessoIds = useMemo(
-    () => new Set(processos.filter((p) => p.tese === "REPORTO").map((p) => p.id)),
+    () =>
+      new Set(
+        processos
+          .filter((p) => normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao) === "REPORTO")
+          .map((p) => p.id),
+      ),
     [processos],
   );
 
@@ -174,16 +181,10 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
     [comps, mesInicio, mesFim],
   );
 
-  const processoIdsByTese = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const p of processos as { id: string; tese?: string | null }[]) {
-      const cod = String(p.tese || "").toUpperCase();
-      if (!cod) continue;
-      if (!map.has(cod)) map.set(cod, new Set());
-      map.get(cod)!.add(p.id);
-    }
-    return map;
-  }, [processos]);
+  const processoIdsByTese = useMemo(
+    () => buildProcessoIdsByTese(processos as { id: string; tese?: string | null; nome_exibicao?: string | null }[]),
+    [processos],
+  );
 
   const porTese = useMemo(
     () =>
@@ -200,14 +201,17 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
 
   const multiTese = porTese.length > 1;
   const teseAtual = porTese.find((t) => t.teseId === teseFiltro) ?? null;
-  const totalCompensadoNoCalculo = sumCompensadoNoCalculo(porTese);
+  const totalCompensadoLancado = useMemo(
+    () => sumCompensadoCanonical(compsNoPeriodo, { reportoTeseIds, reportoProcessoIds }),
+    [compsNoPeriodo, reportoTeseIds, reportoProcessoIds],
+  );
 
   // Filtro por tese existe porque somar Insumos + Subvenção num card só cruza
   // o apurado de uma tese com o compensado de outra.
-  // Consolidado usa só teses no cálculo — senão ICMS-ST fora da flag come o saldo
-  // (São Fernando: apurado Insumos vs compensado de três teses).
+  // Consolidado do card = mesmos lançamentos do rodapé "Já Compensado"
+  // (sem Reporto). Apurado segue teses marcadas no cálculo.
   const apuradoExibido = teseAtual ? teseAtual.apurado : dadosBase.totalApurado;
-  const compensadoExibido = teseAtual ? teseAtual.compensado : totalCompensadoNoCalculo;
+  const compensadoExibido = teseAtual ? teseAtual.compensado : totalCompensadoLancado;
 
   // Saldo = apurado ao vivo − compensado da aba. Nunca view.saldo_restante
   // (essa coluna da view subtrai GREATEST com snapshot legado).
@@ -283,7 +287,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
         <p className="text-[11px] text-ink-35 sm:ml-auto">
           {teseAtual
             ? `Cards filtrados por ${teseAtual.label}`
-            : "Totais usam só teses marcadas no cálculo (padrão: Insumos + Subvenção)"}
+            : "Apurado: teses no cálculo. Compensado: todos os lançamentos (exceto Reporto)."}
         </p>
       </div>
 

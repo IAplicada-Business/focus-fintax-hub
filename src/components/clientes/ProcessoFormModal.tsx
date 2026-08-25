@@ -9,7 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { STATUS_CONTRATO, STATUS_PROCESSO } from "@/lib/clientes-constants";
+import { STATUS_CONTRATO, STATUS_PROCESSO, normalizeTeseCatalogCodigo } from "@/lib/clientes-constants";
+import { useMotorTesesAtivas } from "@/hooks/data/useClienteOperacional";
+import { logClienteHistorico } from "@/lib/cliente-historico";
 import {
   TIPOS_RECUPERACAO,
   isTipoRecuperacao,
@@ -56,18 +58,13 @@ export function ProcessoFormModal({
   onSuccess,
 }: Props) {
   const [saving, setSaving] = useState(false);
-  const [teses, setTeses] = useState<TeseOption[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
+  const motorQ = useMotorTesesAtivas();
+  const teses = (motorQ.data ?? []) as TeseOption[];
 
   useEffect(() => {
-    supabase
-      .from("motor_teses_config")
-      .select("tese, nome_exibicao, tipo_recuperacao_padrao")
-      .eq("ativo", true)
-      .then(({ data }) => {
-        if (data) setTeses(data as TeseOption[]);
-      });
-  }, []);
+    if (open) void motorQ.refetch();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -87,29 +84,42 @@ export function ProcessoFormModal({
       });
       return;
     }
-    if (presetTese && teses.length > 0) {
-      const t = teses.find((x) => x.tese === presetTese);
-      const nome = t?.nome_exibicao || presetTese;
-      const isReporto = /reporto/i.test(nome) || /reporto/i.test(presetTese);
-      setForm({
-        ...EMPTY_FORM,
-        tese: presetTese,
-        nome_exibicao: nome,
-        categoria: isReporto ? "reporto" : "compensacao",
-        tipo_recuperacao: resolveTipoRecuperacao(t?.tipo_recuperacao_padrao, presetTese, nome),
-      });
-      return;
-    }
     setForm(EMPTY_FORM);
+  }, [open, processo]);
+
+  useEffect(() => {
+    if (!open || processo || !presetTese || teses.length === 0) return;
+    const t = teses.find((x) => x.tese === presetTese);
+    const nome = t?.nome_exibicao || presetTese;
+    const isReporto = /reporto/i.test(nome) || /reporto/i.test(presetTese);
+    setForm({
+      ...EMPTY_FORM,
+      tese: presetTese,
+      nome_exibicao: nome,
+      categoria: isReporto ? "reporto" : "compensacao",
+      tipo_recuperacao: resolveTipoRecuperacao(t?.tipo_recuperacao_padrao, presetTese, nome),
+    });
   }, [open, processo, presetTese, teses]);
 
   const update = (field: string, value: string) => setForm((p) => ({ ...p, [field]: value }));
 
-  const availableTeses = teses.filter((t) => !existingTeses.includes(t.tese) || processo?.tese === t.tese);
+  const takenNorm = new Set(
+    existingTeses
+      .filter((t) => t !== processo?.tese)
+      .map((t) => normalizeTeseCatalogCodigo(t))
+      .filter((c): c is string => !!c),
+  );
+
+  const availableTeses = teses.filter((t) => {
+    if (processo?.tese === t.tese) return true;
+    if (existingTeses.includes(t.tese)) return false;
+    const n = normalizeTeseCatalogCodigo(t.tese, t.nome_exibicao);
+    if (n && takenNorm.has(n)) return false;
+    return true;
+  });
 
   const handleTesePick = (value: string) => {
     const t = teses.find((x) => x.tese === value);
-    // Auto-detecta reporto pelo nome — o usuário pode ajustar depois
     const nome = t?.nome_exibicao || value;
     const isReporto = /reporto/i.test(nome) || /reporto/i.test(value);
     setForm((p) => ({
@@ -121,8 +131,44 @@ export function ProcessoFormModal({
     }));
   };
 
+  const teseJaUsada = (slug: string) => {
+    if (existingTeses.includes(slug) && slug !== processo?.tese) return true;
+    const n = normalizeTeseCatalogCodigo(slug, form.nome_exibicao);
+    return !!(n && takenNorm.has(n));
+  };
+
+  const resolveCatalogTeseId = async (slug: string, nome: string) => {
+    const codigo = normalizeTeseCatalogCodigo(slug, nome);
+    if (!codigo) return null;
+    const { data } = await (supabase as any)
+      .from("teses_tributarias")
+      .select("id")
+      .eq("codigo", codigo)
+      .maybeSingle();
+    return (data as { id?: string } | null)?.id ?? null;
+  };
+
   const handleSave = async () => {
     if (!form.tese) { toast.error("Selecione uma tese."); return; }
+    if (teseJaUsada(form.tese)) {
+      toast.error("Já existe um processo com essa tese neste cliente.");
+      return;
+    }
+
+    const teseMudou = !!processo && form.tese !== processo.tese;
+    if (teseMudou) {
+      const { count } = await supabase
+        .from("compensacoes_mensais")
+        .select("id", { count: "exact", head: true })
+        .eq("processo_tese_id", processo.id);
+      if ((count ?? 0) > 0) {
+        const ok = window.confirm(
+          "Este processo já tem compensações. A tese do processo e a tese em uso da empresa passam a ser a nova. Os valores lançados não mudam. Continuar?",
+        );
+        if (!ok) return;
+      }
+    }
+
     setSaving(true);
 
     const payload = {
@@ -143,8 +189,32 @@ export function ProcessoFormModal({
       ? await supabase.from("processos_teses").update(payload).eq("id", processo.id)
       : await supabase.from("processos_teses").insert(payload);
 
+    if (error) {
+      setSaving(false);
+      toast.error("Erro ao salvar processo.");
+      return;
+    }
+
+    if (teseMudou) {
+      const teseId = await resolveCatalogTeseId(form.tese, form.nome_exibicao);
+      if (teseId) {
+        await supabase
+          .from("compensacoes_mensais")
+          .update({ tese_origem_id: teseId } as any)
+          .eq("processo_tese_id", processo.id);
+        await supabase
+          .from("clientes")
+          .update({ tese_ativa_id: teseId } as any)
+          .eq("id", clienteId);
+      }
+      logClienteHistorico(
+        clienteId,
+        "tese_processo_alterada",
+        `Processo "${form.nome_exibicao}": ${processo.tese} → ${form.tese}`,
+      );
+    }
+
     setSaving(false);
-    if (error) { toast.error("Erro ao salvar processo."); return; }
     toast.success(processo ? "Processo atualizado!" : "Processo adicionado!");
     onSuccess();
     onOpenChange(false);
@@ -160,7 +230,7 @@ export function ProcessoFormModal({
         <div className="grid gap-3 py-2">
           <div className="space-y-1.5">
             <Label>Tese *</Label>
-            <Select value={form.tese} onValueChange={handleTesePick} disabled={!!processo}>
+            <Select value={form.tese} onValueChange={handleTesePick}>
               <SelectTrigger><SelectValue placeholder="Selecione a tese" /></SelectTrigger>
               <SelectContent>
                 {availableTeses.map((t) => (

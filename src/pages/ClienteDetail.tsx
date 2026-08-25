@@ -41,7 +41,7 @@ import {
   AlertDialogTitle as AlertTitle,
 } from "@/components/ui/alert-dialog";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
-import { sumCompensadoCanonical } from "@/lib/clientes-constants";
+import { normalizeTeseCatalogCodigo, sumCompensadoCanonical } from "@/lib/clientes-constants";
 import {
   useClienteCompensacoes,
   useClienteProcessos,
@@ -71,7 +71,9 @@ export default function ClienteDetail() {
       tesesCached.filter((t) => (t.codigo || "").toUpperCase() === "REPORTO").map((t) => t.id),
     );
     const reportoProcessoIds = new Set(
-      processosCached.filter((p) => p.tese === "REPORTO").map((p) => p.id),
+      processosCached
+        .filter((p) => normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao) === "REPORTO")
+        .map((p) => p.id),
     );
     return sumCompensadoCanonical(compensacoesCached as any[], { reportoTeseIds, reportoProcessoIds });
   }, [compensacoesCached, processosCached, tesesCached]);

@@ -15,6 +15,7 @@ import { Loader2, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import {
   formatCurrencyBR,
+  normalizeTeseCatalogCodigo,
   statusUtilizacaoFromSaldo,
   sumCompensadoForTese,
 } from "@/lib/clientes-constants";
@@ -62,32 +63,43 @@ export function TrocaTeseAtivaModal({
     setLoading(true);
 
     (async () => {
-      const [{ data: mapa }, { data: comps }, { data: procs }, { data: creditos }] = await Promise.all([
-        (supabase as any)
-          .from("v_mapa_creditos")
-          .select(
-            "tese_id, tese_codigo, tese_label, valor_apurado_inicial, total_compensado, saldo_final, status_utilizacao, incluir_no_calculo"
-          )
-          .eq("cliente_id", clienteId),
-        supabase
-          .from("compensacoes_mensais")
-          .select(
-            "valor_compensado, tese_origem_id, processo_tese_id, mes_referencia, tributo, tributo_enum, processos_teses:processo_tese_id(tese, nome_exibicao)"
-          )
-          .eq("cliente_id", clienteId),
-        supabase.from("processos_teses").select("id, tese").eq("cliente_id", clienteId),
-        (supabase as any)
-          .from("creditos_apurados")
-          .select("tese_id, valor_compensado_manual")
-          .eq("cliente_id", clienteId),
-      ]);
+      const [{ data: mapa }, { data: comps }, { data: procs }, { data: creditos }, { data: catalogo }] =
+        await Promise.all([
+          (supabase as any)
+            .from("v_mapa_creditos")
+            .select(
+              "tese_id, tese_codigo, tese_label, valor_apurado_inicial, total_compensado, saldo_final, status_utilizacao, incluir_no_calculo"
+            )
+            .eq("cliente_id", clienteId),
+          supabase
+            .from("compensacoes_mensais")
+            .select(
+              "valor_compensado, tese_origem_id, processo_tese_id, mes_referencia, tributo, tributo_enum, processos_teses:processo_tese_id(tese, nome_exibicao)"
+            )
+            .eq("cliente_id", clienteId),
+          supabase.from("processos_teses").select("id, tese, nome_exibicao").eq("cliente_id", clienteId),
+          (supabase as any)
+            .from("creditos_apurados")
+            .select("tese_id, valor_compensado_manual")
+            .eq("cliente_id", clienteId),
+          (supabase as any).from("teses_tributarias").select("id, codigo, label"),
+        ]);
+
+      const catalog = (catalogo || []) as { id: string; codigo: string | null; label: string | null }[];
+      const catalogByCodigo = new Map(
+        catalog
+          .filter((t) => t.codigo)
+          .map((t) => [String(t.codigo).toUpperCase(), t] as const),
+      );
+      const catalogById = new Map(catalog.map((t) => [t.id, t]));
 
       const processoIdsByTese = new Map<string, Set<string>>();
-      for (const p of (procs as { id: string; tese: string | null }[]) || []) {
-        const cod = String(p.tese || "").toUpperCase();
+      for (const p of (procs as { id: string; tese: string | null; nome_exibicao?: string | null }[]) || []) {
+        const cod = normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao || "");
         if (!cod) continue;
-        if (!processoIdsByTese.has(cod)) processoIdsByTese.set(cod, new Set());
-        processoIdsByTese.get(cod)!.add(p.id);
+        const key = String(cod).toUpperCase();
+        if (!processoIdsByTese.has(key)) processoIdsByTese.set(key, new Set());
+        processoIdsByTese.get(key)!.add(p.id);
       }
 
       const manualByTese = new Map<string, number>();
@@ -97,32 +109,78 @@ export function TrocaTeseAtivaModal({
         }
       }
 
-      const rows = ((mapa || []) as CreditoLinha[])
-        .filter((r) => r.tese_codigo !== "REPORTO" && r.incluir_no_calculo !== false)
-        .map((r) => {
-          const codigo = String(r.tese_codigo || "").toUpperCase();
-          const fromAba = sumCompensadoForTese((comps as any[]) || [], {
-            teseCodigo: codigo,
-            teseId: r.tese_id,
-            processoIds: processoIdsByTese.get(codigo),
-          });
-          const manual = manualByTese.get(r.tese_id);
-          // Detalhamento é piso histórico; aba soma órfãs/novos — usa o maior para não
-          // subestimar (Maravista) nem ignorar lançamentos novos.
-          const compensado = Math.max(
-            fromAba,
-            manual != null ? manual : 0,
-            Number(r.total_compensado || 0),
-          );
-          const apurado = Number(r.valor_apurado_inicial || 0);
-          const saldo = apurado - compensado;
-          return {
-            ...r,
-            total_compensado: compensado,
-            saldo_final: saldo,
-            status_utilizacao: statusUtilizacaoFromSaldo(apurado, compensado),
-          };
+      const enrich = (r: CreditoLinha): CreditoLinha => {
+        const codigo = String(r.tese_codigo || "").toUpperCase();
+        const fromAba = sumCompensadoForTese((comps as any[]) || [], {
+          teseCodigo: codigo,
+          teseId: r.tese_id,
+          processoIds: processoIdsByTese.get(codigo),
         });
+        const manual = manualByTese.get(r.tese_id);
+        const compensado = Math.max(
+          fromAba,
+          manual != null ? manual : 0,
+          Number(r.total_compensado || 0),
+        );
+        const apurado = Number(r.valor_apurado_inicial || 0);
+        return {
+          ...r,
+          total_compensado: compensado,
+          saldo_final: apurado - compensado,
+          status_utilizacao: statusUtilizacaoFromSaldo(apurado, compensado),
+        };
+      };
+
+      const mapaRows = (mapa || []) as CreditoLinha[];
+      const mapaById = new Map(mapaRows.map((r) => [r.tese_id, r]));
+      const seen = new Set<string>();
+      const rows: CreditoLinha[] = [];
+
+      const pushRow = (r: CreditoLinha) => {
+        if (!r.tese_id || seen.has(r.tese_id) || r.tese_codigo === "REPORTO") return;
+        seen.add(r.tese_id);
+        rows.push(enrich(r));
+      };
+
+      for (const r of mapaRows) {
+        if (r.incluir_no_calculo === false) continue;
+        pushRow(r);
+      }
+
+      for (const p of (procs as { tese: string | null; nome_exibicao?: string | null }[]) || []) {
+        const codigo = normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao || "");
+        if (!codigo || codigo === "REPORTO") continue;
+        const cat = catalogByCodigo.get(String(codigo).toUpperCase());
+        if (!cat || seen.has(cat.id)) continue;
+        const fromMapa = mapaById.get(cat.id);
+        pushRow(
+          fromMapa ?? {
+            tese_id: cat.id,
+            tese_codigo: String(cat.codigo || codigo).toUpperCase(),
+            tese_label: cat.label || String(cat.codigo || codigo),
+            valor_apurado_inicial: 0,
+            total_compensado: 0,
+            saldo_final: 0,
+          },
+        );
+      }
+
+      if (teseAtivaId && !seen.has(teseAtivaId)) {
+        const cat = catalogById.get(teseAtivaId);
+        const fromMapa = mapaById.get(teseAtivaId);
+        if (fromMapa || (cat && String(cat.codigo || "").toUpperCase() !== "REPORTO")) {
+          pushRow(
+            fromMapa ?? {
+              tese_id: cat!.id,
+              tese_codigo: String(cat!.codigo || "").toUpperCase(),
+              tese_label: cat!.label || String(cat!.codigo || ""),
+              valor_apurado_inicial: 0,
+              total_compensado: 0,
+              saldo_final: 0,
+            },
+          );
+        }
+      }
 
       setLinhas(rows);
       setSelecionada(teseAtivaId || rows.find((r) => Number(r.saldo_final) > 0)?.tese_id || "");

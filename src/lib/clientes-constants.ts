@@ -86,6 +86,44 @@ export function tributoKey(c: { tributo?: string | null; tributo_enum?: string |
     .replace(/\s+/g, "_");
 }
 
+/** Códigos do enum `tese_tributaria` (catálogo financeiro / tese em uso). */
+export const TESE_CATALOG_CODIGOS = [
+  "INSUMOS",
+  "SUBVENCAO",
+  "ICMS_ST",
+  "EXCLUSAO_ICMS_BC",
+  "PIS_COFINS_JUD",
+  "PREVIDENCIARIO",
+  "REPORTO",
+] as const;
+
+export type TeseCatalogCodigo = (typeof TESE_CATALOG_CODIGOS)[number];
+
+/**
+ * Motor usa slugs livres (`pis_cofins_insumos`); o catálogo usa INSUMOS / SUBVENCAO.
+ * Sem essa ponte, troca de tese e tese em uso não se enxergam.
+ */
+export function normalizeTeseCatalogCodigo(
+  tese?: string | null,
+  nomeExibicao = "",
+): TeseCatalogCodigo | string | null {
+  const raw = String(tese || "").trim();
+  const blob = `${raw} ${nomeExibicao}`.toLowerCase().replace(/[\s-]+/g, "_");
+  if (!blob.replace(/_/g, "")) return null;
+  if (blob.includes("reporto")) return "REPORTO";
+  if (blob.includes("insumo")) return "INSUMOS";
+  if (blob.includes("subvenc")) return "SUBVENCAO";
+  if (blob.includes("exclusao") && blob.includes("icms")) return "EXCLUSAO_ICMS_BC";
+  if (blob.includes("icms_st") || blob.includes("icmsst")) return "ICMS_ST";
+  if (blob.includes("pis_cofins_jud") || (blob.includes("jud") && blob.includes("pis"))) {
+    return "PIS_COFINS_JUD";
+  }
+  if (blob.includes("previdenc")) return "PREVIDENCIARIO";
+  const upper = raw.toUpperCase().replace(/[\s-]+/g, "_");
+  if ((TESE_CATALOG_CODIGOS as readonly string[]).includes(upper)) return upper;
+  return upper || null;
+}
+
 /**
  * Inferência de tese pelo tributo quando a linha veio órfã (sem tese_origem / processo).
  * Alinha fluxo de caixa: PIS/COFINS/INSS → Insumos; IRPJ/CSLL → Subvenção; ICMS → ICMS ST.
@@ -166,6 +204,14 @@ export type TeseMatchOpts = {
   processoIds?: Set<string>;
   /** Quando true, órfãs sem tese caem na inferência por tributo. Default true. */
   inferOrphans?: boolean;
+  /**
+   * Teses com linha em creditos_apurados (no cálculo ou fora).
+   * Sem isso, processo de tese sem crédito (GRANO: Subvenção) trava o
+   * lançamento e ele some do Total Compensado.
+   */
+  tesesComCreditoCodigos?: Set<string>;
+  /** Teses marcadas no cálculo. Processo dessas teses só conta nelas (Maravista). */
+  tesesNoCalculoCodigos?: Set<string>;
 };
 
 /** Compensação pertence à tese/processo (link direto, tese_origem ou inferência por tributo). */
@@ -176,11 +222,23 @@ export function compMatchesTese(c: CompensacaoSumRow, opts: TeseMatchOpts): bool
   // Processo explícito manda (usuário escolheu a tese na UI)
   if (c.processo_tese_id && opts.processoIds?.has(c.processo_tese_id)) return true;
 
-  // Linha vinculada a processo: a tese do processo decide nos DOIS sentidos.
-  // Sem o `false`, a inferência abaixo puxaria o PIS/COFINS/INSS de jul/2026 da
-  // Maravista (processo Subvenção) também para Insumos, contando 256 mil duas vezes.
-  const procTese = (c.processos_teses?.tese || "").toUpperCase();
-  if (procTese) return procTese === codigo;
+  // Linha vinculada a processo: a tese do processo decide nos DOIS sentidos
+  // quando essa tese está no recorte ou tem crédito cadastrado (Maravista /
+  // São Fernando). Sem crédito (GRANO Subvenção órfã), cai em origem/tributo
+  // — senão o lançamento some do card e sobra só no rodapé.
+  const procTese = normalizeTeseCatalogCodigo(
+    c.processos_teses?.tese,
+    c.processos_teses?.nome_exibicao || "",
+  );
+  if (procTese) {
+    const p = String(procTese).toUpperCase();
+    if (p === codigo) return true;
+    const processoNoCalculo = opts.tesesNoCalculoCodigos?.has(p);
+    const processoTemCredito = opts.tesesComCreditoCodigos?.has(p);
+    if (processoNoCalculo || processoTemCredito || opts.tesesComCreditoCodigos == null) {
+      return false;
+    }
+  }
 
   // Tributo com mapeamento claro (IRPJ→Subvenção, PIS→Insumos) corrige tese_origem
   // errada do FIFO/tese_ativa — funciona sem rodar SQL no Lovable.
@@ -286,6 +344,17 @@ export function breakdownPorTese(params: {
     params;
   const split = splitCreditosCalculo(creditos, reportoTeseIds);
 
+  const tesesComCreditoCodigos = new Set(
+    creditos
+      .map((c) => String(teseInfo.get(c.tese_id)?.codigo || "").toUpperCase())
+      .filter(Boolean),
+  );
+  const tesesNoCalculoCodigos = new Set(
+    [...split.teseIdsNoCalculo]
+      .map((id) => String(teseInfo.get(id)?.codigo || "").toUpperCase())
+      .filter(Boolean),
+  );
+
   const apuradoByTese = new Map<string, number>();
   for (const c of creditos) {
     if (!split.teseIdsNoCalculo.has(c.tese_id)) continue;
@@ -303,6 +372,8 @@ export function breakdownPorTese(params: {
         teseCodigo: codigo,
         teseId,
         processoIds: processoIdsByTese?.get(codigo),
+        tesesComCreditoCodigos,
+        tesesNoCalculoCodigos,
         reportoTeseIds,
         reportoProcessoIds,
       });
@@ -321,4 +392,19 @@ export function breakdownPorTese(params: {
 /** Card consolidado: só teses no cálculo. Não mistura ICMS-ST / Subvenção fora da flag. */
 export function sumCompensadoNoCalculo(rows: TeseBreakdownRow[]): number {
   return rows.reduce((s, r) => s + r.compensado, 0);
+}
+
+/** Agrupa processos pelo código do catálogo (slug do Motor → INSUMOS / SUBVENCAO). */
+export function buildProcessoIdsByTese(
+  processos: { id: string; tese?: string | null; nome_exibicao?: string | null }[],
+): Map<string, Set<string>> {
+  const map = new Map<string, Set<string>>();
+  for (const p of processos) {
+    const cod = normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao || "");
+    if (!cod) continue;
+    const key = String(cod).toUpperCase();
+    if (!map.has(key)) map.set(key, new Set());
+    map.get(key)!.add(p.id);
+  }
+  return map;
 }
