@@ -97,8 +97,8 @@ export default function BotConfigPage() {
   }
 
   return (
-    <div className="p-6 space-y-5 max-w-3xl">
-      <div className="flex items-center gap-2">
+    <div className="p-6 flex flex-col gap-4 h-full min-h-0">
+      <div className="flex items-center gap-2 shrink-0">
         <Button variant="ghost" size="sm" asChild>
           <Link to="/pipeline">
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
@@ -109,8 +109,8 @@ export default function BotConfigPage() {
         </h1>
       </div>
 
-      {/* Kill switch. Fica no topo porque é o que alguém procura com pressa. */}
-      <div className="rounded-lg border p-4 flex items-start gap-3">
+      {/* Kill switch no topo, largura toda: é o que alguém procura com pressa. */}
+      <div className="rounded-lg border p-4 flex items-start gap-3 shrink-0">
         <ShieldAlert
           className={`h-5 w-5 shrink-0 mt-0.5 ${cfg.ativo_global ? "text-emerald-600" : "text-muted-foreground"}`}
           aria-hidden
@@ -133,59 +133,67 @@ export default function BotConfigPage() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="max">Máximo de respostas por conversa</Label>
-          <Input
-            id="max"
-            type="number"
-            min={1}
-            max={50}
-            value={cfg.max_respostas}
-            disabled={!editavel}
-            onChange={(e) => alterar("max_respostas", Number(e.target.value))}
-          />
-          <p className="text-[11px] text-muted-foreground">
-            Atingido o limite, o robô para e a conversa fica para um humano.
-          </p>
+      {/* Em tela larga: ajustes à esquerda, prompt à direita ocupando o resto da
+          largura e da altura. Empilha abaixo de lg. */}
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="max">Máximo de respostas por conversa</Label>
+            <Input
+              id="max"
+              type="number"
+              min={1}
+              max={50}
+              value={cfg.max_respostas}
+              disabled={!editavel}
+              onChange={(e) => alterar("max_respostas", Number(e.target.value))}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Atingido o limite, o robô para e a conversa fica para um humano.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="modelo">Modelo</Label>
+            <Input
+              id="modelo"
+              value={cfg.modelo}
+              disabled={!editavel}
+              onChange={(e) => alterar("modelo", e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Padrão <code>claude-haiku-4-5</code>, o mais barato. Modelos maiores como{" "}
+              <code>claude-opus-5</code> respondem melhor e custam mais.
+            </p>
+          </div>
+
+          {!editavel && (
+            <p className="text-xs text-muted-foreground">
+              Somente administrador ou gestor comercial pode alterar.
+            </p>
+          )}
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="modelo">Modelo</Label>
-          <Input
-            id="modelo"
-            value={cfg.modelo}
+
+        <div className="flex flex-col min-h-0 space-y-1.5">
+          <Label htmlFor="prompt" className="shrink-0">
+            Instruções do robô
+          </Label>
+          <Textarea
+            id="prompt"
+            value={cfg.prompt}
             disabled={!editavel}
-            onChange={(e) => alterar("modelo", e.target.value)}
+            onChange={(e) => alterar("prompt", e.target.value)}
+            className="flex-1 min-h-[280px] font-mono text-xs resize-none"
           />
-          <p className="text-[11px] text-muted-foreground">
-            Identificador da Anthropic. Padrão: <code>claude-opus-5</code>.
+          <p className="text-[11px] text-muted-foreground shrink-0">
+            Editar aqui muda o que o robô fala, mas <strong>não</strong> remove as travas: ele
+            continua parando no limite de respostas, calando quando alguém do time responde, e
+            nunca respondendo a si mesmo. Essas regras vivem no sistema, não neste texto.
           </p>
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="prompt">Instruções do robô</Label>
-        <Textarea
-          id="prompt"
-          value={cfg.prompt}
-          disabled={!editavel}
-          onChange={(e) => alterar("prompt", e.target.value)}
-          className="min-h-[420px] font-mono text-xs"
-        />
-        <p className="text-[11px] text-muted-foreground">
-          Editar aqui muda o que o robô fala, mas <strong>não</strong> remove as travas: ele
-          continua parando no limite de respostas, calando quando alguém do time responde, e nunca
-          respondendo a si mesmo. Essas regras vivem no sistema, não neste texto.
-        </p>
-      </div>
-
-      {!editavel && (
-        <p className="text-xs text-muted-foreground">
-          Somente administrador ou gestor comercial pode alterar.
-        </p>
-      )}
-
-      <div className="flex justify-end">
+      <div className="flex justify-end shrink-0">
         <Button onClick={salvar} disabled={!editavel || !sujo || salvando}>
           <Save className="h-4 w-4 mr-1" />
           {salvando ? "Salvando…" : "Salvar"}

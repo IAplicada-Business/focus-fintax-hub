@@ -78,22 +78,30 @@ serve(async (req) => {
       return json({ ok: true, respondeu: false, motivo: "sem_turno_do_lead" });
     }
 
-    const resposta = await anthropic.beta.messages.create({
-      // Configurável em bot_config.modelo; o default do banco é claude-opus-5.
-      model: ctx.modelo || "claude-opus-5",
-      // Resposta de WhatsApp tem 3 linhas; o teto existe só para não truncar
-      // no meio de uma frase.
-      max_tokens: 4000,
-      // Qualificar lead é tarefa simples: effort baixo responde mais rápido e
-      // gasta menos, o que importa quando alguém está esperando no WhatsApp.
-      output_config: { effort: "low" },
-      // Se a Anthropic recusar por política, outro modelo assume na mesma
-      // chamada em vez de o lead ficar sem resposta.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      system: ctx.prompt,
-      messages: turnos,
-    });
+    const modelo: string = ctx.modelo || "claude-haiku-4-5";
+
+    // `effort` e o fallback server-side existem só na geração atual (Opus 5/4.x,
+    // Sonnet 5/4.6, Fable 5). Mandar `output_config.effort` para um Haiku 4.5
+    // devolve erro — então o formato do request depende do modelo escolhido na
+    // tela, e não pode ser fixo.
+    const geracaoAtual = /^claude-(opus-(5|4-[678])|sonnet-(5|4-6)|fable-5|mythos-5)$/.test(modelo);
+
+    // Resposta de WhatsApp tem 3 linhas; o teto existe só para não truncar no
+    // meio de uma frase.
+    const base = { model: modelo, max_tokens: 4000, system: ctx.prompt, messages: turnos };
+
+    const resposta = geracaoAtual
+      ? await anthropic.beta.messages.create({
+          ...base,
+          // Qualificar lead é tarefa simples: effort baixo responde mais rápido
+          // e gasta menos, o que importa com alguém esperando no WhatsApp.
+          output_config: { effort: "low" },
+          // Recusa por política cai em outro modelo na mesma chamada, em vez de
+          // deixar o lead sem resposta.
+          betas: ["server-side-fallback-2026-07-01"],
+          fallbacks: "default",
+        })
+      : await anthropic.messages.create(base);
 
     // Recusa da cadeia inteira: melhor ficar calado e deixar para o humano do
     // que mandar algo estranho para o lead.
@@ -107,7 +115,7 @@ serve(async (req) => {
     }
 
     const texto = resposta.content
-      .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
+      .filter((b): b is Anthropic.TextBlock | Anthropic.Beta.BetaTextBlock => b.type === "text")
       .map((b) => b.text)
       .join("\n")
       .trim();
