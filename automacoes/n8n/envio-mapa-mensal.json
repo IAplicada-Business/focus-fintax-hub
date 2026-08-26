@@ -189,7 +189,7 @@
         240
       ],
       "parameters": {
-        "jsCode": "const p = $input.first().json;\n\n// A competência vem do banco (já em America/Sao_Paulo). O 'T12:00:00' evita que\n// o fuso do container jogue a data pro mês anterior na conversão.\nconst comp = new Date(p.competencia + 'T12:00:00');\nconst mesAno = comp.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });\n\nconst mensagem = [\n  `Olá, ${p.nome_contato}! 👋`,\n  '',\n  `O Mapa Tributário da ${p.empresa} referente a ${mesAno} está disponível:`,\n  p.link,\n  '',\n  'Qualquer dúvida, é só responder por aqui.',\n  '— Equipe Focus FinTax',\n].join('\\n');\n\nreturn [{ json: { ...p, mensagem } }];\n"
+        "jsCode": "const p = $input.first().json;\n\n// A competência vem do banco (já em America/Sao_Paulo). O 'T12:00:00' evita que\n// o fuso do container jogue a data pro mês anterior na conversão.\nconst comp = new Date(p.competencia + 'T12:00:00');\nconst mesAno = comp.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });\n\n// nome_contato vem NULL quando o cadastro não tem contato. Sem isto a mensagem\n// sairia \"Olá, undefined!\" — ou, pior, com um nome inventado pelo SQL.\nconst saudacao = p.nome_contato ? `Olá, ${p.nome_contato}! 👋` : 'Olá! 👋';\n\nconst mensagem = [\n  saudacao,\n  '',\n  `O Mapa Tributário da ${p.empresa} referente a ${mesAno} está disponível:`,\n  p.link,\n  '',\n  'Qualquer dúvida, é só responder por aqui.',\n  '— Equipe Focus FinTax',\n].join('\\n');\n\nreturn [{ json: { ...p, mensagem } }];\n"
       }
     },
     {

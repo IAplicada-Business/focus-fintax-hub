@@ -189,7 +189,10 @@ BEGIN
     SELECT
       c.id AS cliente_id,
       c.empresa,
-      COALESCE(NULLIF(btrim(c.nome_contato), ''), 'tudo bem') AS nome_contato,
+      -- NULL quando não há contato cadastrado. Não inventar nome aqui: quem
+      -- decide como saudar é quem monta a mensagem. Antes isto devolvia
+      -- 'tudo bem' e a mensagem saía como "Olá, tudo bem! 👋".
+      NULLIF(btrim(c.nome_contato), '') AS nome_contato,
       public.normalizar_whatsapp(c.whatsapp) AS telefone,
       v_base || '/mapa/' || ml.token AS link
     FROM public.clientes c
