@@ -1,0 +1,344 @@
+{
+  "name": "Focus FinTax — Relatório Semanal WhatsApp",
+  "active": false,
+  "nodes": [
+    {
+      "id": "trigger-sexta",
+      "name": "Sexta 08:00 BRT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -380,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 5"
+            }
+          ]
+        }
+      },
+      "notes": "Cron interpretado no timezone do WORKFLOW (Settings > Timezone = America/Sao_Paulo). Sem isso roda em UTC."
+    },
+    {
+      "id": "http-agrega",
+      "name": "Agrega Relatório",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -150,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://qzkqrhamqtchboxtwpnz.supabase.co/rest/v1/rpc/relatorio_semanal_esteira",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUBSTITUIR_ID_CREDENCIAL_SUPABASE",
+          "name": "Supabase Focus FinTax"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notes": "RPC do PostgREST em vez de conexão Postgres: sem senha de banco, sem host de pooler, sem IPv4/IPv6. Toda a agregação está na função SQL (migration 20260826120000)."
+    },
+    {
+      "id": "code-formata",
+      "name": "Formata Mensagem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// PostgREST devolve o jsonb da função direto no corpo — a função é escalar\n// (RETURNS jsonb), não SETOF, então não vem embrulhado em array. O fallback\n// `.payload` cobre o caso de alguém voltar pro node Postgres depois.\nconst body = $input.first().json;\nlet raw = (body && body.payload !== undefined) ? body.payload : body;\nif (typeof raw === 'string') raw = JSON.parse(raw);\n// Defensivo: dependendo da versão, o n8n pode entregar o array de resultado do\n// PostgREST cru em vez de dividir em itens. Sem isso a mensagem sairia com\n// \"undefined\" em todo número, em silêncio — pior que quebrar.\nif (Array.isArray(raw)) raw = raw[0];\nconst r = raw;\n\nif (!r || r.periodo_inicio === undefined) {\n  throw new Error('Payload inesperado do RPC: ' + JSON.stringify(body).slice(0, 300));\n}\n\n// Nenhuma conta e NENHUMA data é feita aqui: relatorio_semanal_esteira() já\n// devolveu tudo agregado e já devolveu a semana em America/Sao_Paulo. O n8n roda\n// no timezone do container, então recalcular data neste node é a forma mais\n// fácil de o relatório sair com a semana errada.\nconst br = (iso) => String(iso).slice(0, 10).split('-').reverse().join('/'); // 24/08/2026\nconst dm = (iso) => br(iso).slice(0, 5);                                    // 24/08\n\nconst L = [];\nL.push('*Relatório Semanal — Focus FinTax*');\nL.push(`${dm(r.periodo_inicio)} a ${br(r.periodo_fim)}`);\nL.push('');\nL.push(`Leads em tratamento na semana: *${r.leads_semana}*`);\nL.push(`Clientes que mudaram de etapa: *${r.movimentacao_esteira_semana}*`);\nL.push('');\n\nL.push(`*Leads em andamento (${r.leads_em_andamento})*`);\nif (r.leads_por_etapa.length) {\n  for (const e of r.leads_por_etapa) L.push(`• ${e.etapa}: ${e.total}`);\n} else {\n  L.push('• nenhum lead aberto no funil');\n}\nL.push('');\n\n// Etapas zeradas saem da lista — numa esteira de 7 etapas com 3 clientes, a\n// mensagem viraria mais zero que informação.\nconst etapasComCliente = (r.esteira_por_etapa || []).filter((e) => e.total > 0);\nL.push(`*Esteira administrativa (${r.esteira_total})*`);\nif (etapasComCliente.length) {\n  for (const e of etapasComCliente) {\n    const atraso = e.atrasados\n      ? ` (${e.atrasados} atrasado${e.atrasados > 1 ? 's' : ''})`\n      : '';\n    L.push(`• ${e.etapa}: ${e.total}${atraso}`);\n  }\n} else {\n  L.push('• nenhum cliente ativo na esteira');\n}\nL.push('');\n\nif (r.parados_total) {\n  L.push(`*Parados (${r.parados_total})*`);\n  for (const m of r.parados) {\n    L.push(`• ${m.motivo}: ${m.total} — pior caso ${m.pior_atraso_dias}d além do prazo`);\n  }\n} else {\n  L.push('*Parados:* ninguém além do SLA nesta semana.');\n}\nL.push('');\nL.push('Painel: https://focusfintax.com/esteira');\n\nreturn [{\n  json: {\n    mensagem: L.join('\\n'),\n    periodo_inicio: r.periodo_inicio,\n    periodo_fim: r.periodo_fim,\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "http-zapi",
+      "name": "Z-API Enviar Texto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        310,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.z-api.io/instances/{{ $env.ZAPI_INSTANCE_ID }}/token/{{ $env.ZAPI_TOKEN }}/send-text",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $env.ZAPI_DESTINO, message: $json.mensagem }) }}",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "={{ $env.ZAPI_CLIENT_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 10000,
+      "notes": "JSON.stringify e não interpolação: a mensagem tem \\n e asteriscos, e \"message\": \"={{ $json.mensagem }}\" produziria JSON inválido na primeira quebra de linha."
+    },
+    {
+      "id": "if-enviado",
+      "name": "Envio confirmado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        540,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond-zaapid",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.zaapId }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "HTTP 200 não é prova de entrega na Z-API. zaapId presente = mensagem aceita pela instância."
+    },
+    {
+      "id": "http-log-ok",
+      "name": "Log Sucesso",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        790,
+        120
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://qzkqrhamqtchboxtwpnz.supabase.co/rest/v1/weekly_report_log",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const F = $('Formata Mensagem').first().json; return JSON.stringify({ periodo_inicio: F.periodo_inicio, periodo_fim: F.periodo_fim, destinatario: $env.ZAPI_DESTINO, mensagem: F.mensagem, status: 'sucesso', zapi_response: $json }); })() }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUBSTITUIR_ID_CREDENCIAL_SUPABASE",
+          "name": "Supabase Focus FinTax"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "http-log-falha",
+      "name": "Log Falha",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        790,
+        380
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://qzkqrhamqtchboxtwpnz.supabase.co/rest/v1/weekly_report_log",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const F = $('Formata Mensagem').first().json; return JSON.stringify({ periodo_inicio: F.periodo_inicio, periodo_fim: F.periodo_fim, destinatario: $env.ZAPI_DESTINO, mensagem: F.mensagem, status: 'falha', zapi_response: $json, erro: ($json.error?.message || $json.message || 'Z-API respondeu sem zaapId') }); })() }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUBSTITUIR_ID_CREDENCIAL_SUPABASE",
+          "name": "Supabase Focus FinTax"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "http-alerta-ops",
+      "name": "Alerta Ops (WhatsApp)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1030,
+        380
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.z-api.io/instances/{{ $env.ZAPI_INSTANCE_ID }}/token/{{ $env.ZAPI_TOKEN }}/send-text",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $env.ZAPI_DESTINO_OPS, message: '⚠️ Relatório semanal Focus FinTax NÃO foi entregue (' + $('Formata Mensagem').first().json.periodo_inicio + ' a ' + $('Formata Mensagem').first().json.periodo_fim + '). Erro: ' + ($('Z-API Enviar Texto').first().json.error?.message || $('Z-API Enviar Texto').first().json.message || 'resposta sem zaapId') + ' — detalhes em public.weekly_report_log.' }) }}",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "={{ $env.ZAPI_CLIENT_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Falha silenciosa é o pior cenário: o mecanismo de pressão para de existir e ninguém percebe. Vai pro número de operação (Mariana), não pro do Alcir."
+    }
+  ],
+  "connections": {
+    "Sexta 08:00 BRT": {
+      "main": [
+        [
+          {
+            "node": "Agrega Relatório",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agrega Relatório": {
+      "main": [
+        [
+          {
+            "node": "Formata Mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formata Mensagem": {
+      "main": [
+        [
+          {
+            "node": "Z-API Enviar Texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Z-API Enviar Texto": {
+      "main": [
+        [
+          {
+            "node": "Envio confirmado?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Falha",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envio confirmado?": {
+      "main": [
+        [
+          {
+            "node": "Log Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Falha",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Falha": {
+      "main": [
+        [
+          {
+            "node": "Alerta Ops (WhatsApp)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveExecutionProgress": true,
+    "errorWorkflow": ""
+  },
+  "pinData": {},
+  "tags": []
+}
