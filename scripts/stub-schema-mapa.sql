@@ -30,7 +30,13 @@ create table public.compensacoes_mensais (
   id uuid primary key default gen_random_uuid(),
   cliente_id uuid references public.clientes(id) on delete cascade,
   valor_compensado numeric, tese_origem_id uuid, processo_tese_id uuid,
-  mes_referencia date, tributo text, tributo_enum text
+  mes_referencia date, tributo text, tributo_enum text,
+  -- Colunas de honorário: existem em producao e o stub precisa espelhar, senao
+  -- o harness passa e a migration quebra no Supabase.
+  honorario_valor numeric, honorario_percentual numeric,
+  valor_nf_servico numeric, nfse_valor numeric,
+  lancado_mapa boolean not null default false,
+  criado_em timestamptz not null default now()
 );
 create table public.creditos_apurados (
   cliente_id uuid references public.clientes(id) on delete cascade,

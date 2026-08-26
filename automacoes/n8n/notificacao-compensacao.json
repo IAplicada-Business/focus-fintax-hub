@@ -1,0 +1,272 @@
+{
+  "name": "Focus FinTax — Notificação de Compensação",
+  "active": false,
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook Compensação",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -560,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "compensacao-registrada",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "compensacao-registrada",
+      "notes": "Chamado pelo trigger trg_notificar_compensacao via net.http_post. Body: {log_id, cliente_id, mes_referencia}."
+    },
+    {
+      "id": "auth",
+      "name": "Token confere?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -340,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-token",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.headers['x-webhook-token'] }}",
+              "rightValue": "={{ $env.N8N_WEBHOOK_COMPENSACAO_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Sem isto, quem descobrir a URL do webhook dispara WhatsApp para o Alcir."
+    },
+    {
+      "id": "espera",
+      "name": "Espera 60s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -120,
+        220
+      ],
+      "parameters": {
+        "amount": 60,
+        "unit": "seconds"
+      },
+      "notes": "É o que faz o agrupamento funcionar: quem lancar mais tributos nestes 60s nao dispara webhook novo (a pendencia ja existe) e entra na consulta abaixo. Medido: 79 de 94 intervalos reais entre lancamentos ficam abaixo de 60s, e nenhum cai entre 60s e 2min."
+    },
+    {
+      "id": "payload",
+      "name": "Busca Grupo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        100,
+        220
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://qzkqrhamqtchboxtwpnz.supabase.co/rest/v1/rpc/notificacao_compensacao_payload",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_cliente_id: $('Webhook Compensação').first().json.body.cliente_id, p_mes: $('Webhook Compensação').first().json.body.mes_referencia }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUBSTITUIR_ID_CREDENCIAL_SUPABASE",
+          "name": "Supabase Focus FinTax"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notes": "Busca o grupo COMPLETO depois da espera — inclui as linhas que chegaram durante os 60s."
+    },
+    {
+      "id": "mensagem",
+      "name": "Monta Mensagem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        220
+      ],
+      "parameters": {
+        "jsCode": "// PostgREST devolve o jsonb da função escalar direto no corpo.\nconst raw = $input.first().json;\nconst p = Array.isArray(raw) ? raw[0] : raw;\n\nif (!p || p.empresa === undefined) {\n  throw new Error('Payload inesperado da RPC: ' + JSON.stringify(raw).slice(0, 300));\n}\n\nconst brl = (v) => Number(v || 0).toLocaleString('pt-BR', {\n  style: 'currency', currency: 'BRL',\n});\n\n// Meses à mão em vez de toLocaleDateString: em pt-BR o formato 'short' devolve\n// \"ago. de 2026\", e o resultado ainda varia entre versões do Node.\nconst MESES = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];\nconst [ano, mes] = String(p.mes_referencia).slice(0, 10).split('-');\nconst mesAno = `${MESES[Number(mes) - 1]}/${ano}`;\n\nconst L = ['💰 *Compensação registrada*', '', p.empresa];\nif (p.tese) L.push(`${p.tese} — ${mesAno}`);\nelse L.push(mesAno);\nL.push('');\n\nfor (const l of p.linhas || []) {\n  L.push(`• ${l.tributo || '—'}: ${brl(l.valor)}`);\n}\n\nL.push('');\nL.push(`Total: *${brl(p.total_compensado)}*`);\n\n// Lista TODOS os percentuais distintos. Um mês pode ter INSS a 15% e PIS/COFINS\n// a 20% — exibir só um repetiria o bug que o Focus reportou em 26/08.\nconst pcts = (p.percentuais || []).map((x) => {\n  const n = Number(x);\n  return `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(1)}%`;\n});\nconst rotulo = pcts.length === 0 ? ''\n  : pcts.length === 1 ? ` (${pcts[0]})`\n  : ` (${pcts.slice(0, -1).join(', ')} e ${pcts[pcts.length - 1]})`;\n\nif (Number(p.total_honorarios) > 0) {\n  L.push(`Honorários: ${brl(p.total_honorarios)}${rotulo}`);\n}\n\nreturn [{ json: { mensagem: L.join('\\n') } }];\n"
+      }
+    },
+    {
+      "id": "envia",
+      "name": "Z-API Enviar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        540,
+        220
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.z-api.io/instances/{{ $env.ZAPI_INSTANCE_ID }}/token/{{ $env.ZAPI_TOKEN }}/send-text",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $env.ZAPI_DESTINO, message: $json.mensagem }) }}",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "={{ $env.ZAPI_CLIENT_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "log",
+      "name": "Marca Log",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        220
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://qzkqrhamqtchboxtwpnz.supabase.co/rest/v1/notificacao_compensacao_log?id=eq.' + $('Webhook Compensação').first().json.body.log_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ enviado_em: new Date().toISOString(), destinatario: $env.ZAPI_DESTINO, mensagem: $('Monta Mensagem').first().json.mensagem, status: ($json.zaapId ? 'sucesso' : 'falha'), zapi_response: $json, erro: ($json.zaapId ? null : ($json.error?.message || $json.message || 'sem zaapId')) }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUBSTITUIR_ID_CREDENCIAL_SUPABASE",
+          "name": "Supabase Focus FinTax"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notes": "Fecha a pendencia. Linha que fica com enviado_em nulo = notificacao perdida."
+    }
+  ],
+  "connections": {
+    "Webhook Compensação": {
+      "main": [
+        [
+          {
+            "node": "Token confere?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token confere?": {
+      "main": [
+        [
+          {
+            "node": "Espera 60s",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Espera 60s": {
+      "main": [
+        [
+          {
+            "node": "Busca Grupo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Busca Grupo": {
+      "main": [
+        [
+          {
+            "node": "Monta Mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monta Mensagem": {
+      "main": [
+        [
+          {
+            "node": "Z-API Enviar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Z-API Enviar": {
+      "main": [
+        [
+          {
+            "node": "Marca Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveExecutionProgress": true,
+    "errorWorkflow": ""
+  },
+  "pinData": {},
+  "tags": []
+}

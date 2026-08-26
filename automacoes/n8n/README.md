@@ -298,3 +298,106 @@ compensa o token ser permanente.
   atingíveis — só WhatsApp alcança quem tem número cadastrado.
 - Tratar resposta do cliente (inbound). O opt-out é manual no cadastro.
 - Tela para revogar/regerar token — hoje é SQL.
+
+---
+
+# Notificação de compensação em tempo real (blueprint Step 12a)
+
+Cada compensação lançada no sistema avisa o Alcir no WhatsApp, agrupada por
+cliente/mês.
+
+| Arquivo | O que é |
+|---|---|
+| `notificacao-compensacao.json` | Workflow |
+| `supabase/migrations/20260826160000_notificacao_compensacao_tempo_real.sql` | trigger, log e RPC de payload |
+| `scripts/test-notificacao-compensacao.sql` | Harness SQL |
+| `docs/superpowers/specs/2026-08-26-notificacao-compensacao-tempo-real-design.md` | Spec |
+
+## Fluxo
+
+```
+INSERT em compensacoes_mensais
+  → trigger de STATEMENT (trg_notificar_compensacao)
+       ├─ comando com > 10 linhas? não faz nada (é carga)
+       ├─ já há pendência do cliente/mês nos últimos 2min? pula
+       └─ net.http_post → webhook do n8n
+  → n8n: valida x-webhook-token
+  → Espera 60s
+  → POST /rpc/notificacao_compensacao_payload  ← pega o grupo COMPLETO
+  → Z-API send-text (ZAPI_DESTINO)
+  → PATCH notificacao_compensacao_log
+```
+
+## Por que trigger de STATEMENT
+
+É o ponto que define o desenho. A carga de 16/07 inseriu **364 linhas em 181
+grupos cliente/mês**. Um trigger de linha — mesmo deduplicando por grupo — teria
+disparado 181 webhooks e 181 mensagens de WhatsApp.
+
+Vendo o comando inteiro (`REFERENCING NEW TABLE AS novas`), o trigger consegue
+três coisas que um trigger de linha não consegue: contar as linhas do comando e
+silenciar cargas, agrupar dentro do próprio comando (4 tributos num INSERT = 1
+webhook), e disparar uma vez por grupo novo.
+
+## Por que 60 segundos
+
+Medido nos dados reais, excluindo as cargas: dos 94 intervalos entre lançamentos
+consecutivos do mesmo cliente/mês, **79 estão abaixo de 60s e nenhum cai entre
+60s e 2 minutos**. A distribuição é bimodal — ou o time lança tudo na mesma
+sessão (mediana 19s), ou volta dias depois. Os 60s ficam no vazio da
+distribuição; esticar para 5min captura 3 casos a mais e quadruplica a latência.
+
+**Consequência assumida:** o "≤10s" do exit criteria do Step 12 não é atingível
+com agrupamento. Entrega fica em ~1 minuto.
+
+## O trigger nunca derruba um INSERT
+
+Todo o corpo está dentro de `EXCEPTION WHEN OTHERS THEN RETURN NULL`. Vault
+ausente, rede fora ou erro de configuração não podem impedir alguém de lançar
+uma compensação — a notificação é acessório. Coberto por teste no harness.
+
+## Setup
+
+### 1. Segredos no vault (é isto que liga a automação)
+
+Enquanto não existirem, o trigger **retorna sem fazer nada** — é seguro deixar
+a migration aplicada antes de configurar.
+
+```sql
+select vault.create_secret('https://SEU-N8N/webhook/compensacao-registrada',
+                           'n8n_webhook_compensacao_url');
+select vault.create_secret('<token forte>', 'n8n_webhook_compensacao_token');
+```
+
+### 2. n8n
+
+- Importar `notificacao-compensacao.json`
+- Credencial `Supabase API` nos nodes `Busca Grupo` e `Marca Log`
+- Variável `N8N_WEBHOOK_COMPENSACAO_TOKEN` com o **mesmo** token do vault
+- Ativar (o webhook só existe com o workflow ativo)
+
+O header `x-webhook-token` é validado no segundo node. Sem isso, quem descobrir
+a URL dispara WhatsApp para o Alcir.
+
+### 3. Testar
+
+```sql
+-- lança uma compensação de teste e acompanha
+insert into compensacoes_mensais (cliente_id, processo_tese_id, mes_referencia, valor_compensado, tributo)
+values ('<cliente>', '<processo>', '2026-08-01', 1000, 'INSS');
+
+select * from notificacao_compensacao_log order by disparado_em desc limit 3;
+```
+
+Esperado: linha `pendente` na hora, virando `sucesso` ~60s depois. Se ficar
+`pendente` para sempre, o n8n não recebeu — confira o token e se o workflow está
+ativo.
+
+## Fora de escopo
+
+- Varredor de notificações perdidas (`enviado_em` nulo).
+- **12b** — preferências por usuário (quem recebe o quê).
+- **12c** — automatizar o comunicado *ao cliente*. O botão "Comunicado WhatsApp"
+  de `CompensacoesTab` hoje só copia para a área de transferência, e é dirigido
+  ao cliente (tem Pix, "Equipe Focus") — mensagem e destinatário diferentes
+  desta notificação interna. Juntar as duas seria erro.
