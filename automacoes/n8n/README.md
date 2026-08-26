@@ -401,3 +401,92 @@ ativo.
   de `CompensacoesTab` hoje só copia para a área de transferência, e é dirigido
   ao cliente (tem Pix, "Equipe Focus") — mensagem e destinatário diferentes
   desta notificação interna. Juntar as duas seria erro.
+
+---
+
+# Atendimento WhatsApp (blueprint Step 11)
+
+Conversa de duas vias com o lead, dentro do sistema. Dois fluxos, porque têm
+gatilhos e direções diferentes.
+
+| Arquivo | O que é |
+|---|---|
+| `atendimento-receber.json` | Z-API → banco |
+| `atendimento-enviar.json` | banco → Z-API |
+| `supabase/migrations/20260826170000_atendimento_whatsapp.sql` | tabelas, triggers, RLS |
+| `supabase/migrations/20260826180000_atendimento_conversa_rpc.sql` | RPC que a aba consome |
+| `supabase/migrations/20260826200000_atendimento_registrar_entrada.sql` | RPC de entrada |
+| `scripts/test-atendimento.sql` | Harness (16 grupos) |
+
+## Receber
+
+```
+Z-API (on-message-received) → valida x-webhook-token
+  → Extrai Mensagem  ← filtra o que NÃO é conversa
+  → É mensagem? ─não→ fim
+  → POST /rpc/atendimento_registrar_entrada
+  → Bot ativo? ─→ [seam do bot, vazio]
+```
+
+**O filtro é o node que mais importa.** A Z-API manda no mesmo webhook:
+confirmação de entrega, status de leitura, presença, e as mensagens que **nós**
+enviamos (`fromMe: true`). Sem descartar, a tabela enche de lixo e a conversa
+fica ilegível. Cobertos por teste: texto, imagem com legenda, áudio, documento,
+`fromMe`, callback de status, sem telefone e payload vazio.
+
+Uma chamada só ao banco: a RPC normaliza o telefone, resolve o lead e insere.
+Se o n8n fizesse os três passos, seriam três lugares para divergir. Reenvio da
+Z-API volta `inserida: false` — sem erro, sem duplicar (índice único em
+`zapi_message_id`).
+
+## Enviar
+
+```
+Webhook (disparado por trg_atendimento_envio) → valida token
+  → Z-API send-text
+  → PATCH status 'enviada' | 'falha'
+```
+
+O texto **já foi gravado pela UI** como `pendente`; este fluxo só muda o status
+e guarda o id da Z-API. Existe porque o token não pode ir ao browser.
+
+## Setup
+
+### 1. Vault
+
+Enquanto não existirem, o trigger de envio não faz nada — seguro aplicar antes.
+
+```sql
+select vault.create_secret('https://SEU-N8N/webhook/atendimento-enviar', 'atendimento_enviar_url');
+select vault.create_secret('<token forte>', 'atendimento_webhook_token');
+```
+
+### 2. n8n
+
+- Importar os dois workflows
+- Credencial `Supabase API` em `Salva no Banco` e `Atualiza Status`
+- Variável `ATENDIMENTO_WEBHOOK_TOKEN` com o **mesmo** token do vault
+- Ativar os dois (webhook só existe com workflow ativo)
+
+### 3. Z-API
+
+Painel → Webhooks → **Ao receber** → URL do `atendimento-receber`.
+
+Não configure "ao enviar" nem "status" apontando para cá — o filtro descarta,
+mas é execução desperdiçada.
+
+## O seam do bot
+
+O node `Bot ativo?` no fim do receber é onde o robô pluga. Hoje a saída
+verdadeira não vai a lugar nenhum, e é assim que deve ficar: a conversa aparece
+na tela por realtime e o time responde.
+
+Quando o prompt existir, o robô ainda precisa checar
+`atendimento_conversas.bot_ativo` antes de falar — o default é `false`, e
+resposta humana deve desligar.
+
+## Fora de escopo
+
+- Prompt e loop do bot.
+- Player de mídia (a UI mostra rótulo com link).
+- Atribuição de atendente, marcação de lida, busca no histórico.

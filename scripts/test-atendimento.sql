@@ -167,3 +167,52 @@ begin
 end $$;
 
 select 'RPC OK' as resultado;
+
+-- 12) Entrada em uma chamada: normaliza, resolve e insere.
+do $$
+declare r jsonb;
+begin
+  r := public.atendimento_registrar_entrada('(22) 98114-3032', 'mensagem do lead', 'texto', null, 'ZAPI-100');
+  assert (r->>'ok')::boolean, 'deveria ter dado ok';
+  assert r->>'telefone' = '5522981143032', 'nao normalizou: ' || coalesce(r->>'telefone','null');
+  assert (r->>'inserida')::boolean, 'deveria ter inserido';
+  assert r->>'lead_id' is not null, 'deveria ter resolvido o lead';
+  raise notice 'OK entrada em uma chamada';
+end $$;
+
+-- 13) Reenvio da Z-API nao duplica nem quebra o fluxo.
+do $$
+declare r jsonb; antes int;
+begin
+  select count(*) into antes from public.atendimento_mensagens where zapi_message_id='ZAPI-100';
+  r := public.atendimento_registrar_entrada('5522981143032', 'mensagem do lead', 'texto', null, 'ZAPI-100');
+  assert (r->>'ok')::boolean, 'reenvio nao pode virar erro';
+  assert (r->>'inserida')::boolean = false, 'reenvio nao deveria inserir de novo';
+  assert (select count(*) from public.atendimento_mensagens where zapi_message_id='ZAPI-100') = antes,
+    'reenvio duplicou a mensagem';
+  raise notice 'OK reenvio idempotente';
+end $$;
+
+-- 14) Telefone invalido nao vira mensagem orfa.
+do $$
+declare r jsonb; antes int;
+begin
+  select count(*) into antes from public.atendimento_mensagens;
+  r := public.atendimento_registrar_entrada('123', 'lixo', 'texto', null, 'ZAPI-999');
+  assert (r->>'ok')::boolean = false, 'telefone invalido deveria recusar';
+  assert r->>'motivo' = 'telefone_invalido', 'motivo errado: ' || coalesce(r->>'motivo','null');
+  assert (select count(*) from public.atendimento_mensagens) = antes, 'nao deveria gravar nada';
+  raise notice 'OK telefone invalido recusado sem gravar';
+end $$;
+
+-- 15) Audio guarda tipo e URL.
+do $$
+declare r jsonb; m record;
+begin
+  r := public.atendimento_registrar_entrada('5522981143032', null, 'audio', 'https://z.api/a.ogg', 'ZAPI-101');
+  select tipo, midia_url into m from public.atendimento_mensagens where zapi_message_id='ZAPI-101';
+  assert m.tipo = 'audio' and m.midia_url = 'https://z.api/a.ogg', 'midia nao gravada';
+  raise notice 'OK audio com tipo e url';
+end $$;
+
+select 'ENTRADA OK' as resultado;

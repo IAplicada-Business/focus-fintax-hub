@@ -1,0 +1,180 @@
+{
+  "name": "Focus FinTax — Atendimento Enviar",
+  "active": false,
+  "nodes": [
+    {
+      "id": "hook",
+      "name": "Webhook Envio",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -620,
+        300
+      ],
+      "webhookId": "atendimento-enviar",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "atendimento-enviar",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "notes": "Disparado pelo trigger trg_atendimento_envio quando a UI grava uma mensagem 'pendente'. Body: {mensagem_id, telefone, texto}."
+    },
+    {
+      "id": "auth-env",
+      "name": "Token confere?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -400,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-token",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.headers['x-webhook-token'] }}",
+              "rightValue": "={{ $env.ATENDIMENTO_WEBHOOK_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Sem isto, quem descobrir a URL escreve na conversa dos seus clientes."
+    },
+    {
+      "id": "envia",
+      "name": "Z-API Enviar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -180,
+        220
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.z-api.io/instances/{{ $env.ZAPI_INSTANCE_ID }}/token/{{ $env.ZAPI_TOKEN }}/send-text",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $('Webhook Envio').first().json.body.telefone, message: $('Webhook Envio').first().json.body.texto }) }}",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "={{ $env.ZAPI_CLIENT_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "notes": "continueRegularOutput: falha vira status 'falha' na tela em vez de sumir."
+    },
+    {
+      "id": "patch",
+      "name": "Atualiza Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        60,
+        220
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://qzkqrhamqtchboxtwpnz.supabase.co/rest/v1/atendimento_mensagens?id=eq.' + $('Webhook Envio').first().json.body.mensagem_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: ($json.zaapId ? 'enviada' : 'falha'), zapi_message_id: ($json.messageId || $json.zaapId || null), erro: ($json.zaapId ? null : ($json.error?.message || $json.message || 'sem zaapId')) }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUBSTITUIR_ID_CREDENCIAL_SUPABASE",
+          "name": "Supabase Focus FinTax"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "notes": "Fecha o outbox. O texto ja foi gravado pela UI; aqui so muda o status e guarda o id da Z-API."
+    }
+  ],
+  "connections": {
+    "Webhook Envio": {
+      "main": [
+        [
+          {
+            "node": "Token confere?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token confere?": {
+      "main": [
+        [
+          {
+            "node": "Z-API Enviar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Z-API Enviar": {
+      "main": [
+        [
+          {
+            "node": "Atualiza Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveExecutionProgress": true,
+    "errorWorkflow": ""
+  },
+  "pinData": {},
+  "tags": []
+}
