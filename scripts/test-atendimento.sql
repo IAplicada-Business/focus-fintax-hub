@@ -142,3 +142,28 @@ begin
 end $$;
 
 select 'TODOS OS TESTES PASSARAM' as resultado;
+
+-- 10) RPC da aba: recebe telefone CRU, normaliza dentro, agrupa a conversa.
+do $$
+declare r jsonb;
+begin
+  r := public.atendimento_conversa('(22) 98114-3032');   -- cru, com mascara
+  assert r->>'telefone' = '5522981143032', 'nao normalizou: ' || coalesce(r->>'telefone','null');
+  assert (r->>'leads_compartilhando')::int = 3, 'esperava 3 leads dividindo, veio ' || (r->>'leads_compartilhando');
+  assert jsonb_array_length(r->'mensagens') >= 4, 'esperava as mensagens da conversa';
+  assert (r->>'bot_ativo')::boolean = false, 'bot deveria estar desligado';
+  raise notice 'OK RPC da aba (% mensagens, % leads)', jsonb_array_length(r->'mensagens'), r->>'leads_compartilhando';
+end $$;
+
+-- 11) Telefone invalido nao quebra a tela: volta vazio, nao erro.
+do $$
+declare r jsonb;
+begin
+  r := public.atendimento_conversa('123');
+  assert r->>'telefone' is null, 'telefone invalido deveria voltar null';
+  assert jsonb_array_length(r->'mensagens') = 0, 'deveria voltar sem mensagens';
+  assert (r->>'leads_compartilhando')::int = 0, 'nao deveria contar leads';
+  raise notice 'OK telefone invalido volta vazio';
+end $$;
+
+select 'RPC OK' as resultado;

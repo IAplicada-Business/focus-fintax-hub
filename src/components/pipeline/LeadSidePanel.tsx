@@ -20,6 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { canEditLead } from "@/lib/role-permissions";
 import type { PipelineLead } from "@/pages/Pipeline";
 import { ConvertClientModal } from "./ConvertClientModal";
+import AtendimentoTab from "./AtendimentoTab";
 
 interface Props {
   lead: PipelineLead | null;
@@ -53,6 +54,7 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
   const isEditable = lead ? canEditLead(userRole, lead.status_funil) : false;
   const isFullReadOnly = userRole === "gestor_tributario";
   const canDelete = userRole === "admin";
+  const [aba, setAba] = useState("dados");
   const [obs, setObs] = useState("");
   const [historico, setHistorico] = useState<HistoricoEntry[]>([]);
   const [showConvert, setShowConvert] = useState(false);
@@ -270,10 +272,15 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
   const potMin = lead?.relatorios_leads?.[0]?.estimativa_total_minima || 0;
   const potMax = lead?.relatorios_leads?.[0]?.estimativa_total_maxima || 0;
 
+  // Atendimento precisa de largura pra conversa caber; as outras abas não.
+  const largura = aba === "atendimento"
+    ? "w-[880px] sm:max-w-[880px]"
+    : "w-[480px] sm:max-w-[480px]";
+
   return (
     <>
       <Sheet open={!!lead} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent className="w-[480px] sm:max-w-[480px] overflow-y-auto p-0">
+        <SheetContent className={`${largura} overflow-y-auto p-0 transition-[width,max-width] duration-200`}>
           {lead && (
             <div className="flex flex-col h-full">
               <SheetHeader className="p-6 pb-4 border-b">
@@ -312,12 +319,19 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
                 </div>
               </SheetHeader>
 
-              <Tabs defaultValue="dados" className="flex-1 flex flex-col">
+              <Tabs value={aba} onValueChange={setAba} className="flex-1 flex flex-col min-h-0">
                 <TabsList className="mx-6 mt-4">
                   <TabsTrigger value="dados">Dados</TabsTrigger>
                   <TabsTrigger value="diagnostico">Diagnóstico</TabsTrigger>
                   <TabsTrigger value="historico">Histórico</TabsTrigger>
+                  <TabsTrigger value="atendimento">Atendimento</TabsTrigger>
                 </TabsList>
+
+                {/* Atendimento: a conversa do WhatsApp. Monta só quando a aba
+                    está aberta — evita assinar realtime de todo lead clicado. */}
+                <TabsContent value="atendimento" className="flex-1 min-h-0 pb-0 mt-4">
+                  {aba === "atendimento" && <AtendimentoTab whatsapp={lead.whatsapp || null} />}
+                </TabsContent>
 
                 {/* Dados Tab */}
                 <TabsContent value="dados" className="flex-1 overflow-y-auto px-6 pb-4 space-y-4">
