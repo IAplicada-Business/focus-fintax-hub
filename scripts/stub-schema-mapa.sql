@@ -10,6 +10,7 @@ create role service_role;
 create schema if not exists extensions;
 create extension if not exists pgcrypto with schema extensions;
 create schema if not exists auth;
+create table auth.users (id uuid primary key default gen_random_uuid());
 create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
 create type public.app_role as enum ('admin','pmo','gestor_tributario','comercial','cliente','sdr','gestor_comercial','marketing');
 create function public.has_role(_u uuid, _r public.app_role) returns boolean
