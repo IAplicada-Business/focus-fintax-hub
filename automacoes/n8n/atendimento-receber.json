@@ -1,0 +1,293 @@
+{
+  "name": "Focus FinTax — Atendimento Receber",
+  "active": false,
+  "nodes": [
+    {
+      "id": "hook",
+      "name": "Webhook Z-API",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -620,
+        300
+      ],
+      "webhookId": "atendimento-receber",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "atendimento-receber",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "notes": "URL para colar em Z-API > Webhooks > Ao receber. Responde na hora."
+    },
+    {
+      "id": "auth-rec",
+      "name": "Token confere?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -400,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-token",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.headers['x-webhook-token'] }}",
+              "rightValue": "={{ $env.ATENDIMENTO_WEBHOOK_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Sem isto, quem descobrir a URL escreve na conversa dos seus clientes."
+    },
+    {
+      "id": "extrai",
+      "name": "Extrai Mensagem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        220
+      ],
+      "parameters": {
+        "jsCode": "// Traduz o payload da Z-API para o formato da nossa RPC.\n//\n// A Z-API manda MUITA coisa no mesmo webhook: confirmação de entrega, status de\n// leitura, presença, e mensagens que NÓS enviamos (fromMe). Sem filtrar, a\n// tabela enche de lixo e a conversa fica ilegível.\nconst b = $input.first().json.body ?? $input.first().json;\n\nconst ignorar = (motivo) => [{ json: { processar: false, motivo, bruto_type: b?.type ?? null } }];\n\nif (!b || typeof b !== 'object') return ignorar('payload vazio');\nif (b.fromMe === true) return ignorar('mensagem enviada por nos');\n\n// Callbacks de status não têm conteúdo de mensagem.\nconst temConteudo = b.text || b.image || b.audio || b.video || b.document;\nif (!temConteudo) return ignorar('sem conteudo (provavel callback de status)');\n\nlet tipo = 'texto';\nlet texto = null;\nlet midia = null;\n\nif (b.text) {\n  texto = b.text.message ?? null;\n} else if (b.image) {\n  tipo = 'imagem'; midia = b.image.imageUrl ?? null; texto = b.image.caption ?? null;\n} else if (b.audio) {\n  tipo = 'audio'; midia = b.audio.audioUrl ?? null;\n} else if (b.video) {\n  tipo = 'outro'; midia = b.video.videoUrl ?? null; texto = b.video.caption ?? null;\n} else if (b.document) {\n  tipo = 'documento'; midia = b.document.documentUrl ?? null;\n  texto = b.document.fileName ?? null;\n}\n\nconst telefone = b.phone ?? b.participantPhone ?? null;\nif (!telefone) return ignorar('sem telefone');\n\nreturn [{ json: {\n  processar: true,\n  p_telefone_raw: String(telefone),\n  p_texto: texto,\n  p_tipo: tipo,\n  p_midia_url: midia,\n  p_zapi_message_id: b.messageId ?? b.id ?? null,\n} }];\n"
+      }
+    },
+    {
+      "id": "vale",
+      "name": "É mensagem?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        40,
+        220
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-proc",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.processar === true }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Descarta callback de entrega, leitura, presenca e o que nos mesmos enviamos."
+    },
+    {
+      "id": "salva",
+      "name": "Salva no Banco",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        280,
+        140
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://qzkqrhamqtchboxtwpnz.supabase.co/rest/v1/rpc/atendimento_registrar_entrada",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_telefone_raw: $json.p_telefone_raw, p_texto: $json.p_texto, p_tipo: $json.p_tipo, p_midia_url: $json.p_midia_url, p_zapi_message_id: $json.p_zapi_message_id }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUBSTITUIR_ID_CREDENCIAL_SUPABASE",
+          "name": "Supabase Focus FinTax"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "notes": "Uma chamada: a RPC normaliza o telefone, resolve o lead e insere. Reenvio da Z-API volta inserida=false, sem erro."
+    },
+    {
+      "id": "bot",
+      "name": "Bot ativo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        520,
+        140
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-bot",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.ok === true && $json.inserida === true }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Chama a edge function do bot. Ela consulta bot_contexto e pode responder que nao vai falar (global desligado, conversa desligada, teto de respostas, resposta humana). Isso NAO e erro — silencio e resposta valida."
+    },
+    {
+      "id": "chama_bot",
+      "name": "Bot SDR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        60
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://qzkqrhamqtchboxtwpnz.supabase.co/functions/v1/bot-sdr-responder",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-token",
+              "value": "SUBSTITUIR_BOT_SDR_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ telefone: $('Salva no Banco').first().json.telefone }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUBSTITUIR_ID_CREDENCIAL_SUPABASE",
+          "name": "Supabase Focus FinTax"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "timeout de 120s: o modelo pensa antes de responder e 30s nao basta. continueRegularOutput porque o bot falhar nao pode quebrar o fluxo — a mensagem do lead ja foi salva e aparece na tela para o time responder."
+    }
+  ],
+  "connections": {
+    "Webhook Z-API": {
+      "main": [
+        [
+          {
+            "node": "Token confere?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token confere?": {
+      "main": [
+        [
+          {
+            "node": "Extrai Mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Extrai Mensagem": {
+      "main": [
+        [
+          {
+            "node": "É mensagem?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É mensagem?": {
+      "main": [
+        [
+          {
+            "node": "Salva no Banco",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Salva no Banco": {
+      "main": [
+        [
+          {
+            "node": "Bot ativo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bot ativo?": {
+      "main": [
+        [
+          {
+            "node": "Bot SDR",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveExecutionProgress": true,
+    "errorWorkflow": ""
+  },
+  "pinData": {},
+  "tags": []
+}
