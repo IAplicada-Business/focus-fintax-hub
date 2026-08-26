@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Send, AlertTriangle, Users } from "lucide-react";
+import { Loader2, Send, Bot, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toastError } from "@/lib/handle-error";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +15,7 @@ export interface AtendimentoMensagem {
   tipo: "texto" | "imagem" | "audio" | "documento" | "outro";
   midia_url: string | null;
   status: "recebida" | "pendente" | "enviada" | "falha";
+  origem: "humano" | "bot";
   erro: string | null;
   criado_em: string;
 }
@@ -99,6 +102,27 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
   useEffect(() => {
     fimRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [conversa?.mensagens.length]);
+
+  const alternarBot = async (ligado: boolean) => {
+    if (!telefone) return;
+    // Otimista: o switch responde na hora e o realtime confirma depois.
+    setConversa((c) => (c ? { ...c, bot_ativo: ligado } : c));
+    const { error } = await (supabase as unknown as {
+      from: (t: string) => {
+        update: (v: Record<string, unknown>) => {
+          eq: (c: string, v: string) => Promise<{ error: unknown }>;
+        };
+      };
+    })
+      .from("atendimento_conversas")
+      .update({ bot_ativo: ligado, atualizado_em: new Date().toISOString() })
+      .eq("telefone", telefone);
+
+    if (error) {
+      toastError(error, "Não foi possível alterar o robô");
+      carregar();
+    }
+  };
 
   const enviar = async () => {
     const corpo = texto.trim();
@@ -190,6 +214,11 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
                     )}
                   </p>
                 )}
+                {minha && m.origem === "bot" && (
+                  <p className="text-[10px] font-semibold opacity-80 flex items-center gap-1">
+                    <Bot className="h-3 w-3" aria-hidden /> Robô
+                  </p>
+                )}
                 {m.texto && <p className="text-xs whitespace-pre-wrap break-words">{m.texto}</p>}
                 <div className="mt-0.5 flex items-center gap-1 justify-end">
                   <span className="text-[10px] opacity-70">{horaCurta(m.criado_em)}</span>
@@ -209,14 +238,22 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
         <div ref={fimRef} />
       </div>
 
-      {conversa.bot_ativo && (
-        <div className="mx-6 mt-2 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 p-2">
-          <AlertTriangle className="h-3.5 w-3.5 text-blue-600 shrink-0" aria-hidden />
-          <p className="text-[11px] text-blue-800">
-            Robô ativo nesta conversa. Responder aqui assume o atendimento.
-          </p>
-        </div>
-      )}
+      <div className="mx-6 mt-2 flex items-center gap-2 rounded-md border bg-muted/40 p-2">
+        <Bot className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden />
+        <Label htmlFor="bot-switch" className="text-[11px] flex-1 cursor-pointer">
+          Robô SDR nesta conversa
+          {conversa.bot_ativo && (
+            <span className="block text-[10px] text-muted-foreground">
+              Responder aqui assume o atendimento e desliga o robô.
+            </span>
+          )}
+        </Label>
+        <Switch
+          id="bot-switch"
+          checked={conversa.bot_ativo}
+          onCheckedChange={alternarBot}
+        />
+      </div>
 
       <div className="border-t p-4 flex items-end gap-2">
         <Textarea
