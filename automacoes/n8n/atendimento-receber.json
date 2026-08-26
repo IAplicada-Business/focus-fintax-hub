@@ -167,7 +167,46 @@
         },
         "options": {}
       },
-      "notes": "SEAM DO BOT. Hoje a saida verdadeira nao vai a lugar nenhum: a conversa aparece na tela por realtime e o time responde. Quando o prompt existir, o robo pluga aqui — e ainda precisa checar atendimento_conversas.bot_ativo antes de falar."
+      "notes": "Chama a edge function do bot. Ela consulta bot_contexto e pode responder que nao vai falar (global desligado, conversa desligada, teto de respostas, resposta humana). Isso NAO e erro — silencio e resposta valida."
+    },
+    {
+      "id": "chama_bot",
+      "name": "Bot SDR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        60
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://qzkqrhamqtchboxtwpnz.supabase.co/functions/v1/bot-sdr-responder",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-token",
+              "value": "SUBSTITUIR_BOT_SDR_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ telefone: $('Salva no Banco').first().json.telefone }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUBSTITUIR_ID_CREDENCIAL_SUPABASE",
+          "name": "Supabase Focus FinTax"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "timeout de 120s: o modelo pensa antes de responder e 30s nao basta. continueRegularOutput porque o bot falhar nao pode quebrar o fluxo — a mensagem do lead ja foi salva e aparece na tela para o time responder."
     }
   ],
   "connections": {
@@ -230,7 +269,13 @@
     },
     "Bot ativo?": {
       "main": [
-        [],
+        [
+          {
+            "node": "Bot SDR",
+            "type": "main",
+            "index": 0
+          }
+        ],
         []
       ]
     }

@@ -490,3 +490,31 @@ resposta humana deve desligar.
 - Prompt e loop do bot.
 - Player de mídia (a UI mostra rótulo com link).
 - Atribuição de atendente, marcação de lida, busca no histórico.
+
+## Bot SDR
+
+O node `Bot ativo?` do `atendimento-receber` chama a edge function
+`bot-sdr-responder`. A função consulta `bot_contexto`, e o banco decide se o
+robô pode falar — a função não reimplementa regra nenhuma.
+
+Ela pode responder `respondeu: false` com um motivo (`global_desligado`,
+`conversa_desligada`, `teto_de_respostas`, `sem_mensagem_nova`, `recusado`).
+**Isso não é erro** — silêncio é resposta válida.
+
+### O que configurar
+
+| Onde | O quê |
+|---|---|
+| Supabase → secrets | `ANTHROPIC_API_KEY` e, opcional, `BOT_SDR_TOKEN` |
+| Node `Bot SDR` | header `x-webhook-token` = mesmo `BOT_SDR_TOKEN`, e a credencial Supabase |
+| `/configuracoes/bot` | prompt, modelo, teto de respostas e o kill switch global |
+
+O node tem `timeout: 120000` — o modelo pensa antes de responder e 30s não
+basta. E `onError: continueRegularOutput`: se o bot falhar, a mensagem do lead
+já está salva e aparece na tela para o time responder.
+
+### Deploy
+
+```bash
+supabase functions deploy bot-sdr-responder
+```

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import Anthropic from "npm:@anthropic-ai/sdk";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,36 +55,62 @@ serve(async (req) => {
       return json({ ok: true, respondeu: false, motivo: ctx?.motivo ?? "desconhecido" });
     }
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) return json({ ok: false, motivo: "sem_api_key" }, 500);
+    if (!Deno.env.get("ANTHROPIC_API_KEY")) {
+      return json({ ok: false, motivo: "sem_api_key" }, 500);
+    }
+    const anthropic = new Anthropic();
 
-    // O histórico vira turnos: o que o lead mandou é 'user', o que saiu daqui é
-    // 'assistant'. Mensagem de mídia entra como marcador — o modelo precisa
-    // saber que houve um áudio, mesmo sem poder ouvi-lo.
-    const historico = (ctx.mensagens ?? []).map((m: {
-      direcao: string; texto: string | null; tipo: string;
+    // O que o lead mandou é 'user', o que saiu daqui é 'assistant'. Mídia entra
+    // como marcador: o modelo precisa saber que houve um áudio mesmo sem ouvir.
+    const turnos: Anthropic.MessageParam[] = (ctx.mensagens ?? []).map((m: {
+      direcao: string;
+      texto: string | null;
+      tipo: string;
     }) => ({
-      role: m.direcao === "entrada" ? "user" : "assistant",
+      role: m.direcao === "entrada" ? ("user" as const) : ("assistant" as const),
       content: m.texto ?? `[${m.tipo}]`,
     }));
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: ctx.modelo,
-        messages: [{ role: "system", content: ctx.prompt }, ...historico],
-        max_tokens: 300,
-      }),
-    });
-
-    if (!resp.ok) {
-      const detalhe = await resp.text();
-      return json({ ok: false, motivo: "gateway_falhou", status: resp.status, detalhe }, 502);
+    // A primeira mensagem TEM que ser do lead. Se a conversa começou com uma
+    // saída (campanha, ou mensagem manual do time), a API rejeita o array.
+    while (turnos.length > 0 && turnos[0].role === "assistant") turnos.shift();
+    if (turnos.length === 0) {
+      return json({ ok: true, respondeu: false, motivo: "sem_turno_do_lead" });
     }
 
-    const payload = await resp.json();
-    const texto = payload?.choices?.[0]?.message?.content?.trim();
+    const resposta = await anthropic.beta.messages.create({
+      // Configurável em bot_config.modelo; o default do banco é claude-opus-5.
+      model: ctx.modelo || "claude-opus-5",
+      // Resposta de WhatsApp tem 3 linhas; o teto existe só para não truncar
+      // no meio de uma frase.
+      max_tokens: 4000,
+      // Qualificar lead é tarefa simples: effort baixo responde mais rápido e
+      // gasta menos, o que importa quando alguém está esperando no WhatsApp.
+      output_config: { effort: "low" },
+      // Se a Anthropic recusar por política, outro modelo assume na mesma
+      // chamada em vez de o lead ficar sem resposta.
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      system: ctx.prompt,
+      messages: turnos,
+    });
+
+    // Recusa da cadeia inteira: melhor ficar calado e deixar para o humano do
+    // que mandar algo estranho para o lead.
+    if (resposta.stop_reason === "refusal") {
+      return json({
+        ok: true,
+        respondeu: false,
+        motivo: "recusado",
+        categoria: resposta.stop_details?.category ?? null,
+      });
+    }
+
+    const texto = resposta.content
+      .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("\n")
+      .trim();
 
     // Modelo que devolve vazio não vira mensagem vazia no WhatsApp do lead.
     if (!texto) return json({ ok: true, respondeu: false, motivo: "resposta_vazia" });
@@ -94,8 +121,23 @@ serve(async (req) => {
     });
     if (gravaErr) return json({ ok: false, motivo: "gravar_falhou", erro: gravaErr.message }, 500);
 
-    return json({ ok: true, respondeu: true, mensagem_id: gravou?.mensagem_id, texto });
+    return json({
+      ok: true,
+      respondeu: true,
+      mensagem_id: gravou?.mensagem_id,
+      texto,
+      modelo: resposta.model,
+    });
   } catch (e) {
+    if (e instanceof Anthropic.RateLimitError) {
+      return json({ ok: false, motivo: "rate_limit" }, 429);
+    }
+    if (e instanceof Anthropic.AuthenticationError) {
+      return json({ ok: false, motivo: "api_key_invalida" }, 401);
+    }
+    if (e instanceof Anthropic.APIError) {
+      return json({ ok: false, motivo: "anthropic_erro", status: e.status, erro: e.message }, 502);
+    }
     return json({ ok: false, motivo: "excecao", erro: e instanceof Error ? e.message : String(e) }, 500);
   }
 });
