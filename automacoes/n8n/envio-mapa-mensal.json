@@ -1,0 +1,618 @@
+{
+  "name": "Focus FinTax — Envio Mapa Mensal",
+  "active": false,
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Dia 5-10 08:00 BRT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -560,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 5-10 * *"
+            }
+          ]
+        }
+      },
+      "notes": "Roda todo dia do 5 ao 10. Cada execução manda só pra quem ainda não recebeu no mês, então repetir é seguro — e é o que faz a fila terminar se um dia cair."
+    },
+    {
+      "id": "pendentes",
+      "name": "Busca Pendentes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -340,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://qzkqrhamqtchboxtwpnz.supabase.co/rest/v1/rpc/mapa_envios_pendentes",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_limite: 20 }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUBSTITUIR_ID_CREDENCIAL_SUPABASE",
+          "name": "Supabase Focus FinTax"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notes": "p_limite = limite diário. Primeiro mês em 20; subir só depois de um mês sem incidente. Número novo em volume alto cai mais rápido que número aquecido."
+    },
+    {
+      "id": "separa",
+      "name": "Separa Clientes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -120,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// A RPC devolve UM objeto com a fila inteira. Aqui ele vira N itens, um por\n// cliente, pro Loop Over Items poder paginar de 1 em 1.\nconst raw = $input.first().json;\nconst p = Array.isArray(raw) ? raw[0] : raw;\n\nif (!p || !Array.isArray(p.pendentes)) {\n  throw new Error('Payload inesperado de mapa_envios_pendentes: ' + JSON.stringify(raw).slice(0, 300));\n}\n\n// Fila vazia é o caso NORMAL (todo mundo já recebeu no mês, ou ninguém tem\n// WhatsApp cadastrado). Retornar [] faz o loop não rodar e o workflow encerrar\n// limpo — não é erro.\nreturn p.pendentes.map((c) => ({\n  json: { ...c, competencia: p.competencia, inelegiveis_cadastro: p.inelegiveis_cadastro },\n}));\n"
+      }
+    },
+    {
+      "id": "loop",
+      "name": "Loop Clientes",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        100,
+        300
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "notes": "batchSize 1: um cliente por volta, pra caber o Wait entre eles."
+    },
+    {
+      "id": "janela",
+      "name": "Dentro da janela?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        340,
+        420
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-hora",
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              },
+              "leftValue": "={{ parseInt(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', hour: '2-digit', hour12: false }), 10) }}",
+              "rightValue": 18
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Corta às 18:00 BRT. O que sobrou fica pra amanhã — o log é o estado, então ninguém recebe duas vezes. Hora calculada em America/Sao_Paulo, não no fuso do container."
+    },
+    {
+      "id": "existe",
+      "name": "Tem WhatsApp?",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        580,
+        340
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://api.z-api.io/instances/' + $env.ZAPI_INSTANCE_ID + '/token/' + $env.ZAPI_TOKEN + '/phone-exists/' + $json.telefone }}",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "={{ $env.ZAPI_CLIENT_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Enviar pra número sem WhatsApp é vetor forte de ban, e cadastro à mão vai ter erro de digitação. Melhor descobrir aqui do que queimar tentativa."
+    },
+    {
+      "id": "if_existe",
+      "name": "Número válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        340
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-exists",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.exists === true }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "mensagem",
+      "name": "Monta Mensagem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1020,
+        240
+      ],
+      "parameters": {
+        "jsCode": "const p = $input.first().json;\n\n// A competência vem do banco (já em America/Sao_Paulo). O 'T12:00:00' evita que\n// o fuso do container jogue a data pro mês anterior na conversão.\nconst comp = new Date(p.competencia + 'T12:00:00');\nconst mesAno = comp.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });\n\n// nome_contato vem NULL quando o cadastro não tem contato. Sem isto a mensagem\n// sairia \"Olá, undefined!\" — ou, pior, com um nome inventado pelo SQL.\nconst saudacao = p.nome_contato ? `Olá, ${p.nome_contato}! 👋` : 'Olá! 👋';\n\nconst mensagem = [\n  saudacao,\n  '',\n  `O Mapa Tributário da ${p.empresa} referente a ${mesAno} está disponível:`,\n  p.link,\n  '',\n  'Qualquer dúvida, é só responder por aqui.',\n  '— Equipe Focus FinTax',\n].join('\\n');\n\nreturn [{ json: { ...p, mensagem } }];\n"
+      }
+    },
+    {
+      "id": "envia",
+      "name": "Z-API Enviar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1240,
+        240
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.z-api.io/instances/{{ $env.ZAPI_INSTANCE_ID }}/token/{{ $env.ZAPI_TOKEN }}/send-text",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $json.telefone, message: $json.mensagem }) }}",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "={{ $env.ZAPI_CLIENT_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 10000,
+      "notes": "continueRegularOutput: falha de um cliente NÃO pode parar a fila dos outros 93. O status vai pro log e o loop segue."
+    },
+    {
+      "id": "log_envio",
+      "name": "Log Envio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1460,
+        240
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://qzkqrhamqtchboxtwpnz.supabase.co/rest/v1/mapa_envio_log",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const M = $('Monta Mensagem').item.json; return JSON.stringify({ cliente_id: M.cliente_id, competencia: M.competencia, destinatario: M.telefone, link: M.link, mensagem: M.mensagem, status: ($json.zaapId ? 'sucesso' : 'falha'), zapi_response: $json, erro: ($json.zaapId ? null : ($json.error?.message || $json.message || 'sem zaapId')) }); })() }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUBSTITUIR_ID_CREDENCIAL_SUPABASE",
+          "name": "Supabase Focus FinTax"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "log_inelegivel",
+      "name": "Log Inelegível",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        460
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://qzkqrhamqtchboxtwpnz.supabase.co/rest/v1/mapa_envio_log",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const C = $('Loop Clientes').item.json; return JSON.stringify({ cliente_id: C.cliente_id, competencia: C.competencia, destinatario: C.telefone, link: C.link, mensagem: '(nao enviado)', status: 'inelegivel', erro: 'numero sem WhatsApp na Z-API' }); })() }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUBSTITUIR_ID_CREDENCIAL_SUPABASE",
+          "name": "Supabase Focus FinTax"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Grava uma vez por competência (índice único parcial). O cliente sai da fila do mês, mas volta no mês seguinte se o time corrigir o número."
+    },
+    {
+      "id": "espera",
+      "name": "Espera 5-10 min",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        340
+      ],
+      "parameters": {
+        "amount": "={{ Math.floor(Math.random() * 301) + 300 }}",
+        "unit": "seconds"
+      },
+      "notes": "300-600s aleatório. Espaça o disparo pra não parecer envio em massa. Cobre sinal de VELOCIDADE — bloqueio e número inválido são tratados em outros nodes."
+    },
+    {
+      "id": "busca_resumo",
+      "name": "Busca Resumo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        340,
+        140
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://qzkqrhamqtchboxtwpnz.supabase.co/rest/v1/mapa_envio_log?select=status&competencia=eq.' + (Array.isArray($('Busca Pendentes').first().json) ? $('Busca Pendentes').first().json[0].competencia : $('Busca Pendentes').first().json.competencia) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUBSTITUIR_ID_CREDENCIAL_SUPABASE",
+          "name": "Supabase Focus FinTax"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "O resumo conta do log, e nao dos itens do loop: quando a janela das 18:00 corta, o loop entrega so o item corrente e o resumo sairia subnotificado."
+    },
+    {
+      "id": "resumo",
+      "name": "Monta Resumo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        140
+      ],
+      "parameters": {
+        "jsCode": "// Conta a partir do LOG, não dos itens do loop.\n//\n// Motivo: este node é alcançado por dois caminhos — o loop terminou, ou a janela\n// das 18:00 cortou. No segundo caso $input.all() traria só o item corrente, e o\n// resumo sairia subnotificado. O log é a fonte de verdade do que realmente foi\n// enviado na competência.\nconst linhasLog = $input.all().map((i) => i.json).filter((r) => r && r.status);\n\n// inelegiveis vem de Busca Pendentes, que SEMPRE tem 1 item — Separa Clientes\n// fica vazio quando a fila está vazia, e aí .first() não existe.\nconst bruto = $('Busca Pendentes').first().json;\nconst fila = Array.isArray(bruto) ? bruto[0] : bruto;\n\nconst conta = (st) => linhasLog.filter((r) => r.status === st).length;\nconst enviados = conta('sucesso');\nconst falhas = conta('falha');\nconst semWhats = conta('inelegivel');\nconst inelegiveis = fila?.inelegiveis_cadastro ?? 0;\n\nconst linhas = [\n  '*Mapa Tributário — envio mensal*',\n  `Competência: ${fila?.competencia ?? '?'}`,\n  '',\n  `Enviados: *${enviados}*`,\n  `Falhas: *${falhas}*`,\n  `Número sem WhatsApp: *${semWhats}*`,\n  `Sem cadastro de WhatsApp: *${inelegiveis}*`,\n];\n\n// Este número é o que cobra o time a preencher o cadastro. Sem ele, um envio que\n// cobriu 3 de 94 parece \"completo\".\nif (inelegiveis > 0) {\n  linhas.push('');\n  linhas.push(`⚠️ ${inelegiveis} cliente(s) ativo(s) sem WhatsApp válido não entraram na fila.`);\n}\n\nreturn [{ json: { mensagem: linhas.join('\\n') } }];\n"
+      }
+    },
+    {
+      "id": "resumo_ops",
+      "name": "Resumo → Ops",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        580,
+        60
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.z-api.io/instances/{{ $env.ZAPI_INSTANCE_ID }}/token/{{ $env.ZAPI_TOKEN }}/send-text",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $env.ZAPI_DESTINO_OPS, message: $json.mensagem }) }}",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "={{ $env.ZAPI_CLIENT_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "resumo_alcir",
+      "name": "Resumo → Alcir",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        580,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.z-api.io/instances/{{ $env.ZAPI_INSTANCE_ID }}/token/{{ $env.ZAPI_TOKEN }}/send-text",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $env.ZAPI_DESTINO, message: $('Monta Resumo').first().json.mensagem }) }}",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "={{ $env.ZAPI_CLIENT_TOKEN }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "É a 'cópia interna' da task 6 do Step 15 — resumo, não 94 mensagens pro Alcir."
+    }
+  ],
+  "connections": {
+    "Dia 5-10 08:00 BRT": {
+      "main": [
+        [
+          {
+            "node": "Busca Pendentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Busca Pendentes": {
+      "main": [
+        [
+          {
+            "node": "Separa Clientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separa Clientes": {
+      "main": [
+        [
+          {
+            "node": "Loop Clientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Clientes": {
+      "main": [
+        [
+          {
+            "node": "Busca Resumo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Dentro da janela?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dentro da janela?": {
+      "main": [
+        [
+          {
+            "node": "Tem WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Busca Resumo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem WhatsApp?": {
+      "main": [
+        [
+          {
+            "node": "Número válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Número válido?": {
+      "main": [
+        [
+          {
+            "node": "Monta Mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Inelegível",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monta Mensagem": {
+      "main": [
+        [
+          {
+            "node": "Z-API Enviar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Z-API Enviar": {
+      "main": [
+        [
+          {
+            "node": "Log Envio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Envio": {
+      "main": [
+        [
+          {
+            "node": "Espera 5-10 min",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Inelegível": {
+      "main": [
+        [
+          {
+            "node": "Espera 5-10 min",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Espera 5-10 min": {
+      "main": [
+        [
+          {
+            "node": "Loop Clientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Busca Resumo": {
+      "main": [
+        [
+          {
+            "node": "Monta Resumo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monta Resumo": {
+      "main": [
+        [
+          {
+            "node": "Resumo → Ops",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Resumo → Alcir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveExecutionProgress": true,
+    "errorWorkflow": ""
+  },
+  "pinData": {},
+  "tags": []
+}

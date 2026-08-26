@@ -25,6 +25,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import {
   formatCurrencyBR,
+  formatPercentualHonorarios,
   formatCompetenciaPT,
   getStatusPagamentoConfig,
   isReportoCompensacao,
@@ -876,9 +877,11 @@ Equipe Focus.`;
                   (s, c) => s + Number(c.honorario_valor ?? c.valor_nf_servico ?? 0),
                   0,
                 );
-                const honorarioPercSource =
-                  procComps.find((c) => Number(c.honorario_percentual ?? 0) > 0) ?? procComps[0];
-                const percLabel = resolvePercLabel(honorarioPercSource ?? {}, proc);
+                // Um mesmo mês pode ter percentuais diferentes por tributo (MARAVISTA
+                // AGO/2026: INSS a 15%, PIS/COFINS a 20%). Pegar o percentual da
+                // primeira linha fazia o Mapa afirmar "15%" sobre a base inteira, e
+                // quem multiplicasse achava uma diferença inexistente.
+                const percLabel = formatPercentualHonorarios(procComps, proc?.percentual_honorario);
                 const isSub = isSubvencao(proc.tese);
 
                 return (

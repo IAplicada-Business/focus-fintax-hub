@@ -58,6 +58,11 @@ export type CompensacaoSumRow = {
   mes_referencia?: string | null;
   tributo?: string | null;
   tributo_enum?: string | null;
+  // Honorários vivem na mesma linha em compensacoes_mensais. Sem declarar aqui,
+  // CompensacoesTab acessava os três via erro de tipo silenciado pelo build.
+  honorario_valor?: number | null;
+  honorario_percentual?: number | null;
+  valor_nf_servico?: number | null;
   processos_teses?: { tese?: string | null; categoria?: string | null; nome_exibicao?: string | null } | null;
 };
 
@@ -407,4 +412,45 @@ export function buildProcessoIdsByTese(
     map.get(key)!.add(p.id);
   }
   return map;
+}
+
+/** Formata um percentual decimal (0.15) como rótulo ("15%"), com uma casa só quando precisa. */
+function percentualLabel(perc: number): string {
+  const pct = perc * 100;
+  return `${pct.toFixed(pct % 1 === 0 ? 0 : 1)}%`;
+}
+
+/**
+ * Rótulo de honorários de um GRUPO de compensações (um processo, um mês).
+ *
+ * Existe porque um mesmo mês pode ter percentuais diferentes por tributo — a
+ * MARAVISTA em AGO/2026 tinha INSS a 15% e PIS/COFINS a 20%. Antes o Mapa
+ * mostrava só o percentual da primeira linha, e quem multiplicasse a base pelo
+ * percentual exibido encontrava uma diferença que não existia (bug reportado
+ * pelo Focus em 26/08/2026).
+ *
+ * Para UMA compensação isolada continue usando o percentual da própria linha —
+ * aqui o plural é o ponto.
+ */
+export function formatPercentualHonorarios(
+  comps: { honorario_percentual?: number | null }[],
+  fallbackPercentual?: number | null,
+): string {
+  const distintos = Array.from(
+    new Set(
+      (comps || [])
+        .map((c) => Number(c?.honorario_percentual ?? 0))
+        .filter((p) => Number.isFinite(p) && p > 0),
+    ),
+  ).sort((a, b) => a - b);
+
+  if (distintos.length === 0) {
+    return percentualLabel(Number(fallbackPercentual ?? 0));
+  }
+  if (distintos.length === 1) {
+    return percentualLabel(distintos[0]);
+  }
+
+  const labels = distintos.map(percentualLabel);
+  return `${labels.slice(0, -1).join(", ")} e ${labels[labels.length - 1]}`;
 }

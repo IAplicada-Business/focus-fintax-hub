@@ -1,0 +1,67 @@
+{
+  "name": "Focus FinTax — Error Handler (Relatório Semanal)",
+  "active": false,
+  "nodes": [
+    {
+      "id": "error-trigger",
+      "name": "Erro no Workflow",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {},
+      "notes": "Rede de segurança para o que os ramos de falha NÃO cobrem: se o node Postgres morrer (credencial expirada, pooler fora), a execução aborta antes de chegar em Log Falha e nada é registrado."
+    },
+    {
+      "id": "http-alerta",
+      "name": "Alerta Ops (WhatsApp)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.z-api.io/instances/{{ $env.ZAPI_INSTANCE_ID }}/token/{{ $env.ZAPI_TOKEN }}/send-text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "={{ $env.ZAPI_CLIENT_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $env.ZAPI_DESTINO_OPS, message: '🚨 Workflow \"' + $json.workflow.name + '\" abortou.\\nNode: ' + ($json.execution?.lastNodeExecuted || '?') + '\\nErro: ' + ($json.execution?.error?.message || 'sem mensagem') + '\\nExecução: ' + ($json.execution?.url || 'ver n8n') }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Erro no Workflow": {
+      "main": [
+        [
+          {
+            "node": "Alerta Ops (WhatsApp)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "pinData": {},
+  "tags": []
+}
