@@ -29,6 +29,7 @@ const ClienteDetail = lazy(() => import("@/pages/ClienteDetail"));
 const MapaCreditos = lazy(() => import("@/pages/MapaCreditos"));
 const CompensacoesLinear = lazy(() => import("@/pages/CompensacoesLinear"));
 const Diagnostico = lazy(() => import("@/pages/Diagnostico"));
+const MapaPublico = lazy(() => import("@/pages/MapaPublico"));
 const MotorConfig = lazy(() => import("@/pages/MotorConfig"));
 const EsteiraSlaConfig = lazy(() => import("@/pages/EsteiraSlaConfig"));
 const Intimacoes = lazy(() => import("@/pages/Intimacoes"));
@@ -74,6 +75,8 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<PageSpinner />}><OAuthConsent /></Suspense>} />
             <Route path="/diagnostico/:token" element={<Suspense fallback={<PageSpinner />}><Diagnostico /></Suspense>} />
+            {/* Mapa do cliente, aberto por link do WhatsApp — token é a credencial. */}
+            <Route path="/mapa/:token" element={<Suspense fallback={<PageSpinner />}><MapaPublico /></Suspense>} />
             <Route path="/calculadora" element={<Suspense fallback={<PageSpinner />}><Calculadora /></Suspense>} />
             <Route
               path="/*"

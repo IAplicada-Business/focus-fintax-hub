@@ -26,6 +26,7 @@ const emptyForm = {
   segmento: "",
   nome_contato: "",
   whatsapp: "",
+  nao_enviar_mapa: false,
   email: "",
   faturamento_faixa: "",
   compensando_fintax: false,
@@ -47,6 +48,7 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
         segmento: cliente.segmento || "",
         nome_contato: cliente.nome_contato || "",
         whatsapp: cliente.whatsapp || "",
+        nao_enviar_mapa: cliente.nao_enviar_mapa ?? false,
         email: cliente.email || "",
         faturamento_faixa: cliente.faturamento_faixa || "",
         compensando_fintax: !!cliente.compensando_fintax,
@@ -73,6 +75,7 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
       segmento: form.segmento,
       nome_contato: form.nome_contato,
       whatsapp: form.whatsapp,
+      nao_enviar_mapa: form.nao_enviar_mapa,
       email: form.email,
       faturamento_faixa: form.faturamento_faixa,
       compensando_fintax: form.compensando_fintax,
@@ -157,6 +160,15 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
           <div className="flex items-center gap-3">
             <Switch checked={form.compensando_fintax} onCheckedChange={(v) => update("compensando_fintax", v)} />
             <Label>Compensando pela Fintax</Label>
+          </div>
+          {/* Opt-out do envio mensal do Mapa. Cliente pede pra parar, o time marca
+              aqui, e mapa_envios_pendentes() deixa de incluí-lo. */}
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={form.nao_enviar_mapa}
+              onCheckedChange={(v) => update("nao_enviar_mapa", v)}
+            />
+            <Label>Não enviar Mapa mensal por WhatsApp</Label>
           </div>
           <div className="space-y-1.5">
             <Label>Compensação por outro escritório</Label>

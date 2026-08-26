@@ -172,3 +172,129 @@ reconstruir o funil de uma sexta passada.
 
 Se as etapas do funil mudarem em `src/lib/pipeline-constants.ts`, os `CASE` de
 `leads_por_etapa` na função precisam acompanhar.
+
+---
+
+# Envio mensal do Mapa Tributário (blueprint Step 15, canal WhatsApp)
+
+Todo dia 5 (com retomada até o dia 10), cada cliente ativo com WhatsApp
+cadastrado recebe uma mensagem com link para o seu Mapa Tributário.
+
+| Arquivo | O que é |
+|---|---|
+| `envio-mapa-mensal.json` | Workflow principal |
+| `supabase/migrations/20260826140000_envio_mapa_mensal.sql` | `mapa_links`, `mapa_envio_log`, `clientes.nao_enviar_mapa`, `normalizar_whatsapp`, `mapa_envios_pendentes`, `get_mapa_by_token` |
+| `scripts/test-envio-mapa.sql` + `scripts/stub-schema-mapa.sql` | Harness SQL (Postgres efêmero) |
+| `docs/superpowers/specs/2026-08-26-envio-mapa-mensal-whatsapp-design.md` | Spec |
+| `docs/superpowers/plans/2026-08-26-envio-mapa-mensal-whatsapp.md` | Plano de implementação |
+
+## Fluxo
+
+```
+Cron 08:00, dias 5-10 (BRT)
+  → POST /rpc/mapa_envios_pendentes  {p_limite: 20}
+  → Separa Clientes (1 objeto → N itens)
+  → Loop Clientes (batch 1)
+       ├─ passou das 18:00? ──────────────→ Busca Resumo
+       ├─ Z-API phone-exists
+       │     ├─ não tem WhatsApp → Log Inelegível ─┐
+       │     └─ tem → Monta Mensagem → Z-API Enviar → Log Envio ─┤
+       └─ Espera 300-600s aleatório ←───────────────────────────┘
+  → (loop terminou) → Busca Resumo → Monta Resumo → Ops + Alcir
+```
+
+**Não há PDF.** O Mapa é entregue como link para `/mapa/:token`, rota pública que
+lê a RPC `get_mapa_by_token`. O PDF do projeto é gerado por `html2canvas` +
+`jsPDF` dentro do browser (ver `src/lib/export-element-pdf.ts`) e não existe
+fora dele; o link resolve isso sem Storage e sem Chrome headless.
+
+## Decisões que valem manter
+
+- **Idempotência é do banco, não do n8n.** Índice único parcial em
+  `mapa_envio_log (cliente_id, competencia)` para `status='sucesso'`. Se a
+  execução morrer no meio, o dia seguinte retoma sem duplicar ninguém — é por
+  isso que o cron roda do dia 5 ao 10 em vez de uma vez só.
+- **O resumo conta do log, não dos itens do loop.** Este node é alcançado por
+  dois caminhos (loop terminou, ou a janela das 18:00 cortou). No segundo,
+  `$input.all()` traria só o item corrente e o resumo sairia subnotificado.
+- **Elegibilidade e telefone moram em SQL.** `normalizar_whatsapp` e
+  `mapa_envios_pendentes` são regra de negócio, testáveis com
+  `scripts/test-envio-mapa.sql` sem subir o n8n. `clientes.whatsapp` é guardado
+  **sem** código de país (convenção de `ClienteDetail.tsx:318`, que monta
+  `wa.me/55${whatsapp}`); o `55` é adicionado só no envio.
+- **Falha de um cliente não para a fila.** `onError: continueRegularOutput` no
+  envio; o status vai pro log e o loop segue.
+
+## Sobre o risco de restrição
+
+O espaçamento de 5–10 min cobre sinal de **velocidade**. Os dois sinais que mais
+derrubam número não são afetados por ele, e cada um tem seu mitigante aqui:
+
+| Sinal | Mitigante |
+|---|---|
+| Velocidade / disparo em massa | Wait aleatório 300–600s + `p_limite` diário |
+| Envio para número sem WhatsApp | Node `Tem WhatsApp?` (Z-API `phone-exists`) antes de enviar |
+| Bloqueio / denúncia do destinatário | Switch "Não enviar Mapa mensal" no cadastro do cliente (`nao_enviar_mapa`) |
+
+`p_limite` começa em **20**. Subir só depois de um mês sem incidente — número
+novo em volume alto cai mais rápido que número aquecido.
+
+## Setup
+
+Reusa a credencial `Supabase API` e as variáveis `ZAPI_*` do relatório semanal.
+Nenhuma credencial nova.
+
+1. Importar `envio-mapa-mensal.json`.
+2. Selecionar a credencial Supabase nos três nodes do Supabase
+   (`Busca Pendentes`, `Log Envio`, `Log Inelegível`, `Busca Resumo`).
+3. Confirmar Settings → Timezone `America/Sao_Paulo`.
+4. Settings → Error Workflow → `Focus FinTax — Error Handler`.
+5. **Manter desativado** até o teste com um número só.
+
+## Teste antes de ativar
+
+```sql
+-- Opt-out em massa ANTES de rodar, pra garantir que nada sai pra cliente real.
+update public.clientes set nao_enviar_mapa = true where status = 'ativo';
+
+-- Libera só um cliente, com o SEU número.
+update public.clientes
+   set whatsapp = '<seu numero com DDD>', nome_contato = '<seu nome>', nao_enviar_mapa = false
+ where id = '<id de um cliente ativo com linhas no mapa>';
+
+select jsonb_pretty(public.mapa_envios_pendentes(20));  -- deve dar total_pendentes: 1
+```
+
+Rodar "Execute workflow", conferir a mensagem e o link. Depois:
+
+```sql
+select competencia, destinatario, status, erro from public.mapa_envio_log;
+select jsonb_pretty(public.mapa_envios_pendentes(20));  -- agora total_pendentes: 0
+```
+
+Reverter ao final:
+
+```sql
+update public.clientes set nao_enviar_mapa = false where status = 'ativo';
+delete from public.mapa_envio_log where destinatario = '<seu numero normalizado>';
+```
+
+## Revogar um link
+
+```sql
+-- Mata o link atual (o cliente vê "Link indisponível").
+update public.mapa_links set revogado_em = now() where cliente_id = '<id>';
+-- Gera um novo no próximo envio.
+delete from public.mapa_links where cliente_id = '<id>';
+```
+
+Acesso é observável: `mapa_links.acessos` e `ultimo_acesso_em`. É o que
+compensa o token ser permanente.
+
+## Fora de escopo
+
+- **E-mail com PDF anexo** (task 3 do Step 15). Sem ele, o exit criteria "zero
+  mapa manual" e a verificação "100% dos clientes ativos recebem" não são
+  atingíveis — só WhatsApp alcança quem tem número cadastrado.
+- Tratar resposta do cliente (inbound). O opt-out é manual no cadastro.
+- Tela para revogar/regerar token — hoje é SQL.

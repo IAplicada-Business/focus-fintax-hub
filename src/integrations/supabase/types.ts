@@ -262,6 +262,7 @@ export type Database = {
           faturamento_faixa: string | null
           id: string
           lead_id: string | null
+          nao_enviar_mapa: boolean
           nome_contato: string | null
           observacoes: string | null
           regiao: string | null
@@ -290,6 +291,7 @@ export type Database = {
           faturamento_faixa?: string | null
           id?: string
           lead_id?: string | null
+          nao_enviar_mapa?: boolean
           nome_contato?: string | null
           observacoes?: string | null
           regiao?: string | null
@@ -318,6 +320,7 @@ export type Database = {
           faturamento_faixa?: string | null
           id?: string
           lead_id?: string | null
+          nao_enviar_mapa?: boolean
           nome_contato?: string | null
           observacoes?: string | null
           regiao?: string | null
