@@ -130,7 +130,11 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
                   {...provided.droppableProps}
                   role="list"
                   aria-label={`${stage.label} — ${stageClientes.length} clientes`}
-                  className={`flex-1 min-w-[240px] rounded-lg border p-2 flex flex-col gap-2 transition-colors ${
+                  // w-[240px] fixo espelha PipelineKanban — antes as colunas esticavam
+                  // e a Esteira ficava com largura diferente do funil de leads.
+                  // min-h-0: sem isto a coluna cresce até caber todos os cards e o
+                  // overflow-y-auto da lista abaixo nunca ativa (a página é que rola).
+                  className={`flex-shrink-0 w-[240px] min-h-0 rounded-lg border p-2 flex flex-col gap-2 transition-colors ${
                     snapshot.isDraggingOver ? "bg-primary/5 border-primary/30" : "bg-muted/30"
                   }`}
                 >
@@ -163,7 +167,10 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
                     </div>
                   </div>
 
-                  <div className="flex-1 flex flex-col gap-2 min-h-[60px] overflow-y-auto">
+                  {/* max-h = 7 cards: card ~72px + gap 8px -> 7*72 + 6*8 = 552.
+                      Vale o menor entre isto e a altura da tela; nos dois casos o
+                      scroll é interno à etapa. */}
+                  <div className="flex-1 min-h-[60px] max-h-[552px] flex flex-col gap-2 overflow-y-auto">
                     {stageClientes.length === 0 && (
                       <EmptyState
                         icon={<Building2 className="w-5 h-5 text-[rgba(10,21,100,0.3)]" />}
@@ -229,8 +236,8 @@ function ClienteCard({
             snapshot.isDragging ? "shadow-lg rotate-1" : ""
           }`}
         >
-          <div className="flex items-start justify-between gap-1">
-            <p className="text-xs font-bold text-foreground leading-tight truncate">
+          <div className="flex items-center justify-between gap-1">
+            <p className="text-xs font-bold text-foreground leading-tight truncate flex-1">
               {cliente.empresa}
             </p>
             {atrasado && (
