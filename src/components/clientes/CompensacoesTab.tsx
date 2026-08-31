@@ -21,6 +21,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, FileText, MessageCircle, Printer, Copy, Mail, Trash2, Pencil } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BatchDeleteBar } from "@/components/BatchDeleteBar";
+import { useRowSelection } from "@/hooks/useRowSelection";
+import { useAuth } from "@/hooks/useAuth";
+import { deleteCompensacoes } from "@/services/clientesService";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
@@ -84,6 +89,7 @@ interface Props {
 
 export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensacoesChanged }: Props) {
   const qc = useQueryClient();
+  const { userRole, permissions } = useAuth();
   const compsQ = useClienteCompensacoes(clienteId);
   const processosQ = useClienteProcessos(clienteId);
   const tesesQ = useTesesTributarias();
@@ -110,6 +116,10 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
 
   const teses = tesesQ.data ?? [];
   const creditos = creditosQ.data ?? [];
+  const perm = permissions.find((p) => p.screen_key === "clientes.compensacoes");
+  const canWrite = perm
+    ? perm.can_access && !perm.read_only
+    : ["admin", "pmo", "gestor_tributario"].includes(userRole ?? "");
 
   const fetchData = async () => {
     await invalidateClienteOperacional(qc, clienteId);
@@ -159,6 +169,8 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
     if (mesFim && mes > mesFim) return false;
     return true;
   });
+  const visibleIds = useMemo(() => filtered.map((c) => c.id as string), [filtered]);
+  const selection = useRowSelection(visibleIds);
   const reportoTeseIds = new Set(
     Object.entries(teseIdByCodigo)
       .filter(([codigo]) => codigo === "REPORTO")
@@ -274,6 +286,24 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
     resetFormModal();
     await fetchData();
     onCompensacoesChanged?.();
+  };
+
+  const handleDeleteBatch = async () => {
+    const ids = [...selection.selectedIds];
+    try {
+      await deleteCompensacoes(ids);
+      toast.success(ids.length === 1 ? "Compensação excluída." : `${ids.length} compensações excluídas.`);
+      logClienteHistorico(
+        clienteId,
+        "compensacao_removida",
+        `${ids.length} compensação(ões) removida(s) em lote`,
+      );
+      selection.clear();
+      await fetchData();
+      onCompensacoesChanged?.();
+    } catch {
+      toast.error("Erro ao excluir.");
+    }
   };
 
   // ——— Mapa Tributário helpers ———
@@ -496,9 +526,28 @@ Equipe Focus.`;
         </div>
       </div>
 
+      {canWrite && (
+        <BatchDeleteBar
+          count={selection.selectedCount}
+          onConfirm={handleDeleteBatch}
+          title="Excluir compensações selecionadas"
+          description={`Esta ação não pode ser desfeita. ${selection.selectedCount} compensação(ões) serão removidas permanentemente, incluindo DCOMPs vinculadas.`}
+        />
+      )}
+
       <Table>
          <TableHeader>
           <TableRow>
+            {canWrite && (
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={selection.allVisibleSelected ? true : selection.someVisibleSelected ? "indeterminate" : false}
+                  onCheckedChange={() => selection.toggleAll(visibleIds)}
+                  aria-label="Selecionar todos"
+                  disabled={filtered.length === 0}
+                />
+              </TableHead>
+            )}
             <TableHead>Mês Ref.</TableHead>
             <TableHead>Tese</TableHead>
             <TableHead>Tributo</TableHead>
@@ -512,15 +561,24 @@ Equipe Focus.`;
         </TableHeader>
         <TableBody>
           {loading ? (
-            <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+            <TableRow><TableCell colSpan={canWrite ? 10 : 9} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
           ) : filtered.length === 0 ? (
-            <TableRow><TableCell colSpan={9}><EmptyState icon={<FileText size={20} className="text-ink-35" />} title="Nenhuma compensação registrada" subtitle="Clique em + Nova Compensação para começar." /></TableCell></TableRow>
+            <TableRow><TableCell colSpan={canWrite ? 10 : 9}><EmptyState icon={<FileText size={20} className="text-ink-35" />} title="Nenhuma compensação registrada" subtitle="Clique em + Nova Compensação para começar." /></TableCell></TableRow>
           ) : filtered.map((c) => {
             const sp = getStatusPagamentoConfig(c.status_pagamento);
             const perc = Number((c as any).honorario_percentual ?? 0);
             const percLabel = perc > 0 ? `${(perc * 100).toFixed(perc * 100 % 1 === 0 ? 0 : 1)}%` : "—";
             return (
               <TableRow key={c.id}>
+                {canWrite && (
+                  <TableCell>
+                    <Checkbox
+                      checked={selection.isSelected(c.id)}
+                      onCheckedChange={() => selection.toggle(c.id)}
+                      aria-label={`Selecionar compensação ${formatCompetenciaPT(c.mes_referencia as string)}`}
+                    />
+                  </TableCell>
+                )}
                 <TableCell>{formatCompetenciaPT(c.mes_referencia as string)}</TableCell>
                 <TableCell>{c.processos_teses?.nome_exibicao || "—"}</TableCell>
                 <TableCell className="text-xs">{(c as any).tributo || "—"}</TableCell>
@@ -616,7 +674,7 @@ Equipe Focus.`;
         {filtered.length > 0 && (
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={3} className="font-medium">Total do período (sem Reporto)</TableCell>
+              <TableCell colSpan={canWrite ? 4 : 3} className="font-medium">Total do período (sem Reporto)</TableCell>
               <TableCell className="font-bold">{formatCurrencyBR(totalFiltered)}</TableCell>
               <TableCell></TableCell>
               <TableCell></TableCell>

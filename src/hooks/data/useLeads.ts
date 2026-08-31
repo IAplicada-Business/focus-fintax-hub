@@ -1,5 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listLeads, listLeadsBasic, getLeadExceptions, updateLeadStatus, analyzeLead, createLead } from "@/services/leadsService";
+import {
+  listLeads,
+  listLeadsBasic,
+  getLeadExceptions,
+  updateLeadStatus,
+  analyzeLead,
+  createLead,
+  updateLead,
+  deleteLeads,
+  type LeadUpdatePayload,
+} from "@/services/leadsService";
 import type { Database } from "@/integrations/supabase/types";
 import { toastError } from "@/lib/handle-error";
 import { toast } from "sonner";
@@ -61,5 +71,32 @@ export function useCreateLead() {
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (err) => toastError(err, "Erro ao criar lead"),
+  });
+}
+
+export function useUpdateLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: LeadUpdatePayload }) =>
+      updateLead(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Lead atualizado");
+    },
+    onError: (err) => toastError(err, "Erro ao atualizar lead"),
+  });
+}
+
+export function useDeleteLeads() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => deleteLeads(ids),
+    onSuccess: (_, ids) => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(ids.length === 1 ? "Lead excluído" : `${ids.length} leads excluídos`);
+    },
+    onError: (err) => toastError(err, "Erro ao excluir lead"),
   });
 }

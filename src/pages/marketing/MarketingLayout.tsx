@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useMetaLastSync, useMetaSyncMutation } from "@/hooks/data/useMetaSync";
+import { useMetaLastFailure, useMetaLastSync, useMetaSyncMutation } from "@/hooks/data/useMetaSync";
 
 interface Tab {
   to: string;
@@ -28,6 +28,7 @@ export default function MarketingLayout() {
   const location = useLocation();
   const syncMutation = useMetaSyncMutation();
   const lastSyncQuery = useMetaLastSync();
+  const lastFailQuery = useMetaLastFailure();
 
   const visibleTabs = useMemo(
     () =>
@@ -100,6 +101,30 @@ export default function MarketingLayout() {
           );
         })}
       </nav>
+
+      {lastFailQuery.data?.error_text && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p className="font-semibold">Sync da Meta falhou</p>
+          <p className="mt-1 text-xs leading-relaxed break-words">
+            {lastFailQuery.data.function_name}: {lastFailQuery.data.error_text}
+          </p>
+          {lastFailQuery.data.error_text.includes("TOKEN") && (
+            <p className="mt-2 text-xs text-amber-800">
+              Cadastre <code className="font-mono">META_ACCESS_TOKEN</code> em Supabase → Edge Functions → Secrets
+              e clique em Atualizar agora. O aviso some só depois de uma sync nova.
+            </p>
+          )}
+          {/ads_read|ads_management|#200/i.test(lastFailQuery.data.error_text) && (
+            <p className="mt-2 text-xs text-amber-800">
+              O token já está no ar, mas a Meta recusou a conta <code className="font-mono">act_1567349847850269</code>:
+              o dono do token não tem <code className="font-mono">ads_read</code>. No Business Manager, no System User
+              que gerou o token: adicione a conta de anúncios com permissão de gerenciar, gere um token novo
+              com <code className="font-mono">ads_read</code>, <code className="font-mono">ads_management</code> e{" "}
+              <code className="font-mono">leads_retrieval</code>, e substitua o secret.
+            </p>
+          )}
+        </div>
+      )}
 
       <Outlet />
     </div>

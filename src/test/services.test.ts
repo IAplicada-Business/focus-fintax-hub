@@ -30,6 +30,9 @@ describe("services module structure", () => {
     expect(mod.getLeadExceptions).toBeDefined();
     expect(mod.createLead).toBeDefined();
     expect(mod.updateLeadStatus).toBeDefined();
+    expect(mod.getLead).toBeDefined();
+    expect(mod.updateLead).toBeDefined();
+    expect(mod.deleteLeads).toBeDefined();
     expect(mod.analyzeLead).toBeDefined();
   });
 
@@ -40,6 +43,7 @@ describe("services module structure", () => {
     expect(mod.listProcessosTeses).toBeDefined();
     expect(mod.listCompensacoesMensais).toBeDefined();
     expect(mod.deleteCliente).toBeDefined();
+    expect(mod.deleteCompensacoes).toBeDefined();
   });
 
   it("dashboardService exports expected functions", async () => {

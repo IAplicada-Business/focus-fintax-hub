@@ -55,6 +55,10 @@ describe("routeToScreenKey", () => {
     expect(routeToScreenKey("/pipeline")).toBe("pipeline");
   });
 
+  it("maps /atendimento to atendimento", () => {
+    expect(routeToScreenKey("/atendimento")).toBe("atendimento");
+  });
+
   it("maps /clientes/:id to clientes", () => {
     expect(routeToScreenKey("/clientes/abc-123")).toBe("clientes");
   });

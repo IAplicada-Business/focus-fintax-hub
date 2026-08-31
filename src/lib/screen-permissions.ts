@@ -49,6 +49,7 @@ export const SCREENS: ScreenDef[] = [
     defaultReadOnlyRoles: [],
     children: [
       { key: "fila_leads", label: "Fila de Leads", defaultRoles: ["admin", "pmo", "comercial", "sdr", "gestor_comercial"], defaultReadOnlyRoles: [] },
+      { key: "atendimento", label: "Atendimento", defaultRoles: ["admin", "pmo", "comercial", "sdr", "gestor_comercial"], defaultReadOnlyRoles: [] },
     ],
   },
   {
@@ -139,6 +140,7 @@ export function routeToScreenKey(path: string): string | null {
   if (path.startsWith("/benchmarks")) return "benchmarks";
   if (path.startsWith("/esteira")) return "esteira";
   if (path.startsWith("/pipeline")) return "pipeline";
+  if (path.startsWith("/atendimento")) return "atendimento";
   if (path.startsWith("/leads")) return "fila_leads";
   if (path.startsWith("/clientes")) return "clientes";
   if (path.startsWith("/intimacoes")) return "intimacoes";

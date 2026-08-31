@@ -3,6 +3,26 @@ import { runMetaSync, type MetaSyncType } from "@/services/metaSyncService";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+/** Última execução com erro (qualquer função Meta). */
+export function useMetaLastFailure() {
+  return useQuery({
+    queryKey: ["meta", "last-failure"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("meta_execution_log")
+        .select("function_name, started_at, finished_at, ok, error_text")
+        .eq("ok", false)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+}
+
 /** Última execução bem-sucedida (any function) */
 export function useMetaLastSync() {
   return useQuery({

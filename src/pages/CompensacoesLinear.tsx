@@ -24,6 +24,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrencyBR, formatCompetenciaPT } from "@/lib/clientes-constants";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BatchDeleteBar } from "@/components/BatchDeleteBar";
+import { useRowSelection } from "@/hooks/useRowSelection";
+import { deleteCompensacoes } from "@/services/clientesService";
+import { logClienteHistorico } from "@/lib/cliente-historico";
 
 // -----------------------------------------------------------------------------
 // Constantes
@@ -196,6 +201,9 @@ export default function CompensacoesLinear() {
     if (competenciaFilter === "all") return comps;
     return comps.filter((c) => monthKey(c.mes_referencia) === competenciaFilter);
   }, [comps, competenciaFilter]);
+  const visibleIds = useMemo(() => compsFiltradas.map((c) => c.id), [compsFiltradas]);
+  const selection = useRowSelection(visibleIds);
+  const showBatch = !readOnly && viewMode === "linear";
 
   const meses = useMemo(
     () => Array.from(new Set(comps.map((c) => monthKey(c.mes_referencia)))).sort().reverse(),
@@ -293,7 +301,27 @@ export default function CompensacoesLinear() {
     }
     toast.success("Compensação excluída");
     setDeleteTarget(null);
+    selection.clear();
     fetchAll();
+  };
+
+  const handleDeleteBatch = async () => {
+    const ids = [...selection.selectedIds];
+    try {
+      await deleteCompensacoes(ids);
+      toast.success(ids.length === 1 ? "Compensação excluída" : `${ids.length} compensações excluídas`);
+      if (clienteId) {
+        logClienteHistorico(
+          clienteId,
+          "compensacao_removida",
+          `${ids.length} compensação(ões) removida(s) em lote`,
+        );
+      }
+      selection.clear();
+      fetchAll();
+    } catch (err) {
+      toast.error("Erro ao excluir", { description: err instanceof Error ? err.message : undefined });
+    }
   };
 
   const handleAddRow = async () => {
@@ -464,12 +492,31 @@ export default function CompensacoesLinear() {
         </div>
       )}
 
+      {showBatch && (
+        <BatchDeleteBar
+          count={selection.selectedCount}
+          onConfirm={handleDeleteBatch}
+          title="Excluir compensações selecionadas"
+          description={`Esta ação não pode ser desfeita. ${selection.selectedCount} compensação(ões) serão removidas permanentemente, incluindo DCOMPs vinculadas.`}
+        />
+      )}
+
       {/* Tabela linear */}
       {viewMode === "linear" && (
       <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="text-xs">
+              {showBatch && (
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={selection.allVisibleSelected ? true : selection.someVisibleSelected ? "indeterminate" : false}
+                    onCheckedChange={() => selection.toggleAll(visibleIds)}
+                    aria-label="Selecionar todos"
+                    disabled={compsFiltradas.length === 0}
+                  />
+                </TableHead>
+              )}
               <TableHead className="w-8"></TableHead>
               <TableHead>Competência</TableHead>
               <TableHead>Processo/Tese</TableHead>
@@ -485,7 +532,7 @@ export default function CompensacoesLinear() {
           <TableBody>
             {compsFiltradas.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-10 text-muted-foreground text-sm">
+                <TableCell colSpan={showBatch ? 11 : 10} className="text-center py-10 text-muted-foreground text-sm">
                   Nenhuma compensação {competenciaFilter !== "all" ? "nesta competência" : "registrada"}.
                 </TableCell>
               </TableRow>
@@ -496,6 +543,15 @@ export default function CompensacoesLinear() {
                 return (
                   <>
                     <TableRow key={c.id} className="text-xs">
+                      {showBatch && (
+                        <TableCell>
+                          <Checkbox
+                            checked={selection.isSelected(c.id)}
+                            onCheckedChange={() => selection.toggle(c.id)}
+                            aria-label={`Selecionar compensação ${formatCompetenciaPT(c.mes_referencia)}`}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="pl-2">
                         <button
                           onClick={() => setExpandedRow(isExpanded ? null : c.id)}
@@ -608,7 +664,7 @@ export default function CompensacoesLinear() {
                     </TableRow>
                     {isExpanded && (
                       <TableRow key={`${c.id}-expanded`} className="bg-muted/30">
-                        <TableCell colSpan={10} className="p-4">
+                        <TableCell colSpan={showBatch ? 11 : 10} className="p-4">
                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             <DcompPanel
                               compensacaoId={c.id}
@@ -646,7 +702,7 @@ export default function CompensacoesLinear() {
           {compsFiltradas.length > 0 && (
             <TableFooter>
               <TableRow className="bg-muted/50 text-xs font-semibold">
-                <TableCell colSpan={4}>Total</TableCell>
+                <TableCell colSpan={showBatch ? 5 : 4}>Total</TableCell>
                 <TableCell className="text-right">{formatCurrencyBR(totais.compensado)}</TableCell>
                 <TableCell></TableCell>
                 <TableCell className="text-right">{formatCurrencyBR(totais.honorarios)}</TableCell>
