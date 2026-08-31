@@ -42,6 +42,7 @@ const menuItems: MenuItem[] = [
     screenKey: "pipeline",
     children: [
       { title: "Fila de Leads", url: "/leads", screenKey: "fila_leads" },
+      { title: "Atendimento", url: "/atendimento", screenKey: "atendimento" },
     ],
   },
   { title: "Marketing", url: "/marketing", icon: Megaphone, screenKey: "marketing" },
@@ -67,7 +68,6 @@ const menuItems: MenuItem[] = [
     children: [
       { title: "Motor de Cálculo",   url: "/configuracoes/motor", screenKey: "motor_calculo" },
       { title: "Estágios da Esteira", url: "/configuracoes/esteira-sla", screenKey: "esteira" },
-      { title: "Robô SDR",           url: "/configuracoes/bot", screenKey: "pipeline" },
       { title: "Benchmarks e Teses", url: "/benchmarks",          screenKey: "benchmarks" },
     ],
   },

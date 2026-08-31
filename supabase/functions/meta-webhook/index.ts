@@ -5,7 +5,10 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const VERIFY_TOKEN  = Deno.env.get("META_WEBHOOK_VERIFY_TOKEN")!;
 const APP_SECRET    = Deno.env.get("META_APP_SECRET")!;
-const SYS_TOKEN     = Deno.env.get("META_SYSTEM_USER_TOKEN")!;
+const SYS_TOKEN     =
+  Deno.env.get("META_ACCESS_TOKEN") ??
+  Deno.env.get("META_SYSTEM_USER_TOKEN") ??
+  "";
 const GRAPH         = `https://graph.facebook.com/${Deno.env.get("META_GRAPH_VERSION") ?? "v25.0"}`;
 const SUPABASE_URL  = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -77,6 +80,10 @@ Deno.serve(async (req) => {
       for (const change of entry.changes ?? []) {
         if (change.field !== "leadgen") continue;
         const v = change.value;
+
+        if (!SYS_TOKEN) {
+          throw new Error("META_ACCESS_TOKEN (or legacy META_SYSTEM_USER_TOKEN) não configurado");
+        }
 
         // 2.1) Busca o lead completo via Graph API
         const r = await fetch(

@@ -3,6 +3,18 @@ import type { Database } from "@/integrations/supabase/types";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
+export type LeadUpdatePayload = Pick<
+  Database["public"]["Tables"]["leads"]["Update"],
+  | "nome"
+  | "empresa"
+  | "cnpj"
+  | "email"
+  | "whatsapp"
+  | "regime_tributario"
+  | "segmento"
+  | "faturamento_faixa"
+  | "observacoes"
+>;
 
 export async function listLeads() {
   const { data, error } = await supabase
@@ -46,6 +58,29 @@ export async function updateLeadStatus(id: string, statusFunil: string) {
     .from("leads")
     .update({ status_funil: statusFunil, status_funil_atualizado_em: new Date().toISOString() })
     .eq("id", id);
+  if (error) throw error;
+}
+
+export async function getLead(id: string) {
+  const { data, error } = await supabase
+    .from("leads")
+    .select(
+      "id, nome, empresa, cnpj, email, whatsapp, regime_tributario, segmento, faturamento_faixa, origem, observacoes",
+    )
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateLead(id: string, payload: LeadUpdatePayload) {
+  const { error } = await supabase.from("leads").update(payload).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteLeads(ids: string[]) {
+  if (ids.length === 0) return;
+  const { error } = await supabase.from("leads").delete().in("id", ids);
   if (error) throw error;
 }
 

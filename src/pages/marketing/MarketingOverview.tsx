@@ -1,4 +1,5 @@
 import { useMetaOverview } from "@/hooks/data/useMetaInsights";
+import { useMetaConferencia } from "@/hooks/data/useMetaConferencia";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SkeletonKpi } from "@/components/dashboard/SkeletonKpi";
 import { SkeletonChart } from "@/components/dashboard/SkeletonChart";
@@ -11,6 +12,7 @@ const fmtPct   = (n: number | null) => (n == null ? "—" : `${(n).toFixed(2)}%`
 
 export default function MarketingOverview() {
   const { data, isLoading, error } = useMetaOverview(30);
+  const conf = useMetaConferencia();
 
   if (error) {
     return (
@@ -49,7 +51,12 @@ export default function MarketingOverview() {
           {isLoading || !data ? (
             <SkeletonChart />
           ) : data.daily.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-10 text-center">Sem dados de insights no período.</p>
+            <p className="text-sm text-muted-foreground py-10 text-center">
+              Sem dados de insights nos últimos 30 dias.
+              {conf.data?.lastInsightDate
+                ? ` Último insight no banco: ${conf.data.lastInsightDate}. A sync parou — veja o aviso acima.`
+                : " A sync ainda não gravou nenhum insight."}
+            </p>
           ) : (
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -124,6 +131,47 @@ export default function MarketingOverview() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Conferência · pixel / insights × pipeline</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!conf.data ? (
+            <p className="text-sm text-muted-foreground">Carregando conferência…</p>
+          ) : (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                <ConfStat label="Leads no insight Meta (30d)" value={fmtInt(conf.data.insightLeads30d)} />
+                <ConfStat label="Leads CRM origem meta_ads (30d)" value={fmtInt(conf.data.crmMeta30d)} />
+                <ConfStat label="Webhook meta_leads (30d)" value={fmtInt(conf.data.metaLeads30d)} />
+                <ConfStat label="Insight leads (histórico)" value={fmtInt(conf.data.insightLeadsAll)} />
+                <ConfStat label="CRM meta_ads (histórico)" value={fmtInt(conf.data.crmMetaAll)} />
+                <ConfStat
+                  label="Webhook ligados ao CRM"
+                  value={`${fmtInt(conf.data.metaLeadsLinked)} / ${fmtInt(conf.data.metaLeadsAll)}`}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                O pixel da LP (1689149135696577) dispara Lead no browser; o Ads Manager
+                reporta conversões em meta_insights_daily.leads. O pipeline só conta
+                leads.origem = meta_ads. Webhook grava em meta_leads e depois cria o CRM.
+                Divergência típica: insight maior que CRM (form abandonado / iOS) ou CRM maior
+                que webhook (carga histórica sem meta_leads).
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function ConfStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-card-border/70 p-3">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</p>
+      <p className="text-lg font-bold tabular-nums mt-1">{value}</p>
     </div>
   );
 }
