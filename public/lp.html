@@ -331,10 +331,10 @@ section{position:relative}
 /* ────────────────────────────────── ALCIR */
 .section-alcir{padding:var(--py) 0;background:var(--bg)}
 .alcir-grid{display:grid;grid-template-columns:minmax(320px,.9fr) minmax(0,1.1fr);gap:clamp(40px,5vw,96px);align-items:center}
-.alcir-photo{position:relative}
-.alcir-photo::after{content:'';position:absolute;inset:-20px;background:radial-gradient(ellipse at center,rgba(208,69,69,.16) 0%,transparent 65%);border-radius:var(--radius-xl);z-index:0;pointer-events:none;filter:blur(20px)}
-@keyframes alcirGlow{0%{opacity:.5}100%{opacity:.85}}
-.alcir-photo img{width:100%;border-radius:var(--radius-lg);max-height:680px;object-fit:cover;object-position:top center;position:relative;z-index:1;-webkit-mask-image:linear-gradient(to bottom,black 80%,transparent 100%);mask-image:linear-gradient(to bottom,black 80%,transparent 100%);opacity:0;transition:opacity .3s ease}
+.alcir-photo{position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-elev)}
+.alcir-photo::before{content:'';position:absolute;bottom:0;left:0;right:0;height:40%;background:linear-gradient(0deg,rgba(5,7,26,.6) 0%,transparent 100%);z-index:2;pointer-events:none}
+.alcir-photo::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--red),var(--red-soft),transparent);z-index:3;pointer-events:none}
+.alcir-photo img{width:100%;display:block;aspect-ratio:3/4;object-fit:cover;object-position:top center;position:relative;z-index:1;opacity:0;transition:opacity .4s ease}
 .deco{display:none}
 .alcir-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text-mut);margin-bottom:16px;display:inline-flex;align-items:center;gap:8px}
 .alcir-eyebrow::before{content:'';width:24px;height:1px;background:var(--red)}
@@ -446,8 +446,8 @@ section{position:relative}
 }
 @media(max-width:768px){
   .alcir-grid{grid-template-columns:1fr;gap:40px}
-  .alcir-grid{grid-template-columns:1fr;gap:40px}
-  .alcir-photo{max-width:360px;margin:0 auto}
+  .alcir-photo{max-width:400px;margin:0 auto}
+  .alcir-photo img{aspect-ratio:4/5}
   .form-row{grid-template-columns:1fr;gap:10px}
   .seg-grid{grid-template-columns:repeat(2,1fr)}
   .casos-grid{grid-template-columns:1fr}
@@ -704,11 +704,11 @@ section{position:relative}
 <section class="section-alcir" id="sobre">
   <div class="container">
     <div class="alcir-grid">
-      <div class="alcir-photo">
+      <div class="alcir-photo reveal">
         <img src="/images/foto-alcir.png" alt="Alcir Guimarães" decoding="async" fetchpriority="high" onload="this.style.opacity='1'">
       </div>
       <div>
-        <div class="alcir-eyebrow">QUEM ESTÁ POR TRÁS</div>
+        <div class="alcir-eyebrow reveal-blur">QUEM ESTÁ POR TRÁS</div>
         <div class="alcir-name">Alcir Guimarães<br><em>15 anos no varejo</em></div>
         <div class="alcir-role">FUNDADOR &middot; GRUPO FOCUS</div>
         <p class="alcir-text">Fundador do maior grupo de contabilidade especializado em supermercado do Brasil e América Latina, Alcir acumula mais de 15 anos ajudando varejistas a recuperar milhões em impostos pagos indevidamente e a criar processos para que não continuem perdendo.</p>
