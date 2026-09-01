@@ -268,30 +268,29 @@ section{position:relative}
 .section-desc{font-size:var(--fs-lead);color:var(--text-mut);line-height:1.65;max-width:40rem;letter-spacing:-.01em}
 .section-desc.light{color:var(--text-mut)}
 
-/* ────────────────────────────────── SEGMENTS */
+/* ────────────────────────────────── SEGMENTS — compact icon row */
 .section-segments{padding:var(--py) 0;background:var(--bg)}
-.seg-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:48px}
-.seg-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:28px 22px;text-align:left;transition:transform var(--t) var(--ease),background var(--t) var(--ease),border-color var(--t) var(--ease);position:relative;overflow:hidden;box-shadow:var(--shadow-card)}
-.seg-card::before{display:none}
-.seg-card:hover{background:var(--card-2);border-color:rgba(208,69,69,.28);transform:translateY(-5px) scale(1.012);box-shadow:0 1px 0 0 rgba(255,255,255,.06),0 24px 50px -18px rgba(0,0,0,.6),0 0 0 1px rgba(208,69,69,.16)}
-.seg-icon{width:44px;height:44px;background:rgba(208,69,69,.10);border:1px solid rgba(208,69,69,.20);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 0 18px;transition:all var(--t) var(--ease)}
-.seg-card:hover .seg-icon{background:rgba(208,69,69,.18);border-color:rgba(208,69,69,.32)}
-.seg-icon svg{width:20px;height:20px;color:var(--red-soft);transition:color var(--t)}
-.seg-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;position:relative;letter-spacing:-.01em}
-.seg-desc{font-size:12.5px;color:var(--text-mut);line-height:1.5;position:relative}
+.seg-grid{display:flex;flex-wrap:wrap;gap:12px 20px;margin-top:48px;justify-content:flex-start}
+.seg-chip{display:inline-flex;align-items:center;gap:12px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:var(--radius-pill);padding:14px 26px 14px 18px;transition:background var(--t) var(--ease),border-color var(--t) var(--ease),transform var(--t) var(--ease)}
+.seg-chip:hover{background:rgba(208,69,69,.08);border-color:rgba(208,69,69,.28);transform:translateY(-2px)}
+.seg-icon{width:38px;height:38px;background:rgba(208,69,69,.10);border:1px solid rgba(208,69,69,.20);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all var(--t) var(--ease)}
+.seg-chip:hover .seg-icon{background:rgba(208,69,69,.18);border-color:rgba(208,69,69,.32)}
+.seg-icon svg{width:18px;height:18px;color:var(--red-soft)}
+.seg-label{font-size:14px;font-weight:600;color:var(--text);letter-spacing:-.01em}
+.seg-label small{display:block;font-size:11.5px;font-weight:400;color:var(--text-mut);margin-top:2px;line-height:1.3}
 
-/* ────────────────────────────────── OPORTUNIDADES */
+/* ────────────────────────────────── OPORTUNIDADES — lean list */
 .section-opp{padding:var(--py) 0;background:var(--bg);position:relative;overflow:hidden}
 .section-opp::after{display:none}
 .section-opp .section-desc{color:var(--text-mut)}
-.opp-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:56px;position:relative;z-index:1}
-.opp-item{display:flex;align-items:flex-start;gap:22px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:32px;transition:transform var(--t) var(--ease),background var(--t) var(--ease),border-color var(--t) var(--ease);box-shadow:var(--shadow-card)}
-.opp-item:hover{background:var(--card-2);border-color:rgba(208,69,69,.28);transform:translateY(-5px) scale(1.008);box-shadow:0 1px 0 0 rgba(255,255,255,.06),0 24px 50px -18px rgba(0,0,0,.6),0 0 0 1px rgba(208,69,69,.16)}
-.opp-num{font-size:42px;font-weight:300;color:var(--text-dim);background:none;-webkit-text-fill-color:initial;line-height:1;flex-shrink:0;width:60px;min-width:60px;letter-spacing:var(--tracking-tighter);font-feature-settings:"tnum"}
+.opp-list{display:flex;flex-direction:column;gap:0;margin-top:56px;position:relative;z-index:1;border-top:1px solid var(--line)}
+.opp-row{display:grid;grid-template-columns:56px 1fr auto;gap:20px;align-items:baseline;padding:28px 0;border-bottom:1px solid var(--line);transition:background var(--t) var(--ease)}
+.opp-row:hover{background:rgba(255,255,255,.02)}
+.opp-num{font-size:13px;font-weight:700;letter-spacing:.14em;color:var(--red);font-feature-settings:"tnum"}
 .opp-body{flex:1}
-.opp-title{font-size:17px;font-weight:700;color:var(--text);margin-bottom:10px;letter-spacing:-.012em;line-height:1.3}
-.opp-desc{font-size:13.5px;color:var(--text-mut);line-height:1.65}
-.opp-val{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--red-soft);margin-top:14px;background:rgba(208,69,69,.10);border:1px solid rgba(208,69,69,.20);padding:5px 12px;border-radius:var(--radius-pill)}
+.opp-title{font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.012em;line-height:1.3;margin-bottom:6px}
+.opp-desc{font-size:13.5px;color:var(--text-mut);line-height:1.55;max-width:48ch}
+.opp-val{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--red-soft);white-space:nowrap}
 /* Hero callout: massive 3x number + supporting copy lateral */
 .opp-total{background:linear-gradient(120deg,var(--card-2) 0%,var(--card) 55%,rgba(208,69,69,.08) 100%);border:1px solid rgba(208,69,69,.32);border-radius:var(--radius-lg);padding:clamp(40px,5vw,72px) clamp(32px,4vw,64px);max-width:none;width:100%;margin:64px 0 0;box-shadow:0 1px 0 0 rgba(255,255,255,.06),0 32px 80px -24px rgba(0,0,0,.7),0 0 0 1px rgba(208,69,69,.10);position:relative;z-index:1;overflow:hidden;display:grid;grid-template-columns:auto 1fr;gap:clamp(28px,4vw,72px);align-items:center}
 .opp-total::before{content:'';position:absolute;top:-30%;right:-15%;width:480px;height:480px;background:radial-gradient(circle at center,rgba(208,69,69,.22) 0%,transparent 60%);pointer-events:none;filter:blur(40px)}
@@ -304,18 +303,15 @@ section{position:relative}
 .opp-total-label{font-size:clamp(1.125rem,1.6vw,1.375rem);font-weight:700;color:var(--text);line-height:1.25;letter-spacing:var(--tracking-tight)}
 .opp-total-note{font-size:14px;color:var(--text-mut);line-height:1.6;position:relative;max-width:460px;margin:0}
 
-/* ────────────────────────────────── PROCESSO */
+/* ────────────────────────────────── PROCESSO — borderless timeline */
 .section-processo{padding:var(--py) 0;background:var(--bg)}
-.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:56px;position:relative}
-.steps::before{content:'';position:absolute;top:28px;left:40px;right:40px;height:1px;background:linear-gradient(90deg,var(--line-2) 0%,var(--red) 100%);opacity:.45}
-.step{text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:16px;padding:28px 24px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-card)}
-.step-num{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;position:relative;z-index:2;transition:transform var(--t) var(--ease);background:var(--card);border:1px solid var(--line-2);color:var(--text)}
-.step:hover .step-num{transform:scale(1.08)}
-.step:nth-child(1) .step-num{background:var(--card);border-color:var(--line-2);color:var(--text)}
-.step:nth-child(2) .step-num,.step:nth-child(3) .step-num{background:var(--card);border:1px solid var(--line-2);color:var(--text-mut)}
-.step:nth-child(4) .step-num{background:var(--red);color:#fff;box-shadow:var(--shadow-cta);border-color:transparent}
-.step-title{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.012em}
-.step-desc{font-size:13.5px;color:var(--text-mut);line-height:1.65;max-width:none}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:56px;position:relative}
+.step{text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:14px;padding:0 28px;position:relative;border-left:1px solid var(--line)}
+.step:first-child{border-left:none;padding-left:0}
+.step-num{font-size:11px;font-weight:700;letter-spacing:.18em;color:var(--red);text-transform:uppercase;font-feature-settings:"tnum"}
+.step:nth-child(4) .step-num{color:var(--text);background:var(--red);display:inline-flex;align-items:center;justify-content:center;padding:4px 14px;border-radius:var(--radius-pill);letter-spacing:.1em}
+.step-title{font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.012em;line-height:1.25}
+.step-desc{font-size:13.5px;color:var(--text-mut);line-height:1.6;max-width:none}
 
 /* ────────────────────────────────── PLATAFORMA — título lateral (padrão das dobras), métricas em banda */
 .section-plat{padding:var(--py) 0;background:var(--bg);text-align:left;position:relative;overflow:hidden}
@@ -351,24 +347,23 @@ section{position:relative}
 .casos-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:48px;position:relative;z-index:1}
 .caso-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:36px;transition:transform var(--t) var(--ease),background var(--t) var(--ease),border-color var(--t) var(--ease);position:relative;overflow:hidden;box-shadow:var(--shadow-card)}
 .caso-card:hover{background:var(--card-2);transform:translateY(-5px) scale(1.01);border-color:rgba(208,69,69,.28);box-shadow:0 1px 0 0 rgba(255,255,255,.06),0 28px 60px -20px rgba(0,0,0,.65),0 0 0 1px rgba(208,69,69,.18)}
-.caso-tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--red-soft);border:1px solid rgba(208,69,69,.32);border-radius:var(--radius-pill);padding:6px 14px;margin-bottom:20px}
-.caso-name{font-size:14px;font-weight:600;color:var(--text-mut);margin-bottom:24px;letter-spacing:-.005em}
+.caso-tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--red-soft);border:1px solid rgba(208,69,69,.32);border-radius:var(--radius-pill);padding:6px 14px;margin-bottom:16px}
 .caso-lbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px}
-.caso-fat{font-size:22px;font-weight:600;color:var(--text);margin-bottom:18px;letter-spacing:var(--tracking-tighter);font-feature-settings:"tnum"}
+.caso-fat{font-size:14px;font-weight:600;color:var(--text-mut);margin-bottom:18px;letter-spacing:-.005em}
 .caso-rec{font-size:30px;font-weight:700;color:var(--green-soft);margin-bottom:8px;letter-spacing:var(--tracking-tighter);font-feature-settings:"tnum"}
 .caso-note{font-size:11px;color:var(--text-dim);letter-spacing:.02em}
 .casos-disc{font-size:12px;color:var(--text-dim);font-style:italic;margin-top:40px;text-align:left;position:relative;z-index:1;max-width:48rem}
 
-/* ────────────────────────────────── SEGURANÇA */
+/* ────────────────────────────────── SEGURANÇA — inline items, no cards */
 .section-seg{padding:var(--py) 0;background:var(--bg);text-align:left}
 .section-seg .section-header{margin-bottom:clamp(40px,5vw,64px);text-align:left}
 .section-seg .section-title{max-width:none;margin:0;text-align:left;text-wrap:pretty}
-.seg-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-top:56px;margin-bottom:0}
-.seg-card-g{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:36px;text-align:left;box-shadow:var(--shadow-card);transition:transform var(--t) var(--ease),background var(--t) var(--ease),border-color var(--t) var(--ease)}
-.seg-card-g:hover{transform:translateY(-5px) scale(1.008);background:var(--card-2);border-color:rgba(208,69,69,.28);box-shadow:0 1px 0 0 rgba(255,255,255,.06),0 24px 50px -18px rgba(0,0,0,.6),0 0 0 1px rgba(208,69,69,.16)}
-.seg-card-num{font-size:40px;font-weight:300;color:var(--text-dim);background:none;-webkit-text-fill-color:initial;margin-bottom:16px;line-height:1;letter-spacing:var(--tracking-tighter);font-feature-settings:"tnum"}
-.seg-card-title{font-size:18px;font-weight:700;color:var(--text);margin-bottom:12px;letter-spacing:-.012em}
-.seg-card-desc{font-size:14px;color:var(--text-mut);line-height:1.65}
+.seg-list{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:56px;border-top:1px solid var(--line)}
+.seg-item{padding:32px 28px 32px 0;border-bottom:1px solid var(--line);position:relative}
+.seg-item:not(:last-child)::after{content:'';position:absolute;right:0;top:20px;bottom:20px;width:1px;background:var(--line)}
+.seg-item-num{font-size:11px;font-weight:700;letter-spacing:.18em;color:var(--red);margin-bottom:14px;font-feature-settings:"tnum"}
+.seg-item-title{font-size:17px;font-weight:700;color:var(--text);margin-bottom:10px;letter-spacing:-.012em}
+.seg-item-desc{font-size:13.5px;color:var(--text-mut);line-height:1.6;max-width:28ch}
 
 /* ────────────────────────────────── CTA FINAL */
 .section-cta{padding:clamp(96px,14vh,160px) 0;background:var(--bg);text-align:left;position:relative;overflow:hidden}
@@ -435,13 +430,13 @@ section{position:relative}
   .hero h1{max-width:none;font-size:clamp(2rem,5.5vw,3.2rem)}
   .hero h1 .hl-nowrap{white-space:normal}
   .hero-brand{font-size:clamp(2.4rem,9vw,3.5rem)}
-  .opp-grid{grid-template-columns:1fr}
   .footer-grid{grid-template-columns:1fr 1fr;gap:48px}
   .plat-grid{grid-template-columns:1fr;border-radius:var(--radius)}
-  .seg-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
   .casos-grid{grid-template-columns:1fr}
-  .steps{grid-template-columns:1fr 1fr;gap:16px}
-  .steps::before{display:none}
+  .steps{grid-template-columns:1fr 1fr;gap:0}
+  .step{border-left:none;border-bottom:1px solid var(--line);padding:24px 0}
+  .seg-list{grid-template-columns:1fr 1fr}
+  .seg-item::after{display:none}
   .section-fade-in::before{height:clamp(40px,8vw,80px)}
 }
 @media(max-width:768px){
@@ -449,21 +444,24 @@ section{position:relative}
   .alcir-photo{max-width:400px;margin:0 auto}
   .alcir-photo img{aspect-ratio:4/5}
   .form-row{grid-template-columns:1fr;gap:10px}
-  .seg-grid{grid-template-columns:repeat(2,1fr)}
   .casos-grid{grid-template-columns:1fr}
   .inline-cta .btn-diag{width:100%;max-width:340px}
   .opp-total{padding:36px 28px;grid-template-columns:1fr;gap:20px;text-align:center}
   .opp-total-num{text-align:center}
   .opp-total-body{align-items:center}
   .opp-total-note{margin:0 auto}
+  .opp-row{grid-template-columns:44px 1fr;gap:12px}
+  .opp-val{grid-column:2}
+  .seg-list{grid-template-columns:1fr}
+  .seg-item::after{display:none}
 }
 @media(max-width:640px){
   .nav{display:none}
   .nav.open{display:flex;flex-direction:column;position:absolute;top:80px;left:0;right:0;background:rgba(10,14,46,.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.5);gap:16px;z-index:99;border-radius:0 0 var(--radius) var(--radius);border-top:1px solid var(--line)}
   .mobile-btn{display:block}
-  .steps{grid-template-columns:1fr}
+  .steps{grid-template-columns:1fr;gap:0}
+  .step{padding:20px 0;border-left:none;border-bottom:1px solid var(--line)}
   .footer-grid{grid-template-columns:1fr;gap:40px}
-  .seg-grid{grid-template-columns:1fr}
   .trust-bar .container{grid-template-columns:1fr}
   .trust-item{border-right:none;border-bottom:1px solid var(--line);padding:22px 18px}
   .trust-item:last-child{border-bottom:none}
@@ -593,38 +591,33 @@ section{position:relative}
     <div class="trust-item"><span class="trust-num">04</span><span class="trust-text">Especialização exclusiva em varejo</span></div>
   </div>
 </div>
-<!-- PARA QUEM / SEGMENTOS (bg-light) -->
+<!-- PARA QUEM / SEGMENTOS -->
 <section class="section-segments" id="paraquem">
   <div class="container">
     <div class="section-header split">
       <h2 class="section-title reveal-blur">O varejo paga tributos demais.<br><em>Todo segmento tem oportunidade.</em></h2>
-      <p class="section-desc">A Focus FinTax atende qualquer varejista com operação no Lucro Real, Lucro Presumido ou Simples Nacional. A complexidade tributária do varejo é universal — os setores mudam, a oportunidade não.</p>
+      <p class="section-desc">Lucro Real, Presumido ou Simples Nacional — a complexidade tributária é universal. Os setores mudam, a oportunidade não.</p>
     </div>
     <div class="seg-grid">
-      <div class="seg-card reveal stagger">
+      <div class="seg-chip reveal stagger">
         <div class="seg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg></div>
-        <div class="seg-name">Supermercados</div>
-        <div class="seg-desc">Maior concentração de oportunidades tributárias do varejo</div>
+        <div class="seg-label">Supermercados</div>
       </div>
-      <div class="seg-card reveal stagger">
+      <div class="seg-chip reveal stagger">
         <div class="seg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg></div>
-        <div class="seg-name">Farmácias</div>
-        <div class="seg-desc">Créditos sobre produtos monofásicos e logística de revenda</div>
+        <div class="seg-label">Farmácias</div>
       </div>
-      <div class="seg-card reveal stagger">
+      <div class="seg-chip reveal stagger">
         <div class="seg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></div>
-        <div class="seg-name">PET Shops</div>
-        <div class="seg-desc">Oportunidades em rações, insumos e benefícios estaduais</div>
+        <div class="seg-label">PET Shops</div>
       </div>
-      <div class="seg-card reveal stagger">
+      <div class="seg-chip reveal stagger">
         <div class="seg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
-        <div class="seg-name">Mat. Construção</div>
-        <div class="seg-desc">Créditos de substituição tributária, energia e fretes</div>
+        <div class="seg-label">Mat. Construção</div>
       </div>
-      <div class="seg-card reveal stagger">
+      <div class="seg-chip reveal stagger">
         <div class="seg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg></div>
-        <div class="seg-name">Outros Varejos</div>
-        <div class="seg-desc">Atacados, distribuidoras e demais varejistas tributáveis</div>
+        <div class="seg-label">Atacados e outros</div>
       </div>
     </div>
   </div>
@@ -650,23 +643,21 @@ section{position:relative}
 <section class="section-opp section-fade-in" id="oportunidades">
   <div class="container">
     <div class="section-header split">
-      <h2 class="section-title light reveal-blur">Mais de 43 pontos onde o varejo <em>paga imposto a mais</em></h2>
-      <p class="section-desc light">No Brasil, teses tributárias são argumentos jurídicos que questionam se certos impostos estão sendo cobrados corretamente. A maioria das empresas nunca foi auditada por especialistas. Quando isso acontece, o resultado é consistente: dinheiro que estava preso volta para o caixa.</p>
+      <h2 class="section-title light reveal-blur">43 pontos onde o varejo <em>paga imposto a mais</em></h2>
+      <p class="section-desc light">A maioria das empresas nunca foi auditada por especialistas tributários. Quando isso acontece, o resultado é consistente: dinheiro preso volta para o caixa.</p>
     </div>
-    <div class="opp-grid">
-      <div class="opp-item reveal stagger"><div class="opp-num">01</div><div class="opp-body"><div class="opp-title">Tributação sobre receitas e insumos</div><div class="opp-desc">Erros sistemáticos na apuração de tributos sobre o faturamento e nas despesas que geram crédito — a maior fonte de recuperação para varejistas no regime não cumulativo.</div><div class="opp-val">até 2,8× fat. mensal</div></div></div>
-      <div class="opp-item reveal stagger"><div class="opp-num">02</div><div class="opp-body"><div class="opp-title">Bases de cálculo incorretas</div><div class="opp-desc">Valores que não deveriam compor a base de cálculo de determinados tributos são incluídos de forma sistemática, inflando o imposto pago mês a mês por anos.</div><div class="opp-val">até 1,8× fat. mensal</div></div></div>
-      <div class="opp-item reveal stagger"><div class="opp-num">03</div><div class="opp-body"><div class="opp-title">Benefícios fiscais não aproveitados</div><div class="opp-desc">Incentivos estaduais e federais que reduzem a carga tributária — mas que, por falta de enquadramento correto ou documentação, ficam fora da escrituração fiscal da empresa.</div><div class="opp-val">até 0,9× fat. mensal</div></div></div>
-      <div class="opp-item reveal stagger"><div class="opp-num">04</div><div class="opp-body"><div class="opp-title">Créditos acumulados não ressarcidos</div><div class="opp-desc">Créditos tributários que se acumulam no regime não cumulativo e que o varejista tem direito a ressarcir em conta corrente ou compensar com outros tributos federais.</div><div class="opp-val">até 0,6× fat. mensal</div></div></div>
-      <div class="opp-item reveal stagger"><div class="opp-num">05</div><div class="opp-body"><div class="opp-title">Tributação sobre o lucro</div><div class="opp-desc">Valores que aumentam artificialmente a base do IRPJ e CSLL sem que sejam, de fato, receita da empresa — gerando pagamento indevido de Imposto de Renda ao longo dos anos.</div><div class="opp-val">até 0,5× fat. mensal</div></div></div>
-      <div class="opp-item" style="background:rgba(199,55,55,.08);border-color:rgba(199,55,55,.15)"><div class="opp-num" style="-webkit-text-fill-color:rgba(255,255,255,.2)">+38</div><div class="opp-body"><div class="opp-title" style="color:rgba(255,255,255,.7)">E outras 38 oportunidades mapeadas</div><div class="opp-desc" style="color:rgba(255,255,255,.4)">Previdenciário, substituição tributária, adaptações para a Reforma 2026 e análises específicas por segmento. Cada operação tem seu conjunto próprio de oportunidades.</div><div class="opp-val" style="color:rgba(255,255,255,.4)">análise completa</div></div></div>
+    <div class="opp-list">
+      <div class="opp-row reveal stagger"><div class="opp-num">01</div><div class="opp-body"><div class="opp-title">Tributação sobre receitas e insumos</div><div class="opp-desc">Erros na apuração de tributos sobre faturamento e créditos — a maior fonte de recuperação no varejo.</div></div><div class="opp-val">até 2,8× fat.</div></div>
+      <div class="opp-row reveal stagger"><div class="opp-num">02</div><div class="opp-body"><div class="opp-title">Bases de cálculo incorretas</div><div class="opp-desc">Valores incluídos indevidamente na base de cálculo inflam o imposto pago mês a mês por anos.</div></div><div class="opp-val">até 1,8× fat.</div></div>
+      <div class="opp-row reveal stagger"><div class="opp-num">03</div><div class="opp-body"><div class="opp-title">Benefícios fiscais e créditos acumulados</div><div class="opp-desc">Incentivos não aproveitados e créditos tributários não ressarcidos que o varejista tem direito a compensar.</div></div><div class="opp-val">até 1,5× fat.</div></div>
+      <div class="opp-row reveal stagger"><div class="opp-num">04</div><div class="opp-body"><div class="opp-title">Tributação sobre o lucro + 38 outras teses</div><div class="opp-desc">IRPJ, CSLL, previdenciário, substituição tributária e adaptações para a Reforma 2026.</div></div><div class="opp-val">análise completa</div></div>
     </div>
     <div class="opp-total">
       <div class="opp-total-num">3<span class="unit">×</span></div>
       <div class="opp-total-body">
-        <div class="opp-total-tag">Média consolidada para varejistas</div>
+        <div class="opp-total-tag">Média consolidada</div>
         <div class="opp-total-label">Até 3× o faturamento mensal recuperados</div>
-        <p class="opp-total-note">Estimativa conservadora com base em histórico de operações auditadas. A análise real com certificado digital frequentemente supera esse valor.</p>
+        <p class="opp-total-note">Estimativa conservadora. A análise real com certificado digital frequentemente supera esse valor.</p>
       </div>
     </div>
   </div>
@@ -675,14 +666,14 @@ section{position:relative}
 <section class="section-processo" id="processo">
   <div class="container">
     <div class="section-header split">
-      <h2 class="section-title reveal-blur">Do diagnóstico ao dinheiro no caixa: <em>4 etapas</em></h2>
-      <p class="section-desc">Você preenche o formulário. A Focus FinTax faz todo o trabalho técnico, jurídico e operacional.</p>
+      <h2 class="section-title reveal-blur">Do diagnóstico ao caixa em <em>4 etapas</em></h2>
+      <p class="section-desc">Você preenche o formulário. A Focus faz o trabalho técnico, jurídico e operacional.</p>
     </div>
     <div class="steps">
-      <div class="step reveal stagger"><div class="step-num">1</div><div><div class="step-title">Preencha o formulário</div><p class="step-desc">Dados básicos geram sua estimativa imediata — sem documentos, sem compromisso.</p></div></div>
-      <div class="step reveal stagger"><div class="step-num">2</div><div><div class="step-title">Diagnóstico técnico real</div><p class="step-desc">Com certificado digital, auditamos 60 meses de obrigações fiscais em menos de 2h.</p></div></div>
-      <div class="step reveal stagger"><div class="step-num">3</div><div><div class="step-title">Relatório + plano de ação</div><p class="step-desc">Oportunidades confirmadas, embasamento legal e estratégia de recuperação.</p></div></div>
-      <div class="step reveal stagger"><div class="step-num">4</div><div><div class="step-title">Crédito no seu caixa</div><p class="step-desc">Executamos com segurança total. Pagamento só sobre o êxito. Dinheiro em até 6 meses.</p></div></div>
+      <div class="step reveal stagger"><div class="step-num">ETAPA 01</div><div class="step-title">Preencha o formulário</div><p class="step-desc">Dados básicos geram sua estimativa imediata — sem documentos, sem compromisso.</p></div>
+      <div class="step reveal stagger"><div class="step-num">ETAPA 02</div><div class="step-title">Diagnóstico técnico real</div><p class="step-desc">Auditamos 60 meses de obrigações fiscais com certificado digital em menos de 2h.</p></div>
+      <div class="step reveal stagger"><div class="step-num">ETAPA 03</div><div class="step-title">Relatório + plano de ação</div><p class="step-desc">Oportunidades confirmadas com embasamento legal e estratégia de recuperação.</p></div>
+      <div class="step reveal stagger"><div class="step-num">ETAPA 04</div><div class="step-title">Crédito no seu caixa</div><p class="step-desc">Pagamento só sobre o êxito. Dinheiro em até 6 meses.</p></div>
     </div>
     <div class="inline-cta"><a href="#inicio" class="btn-diag">Quero meu diagnóstico gratuito</a></div>
   </div>
@@ -749,34 +740,28 @@ section{position:relative}
     </div>
     <div class="casos-grid">
       <div class="caso-card reveal stagger">
-        <div class="caso-tag">Supermercado · Rio de Janeiro</div>
-        <div class="caso-name">Superm Vit... Ltda</div>
-        <div class="caso-lbl">Faturamento mensal</div>
-        <div class="caso-fat">R$ 1,42M</div>
-        <div class="caso-lbl">Valor recuperado (60 meses)</div>
+        <div class="caso-tag">Supermercado · RJ</div>
+        <div class="caso-fat">Fat. R$ 1,42M/mês</div>
+        <div class="caso-lbl">Recuperado (60 meses)</div>
         <div class="caso-rec">R$ 2.115.933</div>
-        <div class="caso-note">Modalidade administrativa &middot; Prazo imediato</div>
+        <div class="caso-note">Administrativa &middot; Imediato</div>
       </div>
       <div class="caso-card reveal stagger">
-        <div class="caso-tag">Supermercado · São Paulo</div>
-        <div class="caso-name">Supermercado Ti... Ltda</div>
-        <div class="caso-lbl">Faturamento mensal</div>
-        <div class="caso-fat">R$ 1,87M</div>
-        <div class="caso-lbl">Valor recuperado (60 meses)</div>
+        <div class="caso-tag">Supermercado · SP</div>
+        <div class="caso-fat">Fat. R$ 1,87M/mês</div>
+        <div class="caso-lbl">Recuperado (60 meses)</div>
         <div class="caso-rec">R$ 3.988.783</div>
-        <div class="caso-note">Ressarcimento em C/C &middot; 149 dias</div>
+        <div class="caso-note">Ressarcimento C/C &middot; 149 dias</div>
       </div>
       <div class="caso-card reveal stagger">
-        <div class="caso-tag">Supermercado · Paraná</div>
-        <div class="caso-name">Superm Duas... Ltda</div>
-        <div class="caso-lbl">Faturamento mensal</div>
-        <div class="caso-fat">R$ 9,19M</div>
-        <div class="caso-lbl">Valor recuperado (60 meses)</div>
+        <div class="caso-tag">Supermercado · PR</div>
+        <div class="caso-fat">Fat. R$ 9,19M/mês</div>
+        <div class="caso-lbl">Recuperado (60 meses)</div>
         <div class="caso-rec">R$ 26.576.883</div>
-        <div class="caso-note">Compensação federal &middot; Prazo imediato</div>
+        <div class="caso-note">Compensação federal &middot; Imediato</div>
       </div>
     </div>
-    <p class="casos-disc">Resultados reais. Nomes preservados por confidencialidade. Valores confirmados com conformidade fiscal total.</p>
+    <p class="casos-disc">Resultados reais. Nomes preservados por sigilo. Valores com conformidade fiscal total.</p>
     <div class="inline-cta"><a href="#inicio" class="btn-diag">Fazer meu diagnóstico agora</a></div>
   </div>
 </section>
@@ -786,21 +771,21 @@ section{position:relative}
     <div class="section-header">
       <h2 class="section-title reveal-blur">Fomos criados para trazer <em>segurança</em> —<br>o que protege vem antes do que recupera</h2>
     </div>
-    <div class="seg-cards">
-      <div class="seg-card-g reveal stagger">
-        <div class="seg-card-num">01</div>
-        <div class="seg-card-title">Zero risco fiscal</div>
-        <p class="seg-card-desc">Processos amparados por decisões consolidadas do STF e STJ. Cada tese tem fundamentação técnica robusta e grau de risco nulo para as principais oportunidades.</p>
+    <div class="seg-list">
+      <div class="seg-item reveal stagger">
+        <div class="seg-item-num">01</div>
+        <div class="seg-item-title">Zero risco fiscal</div>
+        <p class="seg-item-desc">Decisões consolidadas do STF e STJ. Risco nulo nas principais teses.</p>
       </div>
-      <div class="seg-card-g reveal stagger">
-        <div class="seg-card-num">02</div>
-        <div class="seg-card-title">Pagamento só no sucesso</div>
-        <p class="seg-card-desc">Sem custo inicial. Cobramos apenas sobre os valores efetivamente recuperados. Se não houver resultado, você não paga nada.</p>
+      <div class="seg-item reveal stagger">
+        <div class="seg-item-num">02</div>
+        <div class="seg-item-title">Pagamento só no sucesso</div>
+        <p class="seg-item-desc">Sem custo inicial. Cobramos apenas sobre valores efetivamente recuperados.</p>
       </div>
-      <div class="seg-card-g reveal stagger">
-        <div class="seg-card-num">03</div>
-        <div class="seg-card-title">Confidencialidade total</div>
-        <p class="seg-card-desc">Seus dados financeiros e fiscais protegidos com sigilo absoluto em todo o processo — do diagnóstico ao recebimento.</p>
+      <div class="seg-item reveal stagger">
+        <div class="seg-item-num">03</div>
+        <div class="seg-item-title">Confidencialidade total</div>
+        <p class="seg-item-desc">Dados financeiros e fiscais protegidos com sigilo absoluto do início ao fim.</p>
       </div>
     </div>
   </div>
