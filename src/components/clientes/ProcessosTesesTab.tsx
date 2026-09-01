@@ -30,6 +30,7 @@ import {
 import { toast } from "sonner";
 import { ProcessoFormModal } from "./ProcessoFormModal";
 import { formatCurrencyBR, getStatusContratoConfig, STATUS_PROCESSO } from "@/lib/clientes-constants";
+import { deleteCreditoApuradoForProcesso, syncCreditoApuradoFromProcesso } from "@/lib/sync-credito-apurado";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 import {
   isTipoRecuperacao,
@@ -95,6 +96,7 @@ export function ProcessosTesesTab({
 
   const handleInlineUpdate = (id: string, field: string, value: string | number) => {
     let honorarioCalc: number | null = null;
+    const current = processos.find((p) => p.id === id);
     setProcessos((prev) =>
       prev.map((p) => {
         if (p.id !== id) return p;
@@ -116,8 +118,23 @@ export function ProcessosTesesTab({
         .from("processos_teses")
         .update(updateData as any)
         .eq("id", id);
-      if (error) toast.error("Erro ao salvar.");
-      else void refreshAll();
+      if (error) {
+        toast.error("Erro ao salvar.");
+        return;
+      }
+      if (field === "valor_credito" && current) {
+        try {
+          await syncCreditoApuradoFromProcesso({
+            clienteId,
+            tese: current.tese,
+            nomeExibicao: current.nome_exibicao,
+            valorCredito: Number(value) || 0,
+          });
+        } catch {
+          // Processo já gravado; o fallback do cabeçalho cobre até a próxima edição.
+        }
+      }
+      void refreshAll();
     }, 800);
   };
 
@@ -431,6 +448,15 @@ export function ProcessosTesesTab({
                                     if (error) {
                                       toast.error("Erro ao excluir.");
                                       return;
+                                    }
+                                    try {
+                                      await deleteCreditoApuradoForProcesso({
+                                        clienteId,
+                                        tese: p.tese,
+                                        nomeExibicao: p.nome_exibicao,
+                                      });
+                                    } catch {
+                                      // Processo já removido; o refetch mostra o card sem essa tese.
                                     }
                                     toast.success("Tese excluída.");
                                     logClienteHistorico(

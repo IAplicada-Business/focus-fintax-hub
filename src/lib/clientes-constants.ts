@@ -288,6 +288,52 @@ export type CreditoApuradoRow = {
   incluir_no_calculo?: boolean | null;
 };
 
+/** Padrão Fox / Import Controle: só Insumos e Subvenção entram no Crédito Apurado. */
+export function isTeseNoCalculoDefault(codigo: string | null | undefined): boolean {
+  const c = String(codigo || "").toUpperCase();
+  return c === "INSUMOS" || c === "SUBVENCAO";
+}
+
+export type ProcessoCreditoFallback = {
+  tese?: string | null;
+  nome_exibicao?: string | null;
+  valor_credito?: number | null;
+};
+
+/**
+ * Se o processo INSUMOS/SUBVENCAO ainda não tem linha em creditos_apurados,
+ * usa valor_credito no apurado. Linha existente manda — não soma os dois.
+ */
+export function mergeCreditosComProcessosFallback(params: {
+  creditos: CreditoApuradoRow[];
+  processos: ProcessoCreditoFallback[];
+  teseIdByCodigo: Map<string, string>;
+}): CreditoApuradoRow[] {
+  const existingTeseIds = new Set(params.creditos.map((c) => c.tese_id));
+  const hasFlag = params.creditos.some(
+    (c) => c.incluir_no_calculo === true || c.incluir_no_calculo === false,
+  );
+  const extras: CreditoApuradoRow[] = [];
+  const seen = new Set<string>();
+
+  for (const p of params.processos) {
+    const codigo = normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao || "");
+    if (!codigo || !isTeseNoCalculoDefault(String(codigo))) continue;
+    const key = String(codigo).toUpperCase();
+    if (seen.has(key)) continue;
+    const teseId = params.teseIdByCodigo.get(key);
+    if (!teseId || existingTeseIds.has(teseId)) continue;
+    seen.add(key);
+    extras.push({
+      tese_id: teseId,
+      valor_apurado_inicial: Number(p.valor_credito || 0),
+      incluir_no_calculo: hasFlag ? true : null,
+    });
+  }
+
+  return extras.length === 0 ? params.creditos : [...params.creditos, ...extras];
+}
+
 /**
  * Crédito Apurado / possíveis futuros a partir de creditos_apurados (ao vivo).
  * Não usa v_cliente_totais_calculo (essa view mistura GREATEST com snapshot legado).

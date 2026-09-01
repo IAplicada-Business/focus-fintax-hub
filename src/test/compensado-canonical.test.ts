@@ -6,6 +6,8 @@ import {
   filterCompensadoCanonical,
   filterCompsForTese,
   inferTeseCodigoFromTributo,
+  isTeseNoCalculoDefault,
+  mergeCreditosComProcessosFallback,
   normalizeTeseCatalogCodigo,
   splitCreditosCalculo,
   statusUtilizacaoFromSaldo,
@@ -319,6 +321,55 @@ describe("splitCreditosCalculo", () => {
     const saldo = r.creditoApurado - compensadoAba;
     expect(saldo).toBeCloseTo(1739063.1, 2);
     expect(saldo).not.toBeCloseTo(1270297.3, 2);
+  });
+});
+
+describe("isTeseNoCalculoDefault", () => {
+  it("só INSUMOS e SUBVENCAO entram no cálculo por padrão", () => {
+    expect(isTeseNoCalculoDefault("INSUMOS")).toBe(true);
+    expect(isTeseNoCalculoDefault("SUBVENCAO")).toBe(true);
+    expect(isTeseNoCalculoDefault("insumos")).toBe(true);
+    expect(isTeseNoCalculoDefault("ICMS_ST")).toBe(false);
+    expect(isTeseNoCalculoDefault("REPORTO")).toBe(false);
+    expect(isTeseNoCalculoDefault("EXCLUSAO_ICMS_BC")).toBe(false);
+    expect(isTeseNoCalculoDefault(null)).toBe(false);
+  });
+});
+
+describe("mergeCreditosComProcessosFallback", () => {
+  const teseIdByCodigo = new Map([
+    ["INSUMOS", "t-insumos"],
+    ["SUBVENCAO", "t-subvencao"],
+    ["ICMS_ST", "t-icms"],
+  ]);
+
+  it("usa valor_credito do processo INSUMOS/SUBVENCAO quando não há linha de crédito", () => {
+    const merged = mergeCreditosComProcessosFallback({
+      creditos: [],
+      processos: [
+        { tese: "INSUMOS", nome_exibicao: "Insumos", valor_credito: 933537.79 },
+        { tese: "ICMS_ST", nome_exibicao: "Exclusão ICMS ST", valor_credito: 100000 },
+      ],
+      teseIdByCodigo,
+    });
+    const split = splitCreditosCalculo(merged);
+    expect(split.creditoApurado).toBeCloseTo(933537.79, 2);
+    expect(split.tesesNoCalculo).toBe(1);
+  });
+
+  it("não duplica quando já existe linha em creditos_apurados", () => {
+    const merged = mergeCreditosComProcessosFallback({
+      creditos: [
+        { tese_id: "t-insumos", valor_apurado_inicial: 500000, incluir_no_calculo: true },
+      ],
+      processos: [
+        { tese: "pis_cofins_insumos", nome_exibicao: "Insumos", valor_credito: 933537.79 },
+      ],
+      teseIdByCodigo,
+    });
+    const split = splitCreditosCalculo(merged);
+    expect(split.creditoApurado).toBe(500000);
+    expect(merged).toHaveLength(1);
   });
 });
 
