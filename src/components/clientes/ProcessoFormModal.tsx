@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { STATUS_CONTRATO, STATUS_PROCESSO, normalizeTeseCatalogCodigo } from "@/lib/clientes-constants";
+import { resolveCatalogTeseId, syncCreditoApuradoFromProcesso } from "@/lib/sync-credito-apurado";
 import { useMotorTesesAtivas } from "@/hooks/data/useClienteOperacional";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 import {
@@ -137,17 +138,6 @@ export function ProcessoFormModal({
     return !!(n && takenNorm.has(n));
   };
 
-  const resolveCatalogTeseId = async (slug: string, nome: string) => {
-    const codigo = normalizeTeseCatalogCodigo(slug, nome);
-    if (!codigo) return null;
-    const { data } = await (supabase as any)
-      .from("teses_tributarias")
-      .select("id")
-      .eq("codigo", codigo)
-      .maybeSingle();
-    return (data as { id?: string } | null)?.id ?? null;
-  };
-
   const handleSave = async () => {
     if (!form.tese) { toast.error("Selecione uma tese."); return; }
     if (teseJaUsada(form.tese)) {
@@ -212,6 +202,19 @@ export function ProcessoFormModal({
         "tese_processo_alterada",
         `Processo "${form.nome_exibicao}": ${processo.tese} → ${form.tese}`,
       );
+    }
+
+    try {
+      await syncCreditoApuradoFromProcesso({
+        clienteId,
+        tese: form.tese,
+        nomeExibicao: form.nome_exibicao,
+        valorCredito: payload.valor_credito,
+        previousTese: teseMudou ? processo.tese : undefined,
+        previousNomeExibicao: teseMudou ? processo.nome_exibicao : undefined,
+      });
+    } catch {
+      // Processo já gravado; o fallback do cabeçalho cobre até a próxima edição.
     }
 
     setSaving(false);

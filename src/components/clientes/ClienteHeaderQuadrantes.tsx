@@ -10,6 +10,7 @@ import {
   formatCurrencyBR,
   formatCompetenciaPT,
   isReportoCompensacao,
+  mergeCreditosComProcessosFallback,
   normalizeTeseCatalogCodigo,
   splitCreditosCalculo,
   sumCompensadoCanonical,
@@ -105,10 +106,28 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
     void qc.invalidateQueries({ queryKey: ["cliente", clienteId, "record"] });
   }, [refreshToken, clienteId, qc]);
 
-  const creditos = (creditosQ.data ?? []) as CreditoRow[];
+  const creditosRaw = (creditosQ.data ?? []) as CreditoRow[];
   const compsRaw = (compsQ.data ?? []) as CompRow[];
   const processos = processosQ.data ?? [];
   const teses = tesesQ.data ?? [];
+  const teseIdByCodigo = useMemo(
+    () =>
+      new Map(
+        teses
+          .filter((t) => t.codigo)
+          .map((t) => [String(t.codigo).toUpperCase(), t.id] as const),
+      ),
+    [teses],
+  );
+  const creditos = useMemo(
+    () =>
+      mergeCreditosComProcessosFallback({
+        creditos: creditosRaw,
+        processos,
+        teseIdByCodigo,
+      }),
+    [creditosRaw, processos, teseIdByCodigo],
+  );
   const opcoesTese = motorQ.data ?? [];
   const view = statusQ.data;
   const teseAtivaId = (clienteQ.data as { tese_ativa_id?: string | null } | undefined)?.tese_ativa_id ?? null;
