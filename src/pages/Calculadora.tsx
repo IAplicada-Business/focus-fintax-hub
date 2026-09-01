@@ -206,21 +206,23 @@ export default function Calculadora() {
         .calc-fade-up-d2{animation-delay:.2s}
         .calc-fade-up-d3{animation-delay:.35s}
         .calc-fade-up-d4{animation-delay:.5s}
-        .calc-hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(32px,5vw,72px);align-items:center;max-width:1100px;margin:0 auto}
-        .calc-hero-photo-wrap{position:relative}
-        .calc-hero-photo-card{position:relative;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.08);box-shadow:0 40px 80px -20px rgba(0,0,0,.6)}
-        .calc-hero-photo-card img{width:100%;display:block;aspect-ratio:3/4;object-fit:cover;object-position:top center}
-        .calc-hero-photo-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:50%;background:linear-gradient(0deg,rgba(5,7,26,.85) 0%,transparent 100%);pointer-events:none}
-        .calc-hero-photo-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#d04545,#e06b6b,transparent);z-index:2}
-        .calc-hero-photo-info{position:absolute;bottom:20px;left:20px;right:20px;z-index:3}
         .calc-kpi-row{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
         .calc-kpi-pill{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:10px 18px}
         .calc-kpi-pill strong{font-size:15px;font-weight:800;color:#e8ebff}
         .calc-kpi-pill span{font-size:11px;color:rgba(232,235,255,.55);font-weight:500}
+        .calc-alcir-grid{display:grid;grid-template-columns:minmax(320px,.9fr) 1fr;gap:clamp(40px,5vw,80px);align-items:center;max-width:1100px;margin:0 auto}
+        .calc-alcir-photo{position:relative;border-radius:20px;overflow:hidden;border:1px solid rgba(255,255,255,.08);box-shadow:0 40px 80px -20px rgba(0,0,0,.6)}
+        .calc-alcir-photo img{width:100%;display:block;aspect-ratio:3/4;object-fit:cover;object-position:top center}
+        .calc-alcir-photo::after{content:'';position:absolute;bottom:0;left:0;right:0;height:45%;background:linear-gradient(0deg,rgba(5,7,26,.85) 0%,transparent 100%);pointer-events:none}
+        .calc-alcir-photo::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#d04545,#e06b6b,transparent);z-index:2}
+        .calc-alcir-info{position:absolute;bottom:20px;left:24px;right:24px;z-index:3}
+        @media(max-width:1024px){
+          .calc-alcir-grid{grid-template-columns:minmax(280px,.85fr) 1fr;gap:48px}
+        }
         @media(max-width:768px){
-          .calc-hero-grid{grid-template-columns:1fr;text-align:center}
-          .calc-hero-photo-wrap{max-width:320px;margin:0 auto}
-          .calc-hero-photo-card img{aspect-ratio:4/5}
+          .calc-alcir-grid{grid-template-columns:1fr}
+          .calc-alcir-photo{max-width:400px;margin:0 auto}
+          .calc-alcir-photo img{aspect-ratio:4/5}
           .calc-kpi-row{justify-content:center}
         }
       `}</style>
@@ -244,42 +246,34 @@ export default function Calculadora() {
         </div>
       </header>
 
-      {/* HERO — two-column with Alcir photo */}
-      <section style={{ padding: "clamp(48px,8vw,96px) 24px clamp(40px,6vw,72px)", background: `radial-gradient(ellipse at 30% 20%, rgba(14,18,53,.9) 0%, ${BG} 55%), radial-gradient(circle at 80% 80%, rgba(208,69,69,.06) 0%, transparent 50%)`, position: "relative", overflow: "hidden" }}>
+      {/* HERO — centered CTA */}
+      <section style={{ padding: "clamp(64px,10vw,120px) 24px clamp(48px,6vw,72px)", background: `radial-gradient(ellipse at 50% 30%, rgba(14,18,53,.9) 0%, ${BG} 60%), radial-gradient(circle at 70% 70%, rgba(208,69,69,.08) 0%, transparent 50%)`, position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"60\" height=\"60\"><rect fill=\"none\" stroke=\"rgba(255,255,255,.015)\" stroke-width=\".5\" width=\"60\" height=\"60\"/></svg>')", opacity: 0.5, pointerEvents: "none" }} />
-        <div className="calc-hero-grid" style={{ position: "relative", zIndex: 2 }}>
-          <div>
-            <p className="calc-fade-up" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: RED, marginBottom: 16, display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <span style={{ width: 24, height: 1, background: RED, display: "inline-block" }} />
-              Reforma Tributária 2026
-            </p>
-            <h1 className="calc-fade-up calc-fade-up-d1" style={{ fontSize: "clamp(28px, 4.5vw, 46px)", fontWeight: 800, lineHeight: 1.12, color: TEXT, marginBottom: 20 }}>
-              Quanto seu supermercado vai pagar de imposto{" "}
-              <span style={{ color: RED, fontStyle: "italic" }}>na Reforma?</span>
-            </h1>
-            <p className="calc-fade-up calc-fade-up-d2" style={{ fontSize: 16, color: TEXT_MUTED, maxWidth: 520, marginBottom: 28, lineHeight: 1.6 }}>
-              Descubra em 30 segundos o impacto do IBS/CBS na sua rede — com base em <strong style={{ color: TEXT }}>12 anos de dados Focus</strong> do segmento supermercadista.
-            </p>
-            <div className="calc-kpi-row calc-fade-up calc-fade-up-d3">
-              <div className="calc-kpi-pill">
-                <strong>12</strong><span>anos de expertise</span>
-              </div>
-              <div className="calc-kpi-pill">
-                <strong>R$ 26M</strong><span>recuperados</span>
-              </div>
-              <div className="calc-kpi-pill">
-                <strong>180+</strong><span>supermercados</span>
-              </div>
+        <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 2 }}>
+          <p className="calc-fade-up" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: RED, marginBottom: 20, display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 24, height: 1, background: RED, display: "inline-block" }} />
+            Reforma Tributária 2026
+            <span style={{ width: 24, height: 1, background: RED, display: "inline-block" }} />
+          </p>
+          <h1 className="calc-fade-up calc-fade-up-d1" style={{ fontSize: "clamp(32px, 5vw, 52px)", fontWeight: 800, lineHeight: 1.08, color: TEXT, marginBottom: 22, letterSpacing: "-0.02em" }}>
+            Quanto seu supermercado vai pagar de imposto{" "}
+            <span style={{ color: RED, fontStyle: "italic" }}>na Reforma?</span>
+          </h1>
+          <p className="calc-fade-up calc-fade-up-d2" style={{ fontSize: 17, color: TEXT_MUTED, maxWidth: 560, margin: "0 auto 32px", lineHeight: 1.65 }}>
+            Descubra em 30 segundos o impacto do IBS/CBS na sua rede — com base em <strong style={{ color: TEXT }}>12 anos de dados Focus</strong> do segmento supermercadista.
+          </p>
+          <a href="#form-calc" className="calc-fade-up calc-fade-up-d3" style={{ display: "inline-flex", alignItems: "center", gap: 10, fontSize: 16, fontWeight: 700, color: "white", textDecoration: "none", padding: "18px 44px", borderRadius: 999, background: RED, boxShadow: "0 12px 32px -8px rgba(208,69,69,.5)", letterSpacing: 0.3, transition: "transform .2s ease, box-shadow .2s ease" }}>
+            Calcular agora
+          </a>
+          <div className="calc-kpi-row calc-fade-up calc-fade-up-d4" style={{ marginTop: 40 }}>
+            <div className="calc-kpi-pill">
+              <strong>12</strong><span>anos de expertise</span>
             </div>
-          </div>
-          <div className="calc-hero-photo-wrap calc-fade-up calc-fade-up-d4">
-            <div className="calc-hero-photo-card">
-              <img src="/images/foto-alcir.png" alt="Alcir Guimarães — Fundador do Grupo Focus" loading="eager" />
-              <div className="calc-hero-photo-info">
-                <p style={{ fontSize: 18, fontWeight: 800, color: "white", marginBottom: 2 }}>Alcir Guimarães</p>
-                <p style={{ fontSize: 12, color: "rgba(255,255,255,.7)", fontWeight: 500 }}>Fundador · Grupo Focus</p>
-                <p style={{ fontSize: 11, color: "rgba(255,255,255,.5)", marginTop: 4 }}>15 anos no varejo supermercadista</p>
-              </div>
+            <div className="calc-kpi-pill">
+              <strong>R$ 26M</strong><span>recuperados</span>
+            </div>
+            <div className="calc-kpi-pill">
+              <strong>180+</strong><span>supermercados</span>
             </div>
           </div>
         </div>
@@ -290,7 +284,6 @@ export default function Calculadora() {
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "clamp(80px,12vw,160px)", background: `linear-gradient(180deg, ${BG} 0%, transparent 100%)`, pointerEvents: "none", zIndex: 1 }} />
         <div style={{ maxWidth: 620, margin: "0 auto", background: SURFACE, borderRadius: 20, padding: "clamp(24px,4vw,40px)", boxShadow: `0 40px 100px -30px rgba(0,0,0,.7), 0 0 0 1px ${BORDER}`, position: "relative", zIndex: 2 }}>
           <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 14, background: `linear-gradient(135deg, ${RED}, #b03535)`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 22, marginBottom: 14, boxShadow: "0 8px 24px -6px rgba(208,69,69,.4)" }}>📋</div>
             <h2 style={{ fontSize: 22, fontWeight: 800, color: TEXT, marginBottom: 6 }}>Preencha e receba seu diagnóstico</h2>
             <p style={{ fontSize: 13, color: TEXT_MUTED }}>7 campos rápidos. Resultado na próxima tela — sem custo.</p>
           </div>
@@ -368,58 +361,38 @@ export default function Calculadora() {
         </div>
       )}
 
-      {/* Autoridade — Alcir + KPIs */}
+      {/* Alcir — quem está por trás */}
       <section style={{ padding: "clamp(60px,8vw,100px) 24px", background: `linear-gradient(180deg, ${SURFACE} 0%, ${BG} 100%)`, borderTop: `1px solid ${BORDER}`, position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: "min(480px,60%)", height: 1, background: `linear-gradient(90deg, transparent, rgba(208,69,69,.2), transparent)` }} />
-        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 48 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: RED, marginBottom: 12, display: "inline-flex", alignItems: "center", gap: 8 }}>
+        <div className="calc-alcir-grid">
+          <div className="calc-alcir-photo">
+            <img src="/images/foto-alcir.png" alt="Alcir Guimarães — Fundador do Grupo Focus" loading="lazy" />
+            <div className="calc-alcir-info">
+              <p style={{ fontSize: 22, fontWeight: 800, color: "white", marginBottom: 4 }}>Alcir Guimarães</p>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,.7)", fontWeight: 500 }}>Fundador · Grupo Focus</p>
+            </div>
+          </div>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: RED, marginBottom: 16, display: "inline-flex", alignItems: "center", gap: 8 }}>
               <span style={{ width: 24, height: 1, background: RED, display: "inline-block" }} />
               Quem está por trás
-              <span style={{ width: 24, height: 1, background: RED, display: "inline-block" }} />
             </p>
-            <h2 style={{ fontSize: "clamp(24px, 3.5vw, 34px)", fontWeight: 800, color: TEXT, marginBottom: 8 }}>Por que Focus FinTax</h2>
-            <p style={{ fontSize: 14, color: TEXT_MUTED, maxWidth: 560, margin: "0 auto" }}>
-              Maior grupo de contabilidade especializado em supermercado do Brasil e América Latina.
+            <h2 style={{ fontSize: "clamp(24px, 3.5vw, 34px)", fontWeight: 800, color: TEXT, lineHeight: 1.12, marginBottom: 24 }}>
+              15 anos transformando o varejo supermercadista
+            </h2>
+            <p style={{ fontSize: 15.5, color: TEXT_MUTED, lineHeight: 1.7, marginBottom: 20 }}>
+              Fundador do maior grupo de contabilidade especializado em supermercado do Brasil e América Latina, <strong style={{ color: TEXT }}>Alcir acumula mais de 15 anos</strong> ajudando varejistas a recuperar milhões em impostos pagos indevidamente e a criar processos para que não continuem perdendo.
             </p>
-          </div>
-
-          <div className="calc-authority-grid" style={{ display: "grid", gridTemplateColumns: "minmax(200px, 280px) 1fr", gap: "clamp(32px,5vw,64px)", alignItems: "center", marginBottom: 48 }}>
-            <div className="calc-authority-photo" style={{ position: "relative", borderRadius: 16, overflow: "hidden", border: `1px solid ${BORDER}`, boxShadow: "0 30px 60px -20px rgba(0,0,0,.5)" }}>
-              <img src="/images/foto-alcir.png" alt="Alcir Guimarães" style={{ width: "100%", display: "block", aspectRatio: "3/4", objectFit: "cover", objectPosition: "top center" }} />
-              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "50%", background: "linear-gradient(0deg, rgba(5,7,26,.85) 0%, transparent 100%)", pointerEvents: "none" }} />
-              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${RED}, ${RED}88, transparent)` }} />
-              <div style={{ position: "absolute", bottom: 16, left: 16, right: 16, zIndex: 2 }}>
-                <p style={{ fontSize: 16, fontWeight: 800, color: "white" }}>Alcir Guimarães</p>
-                <p style={{ fontSize: 11, color: "rgba(255,255,255,.65)" }}>Fundador · Grupo Focus</p>
-              </div>
+            <p style={{ fontSize: 14, color: TEXT_MUTED, lineHeight: 1.65, paddingTop: 18, borderTop: `1px solid ${BORDER}` }}>
+              Agora, com a Reforma Tributária, a Focus ajuda supermercadistas a entender o impacto real do IBS/CBS e a se preparar desde já — com diagnósticos baseados em <strong style={{ color: TEXT }}>dados reais de 12 anos</strong> no segmento.
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 24 }}>
+              <span style={{ fontSize: 12, fontWeight: 500, color: TEXT, border: `1px solid rgba(255,255,255,.14)`, background: "rgba(255,255,255,.04)", borderRadius: 999, padding: "8px 16px", whiteSpace: "nowrap" }}>Contador CRC</span>
+              <span style={{ fontSize: 12, fontWeight: 500, color: TEXT, border: `1px solid rgba(255,255,255,.14)`, background: "rgba(255,255,255,.04)", borderRadius: 999, padding: "8px 16px", whiteSpace: "nowrap" }}>Estrategista Tributário</span>
+              <span style={{ fontSize: 12, fontWeight: 500, color: TEXT, border: `1px solid rgba(255,255,255,.14)`, background: "rgba(255,255,255,.04)", borderRadius: 999, padding: "8px 16px", whiteSpace: "nowrap" }}>Especialista em Varejo</span>
             </div>
-            <div>
-              <p style={{ fontSize: 15, color: TEXT_MUTED, lineHeight: 1.7, marginBottom: 20 }}>
-                Fundador do maior grupo de contabilidade especializado em supermercado do Brasil e América Latina, <strong style={{ color: TEXT }}>Alcir acumula mais de 15 anos</strong> ajudando varejistas a recuperar milhões em impostos pagos indevidamente e a criar processos para que não continuem perdendo.
-              </p>
-              <p style={{ fontSize: 13, color: TEXT_MUTED, lineHeight: 1.6, padding: "14px 0", borderTop: `1px solid ${BORDER}` }}>
-                Agora, com a Reforma Tributária, a Focus ajuda supermercadistas a entender o impacto real do IBS/CBS e a se preparar desde já — com diagnósticos baseados em <strong style={{ color: TEXT }}>dados reais de 12 anos</strong> no segmento.
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-            <KpiCard n="12" label="anos de expertise" icon="📊" />
-            <KpiCard n="R$ 26M" label="recuperados" icon="💰" />
-            <KpiCard n="180+" label="supermercados" icon="🏪" />
-            <KpiCard n="98%" label="retorno positivo" icon="✓" />
           </div>
         </div>
-        <style>{`
-          @media(max-width:768px){
-            .calc-authority-grid{grid-template-columns:1fr !important}
-            .calc-authority-photo{max-width:280px;margin:0 auto}
-          }
-          @media(max-width:640px){
-            .calc-kpi-grid{grid-template-columns:repeat(2,1fr) !important}
-          }
-        `}</style>
       </section>
 
       {/* Footer */}
@@ -474,16 +447,6 @@ function RadioBtn({ checked, onClick, label }: { checked: boolean; onClick: () =
     >
       {label}
     </button>
-  );
-}
-
-function KpiCard({ n, label, icon }: { n: string; label: string; icon: string }) {
-  return (
-    <div className="calc-kpi-grid" style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: "20px 16px", textAlign: "center" }}>
-      <p style={{ fontSize: 14, marginBottom: 8 }}>{icon}</p>
-      <p style={{ fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 800, color: TEXT, marginBottom: 4 }}>{n}</p>
-      <p style={{ fontSize: 11, color: TEXT_MUTED, lineHeight: 1.35, fontWeight: 500 }}>{label}</p>
-    </div>
   );
 }
 
