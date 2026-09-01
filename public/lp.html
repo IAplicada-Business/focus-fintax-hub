@@ -115,7 +115,7 @@ em{font-style:italic;color:var(--red-soft);font-weight:inherit}
 @media(max-width:900px){.section-header.split{grid-template-columns:1fr;gap:16px}}
 
 /* Marquee ticker (CSS-only infinite scroll) */
-.marquee{overflow:hidden;padding:28px 0;background:var(--bg);border-top:1px solid var(--line);border-bottom:1px solid var(--line);position:relative;z-index:2}
+.marquee{overflow:hidden;padding:32px 0;background:linear-gradient(180deg,rgba(5,7,26,.8),var(--bg-2),rgba(5,7,26,.8));border-top:1px solid var(--line);border-bottom:1px solid var(--line);position:relative;z-index:2}
 .marquee-track{display:flex;gap:48px;width:max-content;animation:marqueeScroll 38s linear infinite}
 .marquee-item{display:inline-flex;align-items:center;gap:14px;font-size:14px;font-weight:600;letter-spacing:-.005em;color:var(--text-mut);white-space:nowrap;text-transform:uppercase;letter-spacing:.08em}
 .marquee-item::after{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--red);margin-left:34px;opacity:.7}
@@ -188,8 +188,9 @@ em{font-style:italic;color:var(--red-soft);font-weight:inherit}
 .hero-eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:var(--eyebrow);font-weight:700;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--text-mut);margin-bottom:18px;padding:0;background:none;border:none;border-radius:0}
 .hero-eyebrow-dot{width:7px;height:7px;border-radius:50%;background:var(--red);flex-shrink:0;box-shadow:0 0 0 3px rgba(208,69,69,.25);animation:pulse 2.6s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(1.2)}}
-.hero h1{font-family:var(--font);font-size:var(--fs-display);font-weight:700;line-height:1.08;color:var(--text);margin-bottom:22px;letter-spacing:var(--tracking-tighter);max-width:18ch;text-wrap:pretty;-webkit-text-wrap:pretty;hyphens:none;overflow-wrap:break-word;overflow:visible}
+.hero h1{font-family:var(--font);font-size:var(--fs-display);font-weight:700;line-height:1.08;color:var(--text);margin-bottom:22px;letter-spacing:var(--tracking-tighter);max-width:26ch;text-wrap:pretty;-webkit-text-wrap:pretty;hyphens:none;overflow-wrap:break-word;overflow:visible}
 .hero h1 .hl-line{display:inline}
+.hero h1 .hl-nowrap{white-space:nowrap}
 .hero h1 em{font-family:var(--font-display);font-style:italic;color:var(--red-soft);font-weight:600;background:none;-webkit-text-fill-color:initial;display:inline;padding:0;margin:0;letter-spacing:-.02em}
 .hero-desc{font-size:var(--fs-lead);color:var(--text-mut);line-height:1.6;margin-bottom:0;max-width:38rem;letter-spacing:-.01em}
 .hero-desc strong{color:var(--text);font-weight:600}
@@ -247,7 +248,7 @@ em{font-style:italic;color:var(--red-soft);font-weight:inherit}
 .btn-next svg{width:16px}
 
 /* ────────────────────────────────── TRUST BAR */
-.trust-bar{background:linear-gradient(180deg,transparent,rgba(1,15,105,.18));padding:clamp(40px,5vw,64px) 0;margin-top:0;position:relative;z-index:3;border-radius:0}
+.trust-bar{background:linear-gradient(180deg,rgba(5,7,26,.6),rgba(1,15,105,.18),rgba(5,7,26,.4));padding:clamp(40px,5vw,64px) 0;margin-top:0;position:relative;z-index:3;border-radius:0}
 .trust-bar .container{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;background:rgba(16,21,56,.45)}
 .trust-item{display:flex;flex-direction:column;gap:14px;padding:clamp(28px,3vw,40px) clamp(22px,2.5vw,36px);border-right:1px solid var(--line);transition:background .25s var(--ease)}
 .trust-item:last-child{border-right:none}
@@ -281,7 +282,7 @@ section{position:relative}
 
 /* ────────────────────────────────── OPORTUNIDADES */
 .section-opp{padding:var(--py) 0;background:var(--bg);position:relative;overflow:hidden}
-.section-opp::before,.section-opp::after{display:none}
+.section-opp::after{display:none}
 .section-opp .section-desc{color:var(--text-mut)}
 .opp-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:56px;position:relative;z-index:1}
 .opp-item{display:flex;align-items:flex-start;gap:22px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:32px;transition:transform var(--t) var(--ease),background var(--t) var(--ease),border-color var(--t) var(--ease);box-shadow:var(--shadow-card)}
@@ -318,7 +319,6 @@ section{position:relative}
 
 /* ────────────────────────────────── PLATAFORMA — título lateral (padrão das dobras), métricas em banda */
 .section-plat{padding:var(--py) 0;background:var(--bg);text-align:left;position:relative;overflow:hidden}
-.section-plat::before{display:none}
 .section-plat .section-header{margin-bottom:clamp(36px,4vw,56px);max-width:none;text-align:left}
 .section-plat .section-title{max-width:none;margin:0;text-wrap:pretty;white-space:normal}
 .plat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:0;position:relative;z-index:1;background:var(--line);border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;max-width:100%}
@@ -348,7 +348,6 @@ section{position:relative}
 
 /* ────────────────────────────────── CASOS */
 .section-casos{padding:var(--py) 0;background:var(--bg);position:relative;overflow:hidden}
-.section-casos::before{display:none}
 .casos-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:48px;position:relative;z-index:1}
 .caso-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:36px;transition:transform var(--t) var(--ease),background var(--t) var(--ease),border-color var(--t) var(--ease);position:relative;overflow:hidden;box-shadow:var(--shadow-card)}
 .caso-card:hover{background:var(--card-2);transform:translateY(-5px) scale(1.01);border-color:rgba(208,69,69,.28);box-shadow:0 1px 0 0 rgba(255,255,255,.06),0 28px 60px -20px rgba(0,0,0,.65),0 0 0 1px rgba(208,69,69,.18)}
@@ -401,16 +400,29 @@ section{position:relative}
 .footer-social:hover{color:var(--text)}
 .footer-social svg{width:14px;height:14px;color:var(--text-dim)}
 
+/* ────────────────────────────────── SECTION TRANSITIONS */
+.section-fade-in{position:relative}
+.section-fade-in::before{content:'';position:absolute;top:0;left:0;right:0;height:clamp(80px,12vw,180px);background:linear-gradient(180deg,var(--bg) 0%,transparent 100%);pointer-events:none;z-index:1}
+.section-segments::after{content:'';position:absolute;bottom:0;left:0;right:0;height:clamp(60px,8vw,120px);background:linear-gradient(0deg,var(--bg) 0%,transparent 100%);pointer-events:none;z-index:1}
+.section-processo::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:min(480px,60%);height:1px;background:linear-gradient(90deg,transparent,var(--line-2),transparent);z-index:2}
+.section-plat::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:min(480px,60%);height:1px;background:linear-gradient(90deg,transparent,rgba(208,69,69,.2),transparent);z-index:2}
+.section-alcir::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:min(480px,60%);height:1px;background:linear-gradient(90deg,transparent,var(--line-2),transparent);z-index:2}
+.section-seg::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:min(480px,60%);height:1px;background:linear-gradient(90deg,transparent,var(--line-2),transparent);z-index:2}
+.section-cta::after{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:min(600px,70%);height:1px;background:linear-gradient(90deg,transparent,rgba(208,69,69,.25),transparent);z-index:2}
+
 /* ────────────────────────────────── REVEAL */
-@keyframes revealUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+@keyframes revealUp{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:translateY(0)}}
 @keyframes revealScale{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
-.reveal{opacity:0}
-.reveal.visible{animation:revealUp .8s var(--ease-q) forwards}
+@keyframes revealFade{from{opacity:0;filter:blur(6px);transform:translateY(16px)}to{opacity:1;filter:blur(0);transform:translateY(0)}}
+.reveal,.reveal-blur{opacity:0}
+.reveal.visible{animation:revealUp .9s var(--ease-q) forwards}
 .reveal-scale.visible{animation:revealScale .6s var(--ease-q) forwards}
-.stagger.visible:nth-child(2){animation-delay:.08s}
-.stagger.visible:nth-child(3){animation-delay:.16s}
-.stagger.visible:nth-child(4){animation-delay:.24s}
-.stagger.visible:nth-child(5){animation-delay:.32s}
+.reveal-blur.visible{animation:revealFade .85s var(--ease-q) forwards}
+.stagger.visible:nth-child(2){animation-delay:.1s}
+.stagger.visible:nth-child(3){animation-delay:.2s}
+.stagger.visible:nth-child(4){animation-delay:.3s}
+.stagger.visible:nth-child(5){animation-delay:.4s}
+.stagger.visible:nth-child(6){animation-delay:.5s}
 
 /* ────────────────────────────────── RESPONSIVE */
 @media(max-width:1200px){
@@ -420,7 +432,8 @@ section{position:relative}
 @media(max-width:1024px){
   .hero{min-height:0;display:block;padding-top:clamp(40px,6vh,72px)}
   .hero-inner{grid-template-columns:1fr;gap:40px}
-  .hero h1{max-width:none}
+  .hero h1{max-width:none;font-size:clamp(2rem,5.5vw,3.2rem)}
+  .hero h1 .hl-nowrap{white-space:normal}
   .hero-brand{font-size:clamp(2.4rem,9vw,3.5rem)}
   .opp-grid{grid-template-columns:1fr}
   .footer-grid{grid-template-columns:1fr 1fr;gap:48px}
@@ -429,6 +442,7 @@ section{position:relative}
   .casos-grid{grid-template-columns:1fr}
   .steps{grid-template-columns:1fr 1fr;gap:16px}
   .steps::before{display:none}
+  .section-fade-in::before{height:clamp(40px,8vw,80px)}
 }
 @media(max-width:768px){
   .alcir-grid{grid-template-columns:1fr;gap:40px}
@@ -509,7 +523,7 @@ section{position:relative}
     <div class="hero-inner">
       <!-- esquerda -->
       <div class="hero-text-col">
-        <h1>Seu varejo perde em média<br><em>R$&nbsp;2&nbsp;milhões</em><br>por ano em impostos pagos a mais</h1>
+        <h1>Seu varejo perde <span class="hl-nowrap">em média <em>R$&nbsp;2&nbsp;milhões</em></span> por ano em impostos pagos a mais</h1>
         <p class="hero-desc">Supermercados, farmácias e PETs perdem fortunas por não fazer um diagnóstico tributário. É dinheiro seu, parado nos cofres do governo. <strong>Descubra em 30 segundos quanto você pode recuperar gratuitamente.</strong></p>
       </div>
       <!-- direita: form card -->
@@ -583,7 +597,7 @@ section{position:relative}
 <section class="section-segments" id="paraquem">
   <div class="container">
     <div class="section-header split">
-      <h2 class="section-title">O varejo paga tributos demais.<br><em>Todo segmento tem oportunidade.</em></h2>
+      <h2 class="section-title reveal-blur">O varejo paga tributos demais.<br><em>Todo segmento tem oportunidade.</em></h2>
       <p class="section-desc">A Focus FinTax atende qualquer varejista com operação no Lucro Real, Lucro Presumido ou Simples Nacional. A complexidade tributária do varejo é universal — os setores mudam, a oportunidade não.</p>
     </div>
     <div class="seg-grid">
@@ -633,10 +647,10 @@ section{position:relative}
   </div>
 </div>
 <!-- OPORTUNIDADES (navy) -->
-<section class="section-opp" id="oportunidades">
+<section class="section-opp section-fade-in" id="oportunidades">
   <div class="container">
     <div class="section-header split">
-      <h2 class="section-title light">Mais de 43 pontos onde o varejo <em>paga imposto a mais</em></h2>
+      <h2 class="section-title light reveal-blur">Mais de 43 pontos onde o varejo <em>paga imposto a mais</em></h2>
       <p class="section-desc light">No Brasil, teses tributárias são argumentos jurídicos que questionam se certos impostos estão sendo cobrados corretamente. A maioria das empresas nunca foi auditada por especialistas. Quando isso acontece, o resultado é consistente: dinheiro que estava preso volta para o caixa.</p>
     </div>
     <div class="opp-grid">
@@ -661,7 +675,7 @@ section{position:relative}
 <section class="section-processo" id="processo">
   <div class="container">
     <div class="section-header split">
-      <h2 class="section-title">Do diagnóstico ao dinheiro no caixa: <em>4 etapas</em></h2>
+      <h2 class="section-title reveal-blur">Do diagnóstico ao dinheiro no caixa: <em>4 etapas</em></h2>
       <p class="section-desc">Você preenche o formulário. A Focus FinTax faz todo o trabalho técnico, jurídico e operacional.</p>
     </div>
     <div class="steps">
@@ -677,7 +691,7 @@ section{position:relative}
 <section class="section-plat">
   <div class="container">
     <div class="section-header">
-      <h2 class="section-title light">O que tecnologia de ponta mais <em>15&nbsp;anos de varejo</em> produz</h2>
+      <h2 class="section-title light reveal-blur">O que tecnologia de ponta mais <em>15&nbsp;anos de varejo</em> produz</h2>
     </div>
     <div class="plat-grid">
       <div class="plat-item reveal stagger"><div class="plat-num">100<sup>+</sup></div><div class="plat-label">obrigações fiscais auditadas por cliente</div></div>
@@ -728,10 +742,10 @@ section{position:relative}
   </div>
 </div>
 <!-- CASOS (dark) -->
-<section class="section-casos" id="resultados">
+<section class="section-casos section-fade-in" id="resultados">
   <div class="container">
     <div class="section-header">
-      <h2 class="section-title light">Resultados que aconteceram de <em>verdade</em></h2>
+      <h2 class="section-title light reveal-blur">Resultados que aconteceram de <em>verdade</em></h2>
     </div>
     <div class="casos-grid">
       <div class="caso-card reveal stagger">
@@ -770,7 +784,7 @@ section{position:relative}
 <section class="section-seg" id="seguranca">
   <div class="container">
     <div class="section-header">
-      <h2 class="section-title">Fomos criados para trazer <em>segurança</em> —<br>o que protege vem antes do que recupera</h2>
+      <h2 class="section-title reveal-blur">Fomos criados para trazer <em>segurança</em> —<br>o que protege vem antes do que recupera</h2>
     </div>
     <div class="seg-cards">
       <div class="seg-card-g reveal stagger">
@@ -1085,8 +1099,8 @@ const revealObs=new IntersectionObserver((entries)=>{
   entries.forEach(e=>{
     if(e.isIntersecting){e.target.classList.add('visible');revealObs.unobserve(e.target);}
   });
-},{threshold:0.15});
-document.querySelectorAll('.reveal').forEach(el=>revealObs.observe(el));
+},{threshold:0.12});
+document.querySelectorAll('.reveal,.reveal-blur').forEach(el=>revealObs.observe(el));
 
 // Hero H1 word-by-word reveal (substitui o reveal genérico)
 (function(){
@@ -1110,7 +1124,7 @@ document.querySelectorAll('.reveal').forEach(el=>revealObs.observe(el));
       node.parentNode.replaceChild(frag,node);
       return;
     }
-    if(node.nodeType===1 && node.tagName!=='BR'){
+    if(node.nodeType===1 && node.tagName!=='BR' && node.tagName!=='STYLE'){
       Array.from(node.childNodes).forEach(wrap);
     }
   };
