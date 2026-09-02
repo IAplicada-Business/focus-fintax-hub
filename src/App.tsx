@@ -15,6 +15,7 @@ import NotFound from "@/pages/NotFound";
 
 const Calculadora = lazy(() => import("@/pages/Calculadora"));
 
+const AmbienteSelect = lazy(() => import("@/pages/AmbienteSelect"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const DashboardGestao = lazy(() => import("@/pages/DashboardGestao"));
 const Esteira = lazy(() => import("@/pages/Esteira"));
@@ -87,6 +88,7 @@ const App = () => (
                   <AppLayout>
                     <Suspense fallback={<PageSpinner />}>
                       <Routes>
+                        <Route path="/ambientes" element={<AmbienteSelect />} />
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/dashboard/gestao" element={<DashboardGestao />} />
                         <Route path="/esteira" element={<Esteira />} />

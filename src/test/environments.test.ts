@@ -1,0 +1,109 @@
+import { describe, it, expect } from "vitest";
+import {
+  AMBIENTE_HOME,
+  MENU_COMERCIAL,
+  MENU_OPERACIONAL,
+  ambientesDisponiveis,
+  parseAmbiente,
+  pathToAmbiente,
+} from "@/lib/environments";
+import { getDefaultPermissions } from "@/lib/screen-permissions";
+
+describe("pathToAmbiente", () => {
+  it("maps comercial routes", () => {
+    expect(pathToAmbiente("/pipeline")).toBe("comercial");
+    expect(pathToAmbiente("/leads")).toBe("comercial");
+    expect(pathToAmbiente("/leads/novo")).toBe("comercial");
+    expect(pathToAmbiente("/atendimento")).toBe("comercial");
+    expect(pathToAmbiente("/marketing")).toBe("comercial");
+    expect(pathToAmbiente("/marketing/campanhas")).toBe("comercial");
+  });
+
+  it("maps operacional routes", () => {
+    expect(pathToAmbiente("/dashboard")).toBe("operacional");
+    expect(pathToAmbiente("/dashboard/gestao")).toBe("operacional");
+    expect(pathToAmbiente("/esteira")).toBe("operacional");
+    expect(pathToAmbiente("/clientes")).toBe("operacional");
+    expect(pathToAmbiente("/clientes/abc-123")).toBe("operacional");
+    expect(pathToAmbiente("/intimacoes")).toBe("operacional");
+    expect(pathToAmbiente("/configuracoes/motor")).toBe("operacional");
+    expect(pathToAmbiente("/benchmarks")).toBe("operacional");
+    expect(pathToAmbiente("/usuarios")).toBe("operacional");
+  });
+
+  it("returns null for picker and unknown paths", () => {
+    expect(pathToAmbiente("/ambientes")).toBeNull();
+    expect(pathToAmbiente("/auth")).toBeNull();
+    expect(pathToAmbiente("/")).toBeNull();
+  });
+});
+
+describe("ambientesDisponiveis", () => {
+  it("gives comercial-only roles the comercial environment", () => {
+    for (const role of ["comercial", "sdr", "gestor_comercial", "marketing"]) {
+      expect(ambientesDisponiveis(getDefaultPermissions(role))).toEqual(["comercial"]);
+    }
+  });
+
+  it("gives gestor_tributario only operacional", () => {
+    expect(ambientesDisponiveis(getDefaultPermissions("gestor_tributario"))).toEqual([
+      "operacional",
+    ]);
+  });
+
+  it("gives admin and pmo both environments", () => {
+    expect(ambientesDisponiveis(getDefaultPermissions("admin"))).toEqual([
+      "comercial",
+      "operacional",
+    ]);
+    expect(ambientesDisponiveis(getDefaultPermissions("pmo"))).toEqual([
+      "comercial",
+      "operacional",
+    ]);
+  });
+
+  it("does not open operacional from comercial dashboard or readonly clientes", () => {
+    const comercial = getDefaultPermissions("comercial");
+    expect(comercial.find((p) => p.screen_key === "dashboard")?.can_access).toBe(true);
+    expect(comercial.find((p) => p.screen_key === "clientes")?.can_access).toBe(true);
+    expect(comercial.find((p) => p.screen_key === "clientes")?.read_only).toBe(true);
+    expect(ambientesDisponiveis(comercial)).toEqual(["comercial"]);
+  });
+
+  it("returns empty when the role has no screen access", () => {
+    expect(ambientesDisponiveis(getDefaultPermissions("cliente"))).toEqual([]);
+  });
+});
+
+describe("menu trees and homes", () => {
+  it("keeps comercial items in the planned order", () => {
+    expect(MENU_COMERCIAL.map((item) => item.title)).toEqual([
+      "Leads",
+      "Marketing",
+      "Atendimento",
+    ]);
+    expect(MENU_COMERCIAL[0].children?.map((c) => c.title)).toEqual(["Fila de Leads"]);
+  });
+
+  it("keeps operacional items in the planned order", () => {
+    expect(MENU_OPERACIONAL.map((item) => item.title)).toEqual([
+      "Dashboard",
+      "Esteira",
+      "Clientes",
+      "Configurações",
+      "Admin",
+    ]);
+  });
+
+  it("sends each environment to its home", () => {
+    expect(AMBIENTE_HOME.comercial).toBe("/pipeline");
+    expect(AMBIENTE_HOME.operacional).toBe("/dashboard");
+  });
+
+  it("parses stored ambiente values", () => {
+    expect(parseAmbiente("comercial")).toBe("comercial");
+    expect(parseAmbiente("operacional")).toBe("operacional");
+    expect(parseAmbiente("dashboard")).toBeNull();
+    expect(parseAmbiente(null)).toBeNull();
+  });
+});

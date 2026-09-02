@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { AmbienteSwitcher } from "@/components/AmbienteSwitcher";
 import { greeting, ROLE_LABELS } from "@/components/dashboard/dashboard-utils";
 import { ResumoSemanalTab } from "@/components/dashboard/gestao/ResumoSemanalTab";
 import { CicloSlaTab } from "@/components/dashboard/gestao/CicloSlaTab";
@@ -50,6 +51,7 @@ export default function DashboardGestao() {
             </span>
           </div>
           <div className="flex items-center">
+            <AmbienteSwitcher className="mr-3" />
             <span className="bg-[rgba(10,21,100,0.08)] border border-[rgba(10,21,100,0.10)] rounded-md px-2.5 py-[3px] font-mono-dm text-[10px] tracking-[1.5px] uppercase text-navy">
               {ROLE_LABELS[role] ?? role}
             </span>

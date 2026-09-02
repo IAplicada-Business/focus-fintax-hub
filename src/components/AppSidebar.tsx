@@ -1,88 +1,19 @@
-import { useMemo, useState } from "react";
-import {
-  LayoutDashboard, Users, LogOut, UserPlus, Building2, Settings, Lock, ChevronDown, Menu,
-  AlertTriangle, Inbox, Megaphone, ShieldCheck, KanbanSquare,
-} from "lucide-react";
+import { useState } from "react";
+import { LogOut, Lock, ChevronDown, Menu } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useEnvironment } from "@/hooks/useEnvironment";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { menuDoAmbiente, pathToAmbiente, type MenuItem } from "@/lib/environments";
 import logoWhite from "@/assets/logo-focus-fintax-white.png";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-interface SubMenuItem {
-  title: string;
-  url: string;
-  screenKey?: string;
-}
-
-interface MenuItem {
-  title: string;
-  url?: string;                    // se setado, o parent é clicável e navega
-  icon: typeof LayoutDashboard;
-  screenKey?: string;
-  children?: SubMenuItem[];
-  routeMatch?: string[];           // paths que mantêm o item ativo (além de url e children)
-}
-
-const menuItems: MenuItem[] = [
-  {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: LayoutDashboard,
-    screenKey: "dashboard",
-    children: [
-      { title: "Gestão", url: "/dashboard/gestao", screenKey: "dashboard.gestao" },
-    ],
-  },
-  {
-    title: "Leads",
-    url: "/pipeline",
-    icon: UserPlus,
-    screenKey: "pipeline",
-    children: [
-      { title: "Fila de Leads", url: "/leads", screenKey: "fila_leads" },
-      { title: "Atendimento", url: "/atendimento", screenKey: "atendimento" },
-    ],
-  },
-  { title: "Marketing", url: "/marketing", icon: Megaphone, screenKey: "marketing" },
-  {
-    title: "Clientes",
-    url: "/clientes",
-    icon: Building2,
-    screenKey: "clientes",
-    children: [
-      { title: "Intimações", url: "/intimacoes", screenKey: "intimacoes" },
-    ],
-  },
-  {
-    title: "Esteira",
-    url: "/esteira",
-    icon: KanbanSquare,
-    screenKey: "esteira",
-  },
-  {
-    title: "Configurações",
-    icon: Settings,
-    routeMatch: ["/configuracoes", "/benchmarks"],
-    children: [
-      { title: "Motor de Cálculo",   url: "/configuracoes/motor", screenKey: "motor_calculo" },
-      { title: "Estágios da Esteira", url: "/configuracoes/esteira-sla", screenKey: "esteira" },
-      { title: "Benchmarks e Teses", url: "/benchmarks",          screenKey: "benchmarks" },
-    ],
-  },
-  {
-    title: "Admin",
-    icon: ShieldCheck,
-    routeMatch: ["/usuarios"],
-    children: [
-      { title: "Usuários", url: "/usuarios", screenKey: "usuarios" },
-    ],
-  },
-];
-
 function useSidebarPermissions() {
   const { profile, permissions, signOut } = useAuth();
+  const { ambiente } = useEnvironment();
+  const location = useLocation();
+  const tree = menuDoAmbiente(ambiente ?? pathToAmbiente(location.pathname) ?? "comercial");
   const canAccess = (key?: string) => {
     if (!key) return true;
     const perm = permissions.find((p) => p.screen_key === key);
@@ -93,7 +24,7 @@ function useSidebarPermissions() {
     const perm = permissions.find((p) => p.screen_key === key);
     return perm?.read_only ?? false;
   };
-  const visibleItems = menuItems.filter((item) => {
+  const visibleItems = tree.filter((item) => {
     const selfOk  = canAccess(item.screenKey);
     const childOk = item.children?.some((c) => canAccess(c.screenKey)) ?? false;
     return selfOk || childOk;

@@ -6,9 +6,9 @@ import { toast } from "sonner";
 import { AuthShell, AuthLabel, AuthSubmitButton, authInputClass } from "@/components/auth/AuthShell";
 
 function safeNext(raw: string | null): string {
-  if (!raw) return "/dashboard";
+  if (!raw) return "/ambientes";
   // Only allow same-origin relative paths.
-  if (!raw.startsWith("/") || raw.startsWith("//")) return "/dashboard";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/ambientes";
   return raw;
 }
 
