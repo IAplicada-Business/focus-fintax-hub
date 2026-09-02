@@ -1,22 +1,36 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { precisaEscolherAmbiente } from "@/lib/environments";
 import { routeToScreenKey } from "@/lib/screen-permissions";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+
+function AuthSpinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+    </div>
+  );
+}
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, permissions } = useAuth();
   const location = useLocation();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
+    return <AuthSpinner />;
   }
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  if (permissions.length === 0) {
+    return <AuthSpinner />;
+  }
+
+  const onPicker = location.pathname === "/ambientes";
+  if (!onPicker && precisaEscolherAmbiente(permissions)) {
+    return <Navigate to="/ambientes" replace />;
   }
 
   // Check screen-level access

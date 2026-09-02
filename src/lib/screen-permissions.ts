@@ -17,8 +17,9 @@ export interface ScreenDef {
 }
 
 /**
- * Hierarquia espelha a sidebar (AppSidebar.tsx):
- * Dashboard · Leads ▾ · Marketing · Clientes ▾ · Configurações ▾ · Admin ▾
+ * Hierarquia de permissão (as árvores de menu por ambiente ficam em environments.ts):
+ * Comercial: Leads ▾ · Marketing · Atendimento
+ * Operacional: Dashboard ▾ · Esteira · Clientes ▾ · Configurações ▾ · Admin ▾
  *
  * Chaves antigas (fila_leads, intimacoes, motor_calculo, benchmarks, usuarios)
  * permanecem como CHILDREN — não foram renomeadas pra preservar registros

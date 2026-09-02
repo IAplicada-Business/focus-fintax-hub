@@ -14,7 +14,12 @@ export function AppLayout({ children }: AppLayoutProps) {
   const isDashboardShell =
     pathname === "/dashboard" || pathname.startsWith("/dashboard/");
   const isInboxShell = pathname.startsWith("/atendimento");
+  const isAmbientePicker = pathname === "/ambientes";
   const isMobile = useIsMobile();
+
+  if (isAmbientePicker) {
+    return <div className="min-h-screen w-full">{children}</div>;
+  }
 
   return (
     <div className="min-h-screen flex w-full bg-sidebar">

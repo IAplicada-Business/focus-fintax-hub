@@ -1,6 +1,7 @@
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { AmbienteSwitcher } from "@/components/AmbienteSwitcher";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useNavigate } from "react-router-dom";
@@ -22,6 +23,7 @@ export function AppHeader() {
   return (
     <header className="h-16 border-b border-card-border/70 bg-card/95 backdrop-blur-sm flex items-center justify-end px-6 sticky top-0 z-30">
       <div className="flex items-center gap-4">
+        <AmbienteSwitcher />
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">

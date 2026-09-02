@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { AmbienteSwitcher } from "@/components/AmbienteSwitcher";
 import { greeting, ROLE_LABELS } from "./dashboard-utils";
 
 interface Props {
@@ -26,6 +27,7 @@ export function DashboardHeader({ profileName, role, canComercial, canOperaciona
           <span className="text-xs text-ink-60 ml-2.5">{format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}</span>
         </div>
         <div className="flex items-center">
+          <AmbienteSwitcher className="mr-3" />
           <span className="bg-[rgba(10,21,100,0.08)] border border-[rgba(10,21,100,0.10)] rounded-md px-2.5 py-[3px] font-mono-dm text-[10px] tracking-[1.5px] uppercase text-navy">{ROLE_LABELS[role] ?? role}</span>
           <span className="font-mono-dm text-xs text-ink-60 ml-2.5">{format(new Date(), "HH:mm")}</span>
         </div>
