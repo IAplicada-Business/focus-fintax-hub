@@ -796,6 +796,7 @@ export type Database = {
           estagio: Database["public"]["Enums"]["estagio_esteira"]
           id: string
           origem: string
+          responsavel_id: string | null
           saiu_em: string | null
         }
         Insert: {
@@ -804,6 +805,7 @@ export type Database = {
           estagio: Database["public"]["Enums"]["estagio_esteira"]
           id?: string
           origem?: string
+          responsavel_id?: string | null
           saiu_em?: string | null
         }
         Update: {
@@ -812,6 +814,7 @@ export type Database = {
           estagio?: Database["public"]["Enums"]["estagio_esteira"]
           id?: string
           origem?: string
+          responsavel_id?: string | null
           saiu_em?: string | null
         }
         Relationships: [
@@ -2370,6 +2373,9 @@ export type Database = {
           tem_ramo_ressarcimento: boolean | null
           tentativas_abordagem: number | null
           teses_assinadas: number | null
+          ultima_acao_descricao: string | null
+          ultima_acao_em: string | null
+          ultima_acao_tipo: string | null
         }
         Relationships: []
       }

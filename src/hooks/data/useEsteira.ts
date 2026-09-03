@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   aplicarRealocacaoEsteira,
   listEsteiraClientes,
+  listEsteiraHistorico,
   listEsteiraResponsaveis,
   reiniciarSlaEsteira,
   updateEstagioEsteira,
@@ -106,5 +107,14 @@ export function useReiniciarSlaEsteira() {
       reiniciarSlaEsteira(clienteIds, motivo),
     onSuccess: () => invalidateEsteiraEClientes(qc),
     onError: (err) => toastError(err, "Erro ao reiniciar SLA"),
+  });
+}
+
+export function useEsteiraHistorico(clienteId: string | undefined) {
+  return useQuery({
+    queryKey: ["esteira", "historico", clienteId],
+    queryFn: () => listEsteiraHistorico(clienteId!),
+    enabled: !!clienteId,
+    staleTime: 30_000,
   });
 }

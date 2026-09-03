@@ -41,6 +41,7 @@ import {
   AlertDialogTitle as AlertTitle,
 } from "@/components/ui/alert-dialog";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
+import { EsteiraTimeline } from "@/components/clientes/EsteiraTimeline";
 import { normalizeTeseCatalogCodigo, sumCompensadoCanonical } from "@/lib/clientes-constants";
 import {
   useClienteCompensacoes,
@@ -88,7 +89,7 @@ export default function ClienteDetail() {
       .limit(20);
 
     const userIds = [...new Set((data || []).map((h: any) => h.usuario_id).filter(Boolean))];
-    let userMap: Record<string, string> = {};
+    const userMap: Record<string, string> = {};
     if (userIds.length > 0) {
       const { data: profiles } = await supabase
         .from("profiles")
@@ -535,6 +536,8 @@ export default function ClienteDetail() {
                 </Link>
               )}
             </div>
+
+            {id && <EsteiraTimeline clienteId={id} />}
 
             {historico.length > 0 && (
               <div className="space-y-2">
