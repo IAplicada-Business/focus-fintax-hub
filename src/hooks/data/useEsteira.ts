@@ -1,5 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listEsteiraClientes, updateEstagioEsteira } from "@/services/esteiraService";
+import {
+  aplicarRealocacaoEsteira,
+  listEsteiraClientes,
+  listEsteiraResponsaveis,
+  reiniciarSlaEsteira,
+  updateEstagioEsteira,
+  type RealocacaoItem,
+} from "@/services/esteiraService";
+import { listStatusCompensacaoRows } from "@/services/clientesService";
 import { fetchEsteiraSla } from "@/services/esteiraSlaService";
 import {
   listEsteiraSlaConfig,
@@ -52,5 +60,51 @@ export function useUpdateEstagioEsteira() {
       qc.invalidateQueries({ queryKey: ["esteira"] });
     },
     onError: (err) => toastError(err, "Erro ao mover cliente na esteira"),
+  });
+}
+
+export function useEsteiraResponsaveis() {
+  return useQuery({
+    queryKey: ["esteira", "responsaveis"],
+    queryFn: listEsteiraResponsaveis,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Mesma chave do `useStatusCompensacao` (StatusCompensacaoFilter) — compartilha cache. */
+export function useStatusPrincipalPorCliente() {
+  return useQuery({
+    queryKey: ["catalog", "status_compensacao"],
+    queryFn: listStatusCompensacaoRows,
+    staleTime: 60_000,
+  });
+}
+
+/** Invalida tudo que lê estágio/responsável do cliente (esteira, carteira, dashboards). */
+function invalidateEsteiraEClientes(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ["esteira"] });
+  qc.invalidateQueries({ queryKey: ["clientes"] });
+  qc.invalidateQueries({ queryKey: ["catalog"] });
+  qc.invalidateQueries({ queryKey: ["dashboard-gestao-resumo"] });
+  qc.invalidateQueries({ queryKey: ["dashboard-gestao-ciclo"] });
+}
+
+export function useAplicarRealocacaoEsteira() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itens, motivo }: { itens: RealocacaoItem[]; motivo?: string }) =>
+      aplicarRealocacaoEsteira(itens, motivo),
+    onSuccess: () => invalidateEsteiraEClientes(qc),
+    onError: (err) => toastError(err, "Erro ao aplicar realocação"),
+  });
+}
+
+export function useReiniciarSlaEsteira() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ clienteIds, motivo }: { clienteIds: string[]; motivo?: string }) =>
+      reiniciarSlaEsteira(clienteIds, motivo),
+    onSuccess: () => invalidateEsteiraEClientes(qc),
+    onError: (err) => toastError(err, "Erro ao reiniciar SLA"),
   });
 }
