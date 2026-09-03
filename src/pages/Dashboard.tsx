@@ -11,7 +11,6 @@ import { OperationalView } from "@/components/dashboard/operacional/OperationalV
 import { ExecutivaView } from "@/components/dashboard/executiva/ExecutivaView";
 import { ResumoSemanalTab } from "@/components/dashboard/gestao/ResumoSemanalTab";
 import { CicloSlaTab } from "@/components/dashboard/gestao/CicloSlaTab";
-import { EsteiraSlaTab } from "@/components/dashboard/gestao/EsteiraSlaTab";
 import { agregarMixRegime } from "@/lib/regime-mix";
 import { agruparPorSegmento } from "@/lib/segmento-lead";
 import { SlaFunilTab } from "@/components/dashboard/comercial/SlaFunilTab";
@@ -252,11 +251,14 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
   // As três telas de Gestão eram uma página à parte (/dashboard/gestao) com
   // submenu próprio; agora são abas daqui, sob a mesma permissão de antes.
   const canGestao = modo === "operacional" && canTab("dashboard.gestao");
-  const ABAS_GESTAO = ["resumo_semanal", "ciclo_sla", "esteira_sla"];
+  const canGestaoComercial = modo === "comercial" && canTab("dashboard.gestao");
+  const ABAS_GESTAO = ["resumo_semanal", "ciclo_sla"];
 
   const resolveDefault = () => {
     if (modo === "comercial") {
-      return localStorage.getItem("dash_comercial_tab") === "sla_funil" ? "sla_funil" : "comercial";
+      const stored = localStorage.getItem("dash_comercial_tab");
+      if (stored === "sla_funil" || (stored === "ciclo_sla" && canGestaoComercial)) return stored;
+      return "comercial";
     }
     const stored = localStorage.getItem("dash_tab");
     if (stored && ABAS_GESTAO.includes(stored) && canGestao) return stored;
@@ -331,13 +333,12 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
         comercialLabel={modo === "comercial" ? "Visão geral" : "Visão Comercial"}
         extraTabs={
           modo === "comercial"
-            ? [{ key: "sla_funil", label: "SLA do funil" }]
+            ? [
+                { key: "sla_funil", label: "SLA do funil" },
+                ...(canGestaoComercial ? [{ key: "ciclo_sla", label: "Ciclo & SLA" }] : []),
+              ]
             : canGestao
-              ? [
-                  { key: "resumo_semanal", label: "Pulso da semana" },
-                  { key: "ciclo_sla", label: "Ciclo & SLA" },
-                  { key: "esteira_sla", label: "SLA por etapa" },
-                ]
+              ? [{ key: "resumo_semanal", label: "Pulso da semana" }]
               : []
         }
       />
@@ -357,12 +358,10 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
       <div className="px-7 pt-[18px] pb-9 w-full">
         {activeTab === "sla_funil" && modo === "comercial" ? (
           <SlaFunilTab />
+        ) : activeTab === "ciclo_sla" && (canGestaoComercial || canGestao) ? (
+          <CicloSlaTab />
         ) : activeTab === "resumo_semanal" && canGestao ? (
           <ResumoSemanalTab />
-        ) : activeTab === "ciclo_sla" && canGestao ? (
-          <CicloSlaTab />
-        ) : activeTab === "esteira_sla" && canGestao ? (
-          <EsteiraSlaTab />
         ) : activeTab === "executiva" ? (
           <ExecutivaView navigate={navigate} />
         ) : activeTab === "comercial" ? (
