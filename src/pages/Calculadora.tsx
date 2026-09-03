@@ -4,6 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import {
+  CRONOGRAMA_TRANSICAO,
+  detalharPorEsfera,
+  parseReformaConfigPublica,
+  type ReformaConfigPublica,
+} from "@/lib/reforma-calculadora";
 
 // -----------------------------------------------------------------------------
 // Tipos (espelham o retorno do submit-calculadora-lead / calc-motor)
@@ -503,19 +509,39 @@ function ResultadoView({
     )}`, "_blank");
   };
 
-  // Baseline "hoje" = proxy só de PIS+COFINS+ICMS (consumo).
-  // IRPJ e CSLL (contribuição social sobre o lucro) NÃO entram neste comparativo —
-  // eles permanecem após a Reforma e não devem inflar a economia estimada (Alcir / 225k).
+  // Baseline "hoje" = proxy só de PIS+COFINS+ICMS (tributos sobre consumo).
+  // IRPJ e CSLL NÃO entram em nenhum dos dois lados: continuam existindo após a
+  // Reforma e, somados ao "hoje", inflariam a economia (apontamento do Alcir).
   const cargaAtualPct = regime === "real" ? 0.115 : regime === "presumido" ? 0.09 : 0.06;
   const impostoAtual = fat * cargaAtualPct;
   const impostoReforma = reforma.saldo_a_pagar; // negativo/zero = a receber; positivo = a pagar
   const delta = ((impostoReforma - impostoAtual) / Math.max(impostoAtual, 1)) * 100;
-  // Cenário de comparação (transparência): se alguém somasse IR+CSLL (~8% Lucro Real proxy)
-  // no "hoje", a economia ficaria artificialmente maior — isso é o erro dos R$ 225 mil.
-  const irCsllProxyPct = regime === "real" ? 0.08 : regime === "presumido" ? 0.034 : 0;
-  const impostoAtualComIrCsll = fat * (cargaAtualPct + irCsllProxyPct);
-  const deltaComIrCsll = ((impostoReforma - impostoAtualComIrCsll) / Math.max(impostoAtualComIrCsll, 1)) * 100;
-  const divergenciaMensalEstimada = Math.max(0, impostoAtualComIrCsll - impostoAtual);
+
+  // Parâmetros públicos (split CBS/IBS, alíquota, texto do bloco explicativo).
+  // RLS de reforma_config é leitura aberta — mesma tabela que o motor usa.
+  const [cfgPublica, setCfgPublica] = useState<ReformaConfigPublica>(() => parseReformaConfigPublica([]));
+  useEffect(() => {
+    let ativo = true;
+    supabase
+      .from("reforma_config")
+      .select("chave, valor")
+      .in("chave", ["cbs_net_split", "ibs_net_split", "aliquota_ibs_cbs_total", "texto_explicativo_pdf"])
+      .then(({ data, error }) => {
+        if (!ativo) return;
+        if (error) {
+          console.warn("reforma_config indisponível — usando defaults:", error.message);
+          return;
+        }
+        setCfgPublica(parseReformaConfigPublica(data));
+      });
+    return () => {
+      ativo = false;
+    };
+  }, []);
+  const esferas = useMemo(
+    () => detalharPorEsfera(reforma, cfgPublica.split, cfgPublica.aliquotaTotal),
+    [reforma, cfgPublica],
+  );
 
   const sanitizeFileName = (s: string) =>
     (s || "cliente")
@@ -641,31 +667,8 @@ function ResultadoView({
         </p>
       </div>
 
-      {/* Cenário de comparação — evita confundir com IR/CSLL (pendente validação Mariana/Alcir) */}
-      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 20, boxShadow: "0 20px 50px -20px rgba(0,0,0,.5)" }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, color: TEXT, marginBottom: 6 }}>
-          O que entra no cálculo (e o que não entra)
-        </h3>
-        <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 12, lineHeight: 1.55 }}>
-          Comparativo correto: <strong>hoje = PIS+COFINS+ICMS</strong> vs <strong>Reforma = IBS+CBS</strong>.
-          Se o “hoje” incluir IRPJ + CSLL, a economia fica inflada (~{fmtBRL(divergenciaMensalEstimada)}/mês neste exemplo
-          — ordem de grandeza do apontamento de R$ 225 mil).
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
-          <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: 12 }}>
-            <p style={{ fontWeight: 700, color: TEXT, marginBottom: 4 }}>Usado no diagnóstico</p>
-            <p style={{ color: TEXT_MUTED }}>Hoje: {fmtBRL(impostoAtual)}/mês</p>
-            <p style={{ color: TEXT_MUTED }}>Reforma: {fmtBRL(impostoReforma)}/mês</p>
-            <p style={{ color: TEXT, marginTop: 4 }}>Δ {delta > 0 ? "+" : ""}{delta.toFixed(0)}%</p>
-          </div>
-          <div style={{ border: `1px dashed ${BORDER}`, borderRadius: 10, padding: 12, opacity: 0.85 }}>
-            <p style={{ fontWeight: 700, color: TEXT, marginBottom: 4 }}>Se incluísse IR+CSLL (errado)</p>
-            <p style={{ color: TEXT_MUTED }}>Hoje: {fmtBRL(impostoAtualComIrCsll)}/mês</p>
-            <p style={{ color: TEXT_MUTED }}>Reforma: {fmtBRL(impostoReforma)}/mês</p>
-            <p style={{ color: TEXT, marginTop: 4 }}>Δ {deltaComIrCsll > 0 ? "+" : ""}{deltaComIrCsll.toFixed(0)}% — não usar</p>
-          </div>
-        </div>
-      </div>
+      {/* BLOCO EXPLICATIVO — texto editável em reforma_config.texto_explicativo_pdf (Alcir) */}
+      <BlocoSobreReforma texto={cfgPublica.textoExplicativo} />
 
       {/* BLOCO 2 — Comparativo DRE lado a lado */}
       <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 24, boxShadow: "0 20px 50px -20px rgba(0,0,0,.5)" }}>
@@ -690,7 +693,7 @@ function ResultadoView({
           <Info text="CBS = Contribuição sobre Bens e Serviços. É o novo imposto federal que substitui PIS e COFINS. Alíquota única no país todo." />
         </h3>
         <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 20 }}>
-          Débito sobre vendas, crédito ampliado e saldo mensal.
+          Débito sobre vendas, crédito ampliado e saldo mensal — no total e separado por esfera (CBS federal / IBS estadual e municipal).
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 24 }}>
@@ -744,22 +747,7 @@ function ResultadoView({
           </p>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <MetricaCard
-            label="Split CBS (federal, 31,4%)"
-            valor={Math.abs(reforma.cbs_saldo)}
-            cor={NAVY}
-            nota={reforma.saldo < 0 ? "a pagar" : "a recuperar"}
-            infoText="O saldo total é dividido entre União (CBS, ~31,4%) e Estados/Municípios (IBS, ~68,6%). Isso importa porque o crédito de cada esfera é apurado e utilizado separadamente."
-          />
-          <MetricaCard
-            label="Split IBS (subnacional, 68,6%)"
-            valor={Math.abs(reforma.ibs_saldo)}
-            cor={NAVY}
-            nota={reforma.saldo < 0 ? "a pagar" : "a recuperar"}
-            infoText="Parte do imposto que vai pra Estados e Municípios. Substitui ICMS + ISS. Alíquota fica em torno de 19% (varia por estado)."
-          />
-        </div>
+        <TabelaEsferas esferas={esferas} />
       </div>
 
       {/* BLOCO 4 — Impacto por departamento */}
@@ -882,8 +870,9 @@ function EntendaReformaAccordion() {
             <strong style={{ color: RED }}>IBS</strong> (estadual/municipal), somando ~28% de alíquota cheia.
           </p>
           <p style={{ marginTop: 10 }}>
-            A transição começa em <strong>2027</strong> com alíquota reduzida e vai até{" "}
-            <strong>2033</strong>, quando ICMS/ISS desaparecem por completo.
+            A transição começa em <strong>2026</strong> com alíquotas de teste (CBS 0,9% + IBS 0,1%),
+            a CBS entra integral em <strong>2027</strong> no lugar de PIS/COFINS, e o ICMS/ISS vão
+            sendo reduzidos até <strong>2033</strong>, quando desaparecem por completo.
           </p>
           <p style={{ marginTop: 10 }}>
             A boa notícia: você passa a ter <strong style={{ color: "#84e5b3" }}>crédito ampliado</strong> —
@@ -952,7 +941,7 @@ function FaqAccordion({ onQuerSaberMais }: { onQuerSaberMais: () => void }) {
     },
     {
       q: "Quando começa exatamente?",
-      a: "A transição inicia em 2027 com alíquota-teste de 1%. Entre 2029 e 2032, o ICMS reduz 10 p.p. por ano. Em 2033, ICMS/ISS somem por completo e só sobra IBS+CBS. O regime de Simples Nacional tem tratamento diferenciado — vale confirmar com um especialista.",
+      a: "2026 é o ano-teste: CBS de 0,9% e IBS de 0,1%, compensáveis com PIS/COFINS. Em 2027 a CBS entra integral e PIS/COFINS são extintos (IPI zerado). Entre 2029 e 2032 o ICMS e o ISS caem 10 p.p. por ano, com o IBS subindo na mesma proporção. Em 2033, ICMS/ISS somem por completo e só sobra IBS+CBS. O Simples Nacional tem tratamento diferenciado — vale confirmar com um especialista.",
     },
     {
       q: "Posso reduzir o impacto na minha rede?",
@@ -1143,39 +1132,130 @@ const tdStyle: React.CSSProperties = { padding: "10px 10px", fontVariantNumeric:
 // -----------------------------------------------------------------------------
 
 function TimelineIcms() {
-  const marcos = [
-    { ano: 2026, label: "Alíquota teste", pct: 0 },
-    { ano: 2027, label: "IBS/CBS iniciam", pct: 0 },
-    { ano: 2029, label: "-10% ICMS", pct: 10 },
-    { ano: 2030, label: "-20% ICMS", pct: 20 },
-    { ano: 2031, label: "-30% ICMS", pct: 30 },
-    { ano: 2032, label: "-40% ICMS", pct: 40 },
-    { ano: 2033, label: "ICMS extinto", pct: 100 },
-  ];
+  const corFase: Record<(typeof CRONOGRAMA_TRANSICAO)[number]["fase"], string> = {
+    teste: "rgba(232,235,255,.25)",
+    cbs: "#6f8cff",
+    transicao: "#84e5b3",
+    fim: RED,
+  };
   return (
     <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 24, boxShadow: "0 20px 50px -20px rgba(0,0,0,.5)" }}>
       <h3 style={{ fontSize: 18, fontWeight: 700, color: TEXT, marginBottom: 4 }}>
-        Timeline de transição do ICMS
-        <Info text="A Reforma não vira do dia pra noite. O ICMS reduz 10 p.p. por ano entre 2029 e 2032, e some totalmente em 2033. Nesse período você tem que rodar OS DOIS regimes em paralelo — precisa preparar o sistema desde já." />
+        Cronograma da transição
+        <Info text="EC 132/2023 e LC 214/2025. 2026 é ano-teste (CBS 0,9% + IBS 0,1%). Em 2027 a CBS entra integral e PIS/COFINS acabam. De 2029 a 2032 o ICMS/ISS caem 10 p.p. por ano e o IBS sobe na mesma proporção; em 2033 ICMS/ISS são extintos. Nesse período a empresa apura os dois regimes em paralelo." />
       </h3>
       <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 20 }}>
-        Redução gradativa do ICMS entre 2029 e 2033. IBS/CBS substituem PIS/COFINS/ICMS/ISS.
+        Ano a ano: o que entra, o que sai e quanto de ICMS/ISS ainda vale. A barra mostra o percentual das alíquotas de ICMS/ISS em vigor.
       </p>
-      <div style={{ position: "relative", display: "flex", justifyContent: "space-between", padding: "20px 10px 40px" }}>
-        <div style={{ position: "absolute", top: 40, left: 20, right: 20, height: 3, background: BORDER }} />
-        {marcos.map((m) => (
-          <div key={m.ano} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", zIndex: 2, flex: 1 }}>
-            <div
-              style={{
-                width: 20, height: 20, borderRadius: 999,
-                background: m.pct === 100 ? RED : m.pct > 0 ? "#84e5b3" : "rgba(232,235,255,.2)",
-                border: `3px solid ${SURFACE}`, boxShadow: "0 0 0 1px rgba(255,255,255,.15)",
-              }}
-            />
-            <p style={{ fontSize: 12, fontWeight: 800, color: TEXT, marginTop: 12 }}>{m.ano}</p>
-            <p style={{ fontSize: 10, color: TEXT_MUTED, textAlign: "center", maxWidth: 80, marginTop: 2 }}>{m.label}</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(108px, 1fr))", gap: 10 }}>
+        {CRONOGRAMA_TRANSICAO.map((m) => (
+          <div
+            key={m.ano}
+            style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: "12px 10px", background: CARD, display: "flex", flexDirection: "column", gap: 6 }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span
+                style={{
+                  width: 12, height: 12, borderRadius: 999, flexShrink: 0,
+                  background: corFase[m.fase],
+                  boxShadow: "0 0 0 2px rgba(255,255,255,.12)",
+                }}
+              />
+              <p style={{ fontSize: 14, fontWeight: 800, color: TEXT }}>{m.ano}</p>
+            </div>
+            <p style={{ fontSize: 11, fontWeight: 700, color: TEXT, lineHeight: 1.3 }}>{m.titulo}</p>
+            <p style={{ fontSize: 10, color: TEXT_MUTED, lineHeight: 1.4, flex: 1 }}>{m.detalhe}</p>
+            <div>
+              <div style={{ height: 4, borderRadius: 999, background: "rgba(232,235,255,.10)", overflow: "hidden" }}>
+                <div style={{ width: `${m.icmsPct}%`, height: "100%", background: m.icmsPct === 0 ? RED : "#84e5b3", borderRadius: 999 }} />
+              </div>
+              <p style={{ fontSize: 9, color: TEXT_MUTED, marginTop: 3 }}>ICMS/ISS {m.icmsPct}%</p>
+            </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Bloco explicativo — texto do Alcir (reforma_config.texto_explicativo_pdf)
+// -----------------------------------------------------------------------------
+
+function BlocoSobreReforma({ texto }: { texto: string }) {
+  const paragrafos = texto.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  return (
+    <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 24, boxShadow: "0 20px 50px -20px rgba(0,0,0,.5)" }}>
+      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: RED, marginBottom: 4 }}>
+        Sobre a Reforma Tributária
+      </p>
+      <h3 style={{ fontSize: 18, fontWeight: 700, color: TEXT, marginBottom: 12 }}>
+        O que está por trás desses números
+      </h3>
+      <div style={{ display: "grid", gap: 10 }}>
+        {paragrafos.map((p, i) => (
+          <p key={i} style={{ fontSize: 13, lineHeight: 1.65, color: i === 0 ? TEXT : TEXT_MUTED }}>{p}</p>
+        ))}
+      </div>
+      <p style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 12 }}>
+        Comparativo usado neste diagnóstico: <strong style={{ color: TEXT }}>hoje = PIS + COFINS + ICMS</strong> ·{" "}
+        <strong style={{ color: TEXT }}>Reforma = IBS + CBS</strong>. IRPJ e CSLL ficam fora dos dois lados.
+      </p>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Tabela por esfera — CBS (federal) × IBS (estadual/municipal)
+// -----------------------------------------------------------------------------
+
+function TabelaEsferas({ esferas }: { esferas: ReturnType<typeof detalharPorEsfera> }) {
+  const pct1 = (v: number) => `${(v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+  const saldoLabel = esferas.saldo.total < 0 ? "Saldo a pagar" : "Saldo a recuperar";
+  const th: React.CSSProperties = { padding: "6px 8px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: TEXT_MUTED, textAlign: "right", borderBottom: `1px solid ${BORDER}` };
+  const td = (bold?: boolean, color?: string): React.CSSProperties => ({
+    padding: "7px 8px", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums",
+    fontWeight: bold ? 700 : 400, color: color ?? TEXT,
+  });
+  const linhas: { label: string; v: { cbs: number; ibs: number; total: number }; bold?: boolean; color?: string; abs?: boolean }[] = [
+    { label: "Débito sobre vendas", v: esferas.debito, color: GRANADA },
+    { label: "Crédito bruto", v: esferas.creditoBruto, color: "#0a8548" },
+    { label: "(−) Exclusões", v: esferas.exclusao, color: "#a86400" },
+    { label: saldoLabel, v: esferas.saldo, bold: true, abs: true },
+  ];
+  return (
+    <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 16 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, color: TEXT_MUTED, marginBottom: 4, display: "flex", alignItems: "center" }}>
+        Detalhamento por esfera
+        <Info text="CBS é a parte federal (substitui PIS/COFINS) e IBS a parte estadual e municipal (substitui ICMS/ISS). Cada esfera apura e usa o próprio crédito, por isso o saldo é aberto separadamente. As alíquotas de todas as faixas são proporcionais, então o mesmo split vale para débito, crédito e exclusões." />
+      </p>
+      <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 10 }}>
+        Alíquota de referência {pct1(esferas.aliquota.total)} = CBS {pct1(esferas.aliquota.cbs)} + IBS {pct1(esferas.aliquota.ibs)}.
+      </p>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, textAlign: "left" }}>Mensal</th>
+              <th style={th}>CBS · federal</th>
+              <th style={th}>IBS · estadual/municipal</th>
+              <th style={th}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {linhas.map((l) => {
+              const f = (n: number) => fmtBRLCent(l.abs ? Math.abs(n) : n);
+              return (
+                <tr key={l.label} style={l.bold ? { borderTop: `1px solid ${BORDER}` } : undefined}>
+                  <td style={{ ...td(l.bold, l.color), textAlign: "left" }}>{l.label}</td>
+                  <td style={td(l.bold, l.color)}>{f(l.v.cbs)}</td>
+                  <td style={td(l.bold, l.color)}>{f(l.v.ibs)}</td>
+                  <td style={td(l.bold, l.color)}>{f(l.v.total)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
