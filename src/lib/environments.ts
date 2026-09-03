@@ -125,8 +125,28 @@ export function readStoredAmbiente(): Ambiente | null {
   }
 }
 
+/**
+ * Assinantes da troca de ambiente. `useEnvironment` é chamado em vários
+ * componentes ao mesmo tempo (header, sidebar, dashboard); sem isso cada um
+ * teria a própria cópia do valor e só quem clicou no switcher enxergaria a
+ * mudança — o sidebar ficava com a árvore do ambiente antigo.
+ */
+const ambienteListeners = new Set<() => void>();
+
+export function subscribeStoredAmbiente(listener: () => void): () => void {
+  ambienteListeners.add(listener);
+  return () => {
+    ambienteListeners.delete(listener);
+  };
+}
+
 export function writeStoredAmbiente(ambiente: Ambiente): void {
-  localStorage.setItem(AMBIENTE_STORAGE_KEY, ambiente);
+  try {
+    localStorage.setItem(AMBIENTE_STORAGE_KEY, ambiente);
+  } catch {
+    /* storage indisponível — o estado em memória ainda avisa os assinantes */
+  }
+  ambienteListeners.forEach((listener) => listener());
 }
 
 const COMERCIAL_PREFIXES = ["/pipeline", "/leads", "/atendimento", "/marketing"];
