@@ -49,18 +49,27 @@ function asText(v: unknown): string | null {
   return null;
 }
 
+export interface ReformaConfigRow {
+  chave: string;
+  /** Numérico no banco (`numeric`); chaves de texto guardam 0 aqui. */
+  valor: unknown;
+  /** Texto livre — só chaves textuais (ex.: texto_explicativo_pdf). */
+  valor_texto?: unknown;
+}
+
 /**
- * Converte linhas de `reforma_config` (chave/valor jsonb) no que a tela precisa.
+ * Converte linhas de `reforma_config` no que a tela precisa.
  * Qualquer chave ausente ou inválida cai no default — nunca quebra a página.
  */
 export function parseReformaConfigPublica(
-  rows: Array<{ chave: string; valor: unknown }> | null | undefined,
+  rows: ReformaConfigRow[] | null | undefined,
 ): ReformaConfigPublica {
-  const map = new Map((rows ?? []).map((r) => [r.chave, r.valor] as const));
-  const cbs = asNumber(map.get("cbs_net_split"));
-  const ibs = asNumber(map.get("ibs_net_split"));
-  const aliq = asNumber(map.get("aliquota_ibs_cbs_total"));
-  const texto = asText(map.get("texto_explicativo_pdf"));
+  const map = new Map((rows ?? []).map((r) => [r.chave, r] as const));
+  const cbs = asNumber(map.get("cbs_net_split")?.valor);
+  const ibs = asNumber(map.get("ibs_net_split")?.valor);
+  const aliq = asNumber(map.get("aliquota_ibs_cbs_total")?.valor);
+  const textoRow = map.get("texto_explicativo_pdf");
+  const texto = asText(textoRow?.valor_texto) ?? asText(textoRow?.valor);
 
   const splitValido = cbs != null && ibs != null && cbs > 0 && ibs > 0 && Math.abs(cbs + ibs - 1) < 0.01;
 

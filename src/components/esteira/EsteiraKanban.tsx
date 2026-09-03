@@ -9,11 +9,9 @@ import {
   isClienteAtrasadoSla,
   slaDiasDaEtapa,
 } from "@/lib/esteira-constants";
-import {
-  ramosVisiveisNoKanban,
-  TIPO_RECUPERACAO_BADGE,
-  TIPO_RECUPERACAO_LABEL,
-} from "@/lib/tipo-recuperacao";
+import { TIPO_RECUPERACAO_BADGE, TIPO_RECUPERACAO_LABEL } from "@/lib/tipo-recuperacao";
+import { ramosDoCliente } from "@/lib/esteira-acompanhamento";
+import { ResponsavelAvatar } from "@/components/esteira/ResponsavelAvatar";
 import { useUpdateEstagioEsteira } from "@/hooks/data/useEsteira";
 import type { EsteiraCliente } from "@/services/esteiraService";
 
@@ -213,7 +211,8 @@ function ClienteCard({
     typeof cliente.atrasado === "boolean"
       ? cliente.atrasado
       : isClienteAtrasadoSla(cliente.estagio_esteira, dias);
-  const ramos = ramosVisiveisNoKanban(cliente);
+  // Selo colorido de cada ramo (Compensação azul, Ressarcimento verde, Judicial roxo).
+  const ramos = ramosDoCliente(cliente);
 
   let borderClass = "";
   if (atrasado) borderClass = "border-l-4 border-l-destructive";
@@ -275,10 +274,8 @@ function ClienteCard({
               </span>
             )}
           </div>
-          <div className="mt-1 flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground truncate">
-              {cliente.responsavel_nome || "Sem responsável"}
-            </span>
+          <div className="mt-1.5 flex items-center justify-between gap-1">
+            <ResponsavelAvatar nome={cliente.responsavel_nome} size="xs" comNome className="min-w-0 [&>span]:text-[10px]" />
             <span
               className={`text-[10px] shrink-0 ${
                 atrasado ? "text-destructive font-semibold" : "text-muted-foreground"

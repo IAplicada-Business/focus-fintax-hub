@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +9,8 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { CommercialView } from "@/components/dashboard/comercial/CommercialView";
 import { OperationalView } from "@/components/dashboard/operacional/OperationalView";
 import { ExecutivaView } from "@/components/dashboard/executiva/ExecutivaView";
+import { agregarMixRegime } from "@/lib/regime-mix";
+import { SlaFunilTab } from "@/components/dashboard/comercial/SlaFunilTab";
 
 async function fetchDashboardData() {
   const now = new Date();
@@ -19,7 +21,7 @@ async function fetchDashboardData() {
   const [
     pipelineRes, newWeekRes, prevWeekRes, contratosRes, clientesAtivosRes, totalEverRes,
     allLeadsRes, recentRes, stalledRes, diagRes, tesesRes,
-    clientesRes, allCompRes, allProcRes, totalAtivosRes, totaisRes, intimRes,
+    clientesRes, allCompRes, allProcRes, totalAtivosRes, totaisRes, intimRes, motorRegimesRes,
   ] = await Promise.all([
     supabase.from("leads").select("id", { count: "exact", head: true }).not("status_funil", "in", "(perdido,nao_vai_fazer)"),
     supabase.from("leads").select("id", { count: "exact", head: true }).gte("criado_em", d7),
@@ -27,7 +29,7 @@ async function fetchDashboardData() {
     supabase.from("leads").select("id", { count: "exact", head: true }).eq("status_funil", "contrato_emitido"),
     supabase.from("clientes").select("id", { count: "exact", head: true }).eq("status", "ativo"),
     supabase.from("leads").select("id", { count: "exact", head: true }),
-    supabase.from("leads").select("id, status_funil, segmento, origem, score_lead").not("status_funil", "in", "(perdido,nao_vai_fazer)").limit(5000),
+    supabase.from("leads").select("id, status_funil, segmento, origem, score_lead, regime_tributario").not("status_funil", "in", "(perdido,nao_vai_fazer)").limit(5000),
     supabase.from("leads").select("empresa, segmento, criado_em, id, score_lead").not("status_funil", "in", "(perdido,nao_vai_fazer)").order("criado_em", { ascending: false }).limit(4),
     supabase.from("leads").select("empresa, status_funil_atualizado_em, id").eq("status_funil", "contrato_emitido").lt("status_funil_atualizado_em", d3),
     supabase.from("diagnosticos_leads").select("lead_id"),
@@ -38,6 +40,7 @@ async function fetchDashboardData() {
     supabase.from("clientes").select("id", { count: "exact", head: true }).eq("status", "ativo"),
     (supabase as any).from("v_cliente_totais_calculo").select("cliente_id, credito_apurado, total_compensado, saldo_restante").limit(5000),
     supabase.from("intimacoes").select("id, status, prazo_vencimento").in("status", ["pendente", "informado_aline", "em_andamento"]),
+    supabase.from("motor_teses_config").select("regimes_elegiveis").eq("ativo", true),
   ]);
 
   const comLeads = pipelineRes.count ?? 0;
@@ -52,7 +55,7 @@ async function fetchDashboardData() {
   const recent = recentRes.data ?? [];
   const recentIds = recent.map((r) => r.id);
   const relIds = [...new Set([...activeLeads.map((l) => l.id), ...recentIds])];
-  let potByLead: Record<string, number> = {};
+  const potByLead: Record<string, number> = {};
   if (relIds.length) {
     const { data: rels } = await supabase.from("relatorios_leads").select("lead_id, estimativa_total_maxima").in("lead_id", relIds);
     (rels ?? []).forEach((r) => { potByLead[r.lead_id] = Math.max(potByLead[r.lead_id] ?? 0, Number(r.estimativa_total_maxima)); });
@@ -96,6 +99,12 @@ async function fetchDashboardData() {
   const stalledLeads = (stalledRes.data ?? [])
     .map((l) => ({ empresa: l.empresa || "Sem empresa", days: daysSince(l.status_funil_atualizado_em!), id: l.id }))
     .sort((a, b) => b.days - a.days);
+
+  // Mix por regime (card lateral do comercial): leads ativos × cobertura do motor
+  const regimeMix = agregarMixRegime(
+    activeLeads.map((l) => ({ regime_tributario: l.regime_tributario, potencial: potByLead[l.id] ?? 0 })),
+    (motorRegimesRes.data ?? []).map((t) => t.regimes_elegiveis),
+  );
 
   const uniqueDiagLeads = new Set((diagRes.data ?? []).map((d) => d.lead_id));
   const motorDiagnosticos = uniqueDiagLeads.size;
@@ -176,7 +185,7 @@ async function fetchDashboardData() {
 
   return {
     comLeads, comNewWeek, comNewPrevWeek, comPotencial, comContratos, comClientesAtivos, comTaxaConversao,
-    funnelData, recentLeads, stalledLeads, segmentoData, origemData, scoreDistribution,
+    funnelData, recentLeads, stalledLeads, segmentoData, origemData, scoreDistribution, regimeMix,
     motorDiagnosticos, motorTesesAtivas,
     opClientes, opTotalAtivos, opCompensado, opHonorarios, opSaldo,
     monthlyBars, topCompensado, topSaldo,
@@ -185,7 +194,14 @@ async function fetchDashboardData() {
   };
 }
 
-export default function Dashboard() {
+type DashboardModo = "comercial" | "operacional";
+
+/**
+ * `modo="comercial"` (/dashboard/comercial, ambiente Comercial): só a Visão
+ * Comercial, sem abas. `modo="operacional"` (/dashboard): Operacional e
+ * Executiva — a Visão Comercial saiu daqui e mora no ambiente Comercial.
+ */
+export default function Dashboard({ modo = "operacional" }: { modo?: DashboardModo }) {
   const { profile, userRole, permissions } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -196,23 +212,37 @@ export default function Dashboard() {
     if (!perm) return true;
     return perm.can_access;
   };
-  const canComercial = canTab("dashboard.comercial");
-  const canOperacional = canTab("dashboard.operacional");
-  const canExecutiva = canTab("dashboard.executiva");
+  const canComercialPerm = canTab("dashboard.comercial");
+  const canOperacionalPerm = canTab("dashboard.operacional");
+  const canExecutivaPerm = canTab("dashboard.executiva");
+  // Abas visíveis dependem do modo: comercial só tem a Visão Comercial;
+  // operacional nunca mostra a comercial.
+  const canComercial = modo === "comercial" && canComercialPerm;
+  const canOperacional = modo === "operacional" && canOperacionalPerm;
+  const canExecutiva = modo === "operacional" && canExecutivaPerm;
 
   const resolveDefault = () => {
+    if (modo === "comercial") {
+      return localStorage.getItem("dash_comercial_tab") === "sla_funil" ? "sla_funil" : "comercial";
+    }
     const stored = localStorage.getItem("dash_tab");
     if (stored === "executiva" && canExecutiva) return "executiva";
     if (stored === "operacional" && canOperacional) return "operacional";
-    if (stored === "comercial" && canComercial) return "comercial";
     if (role === "gestor_tributario" && canOperacional) return "operacional";
-    if (canComercial) return "comercial";
     if (canOperacional) return "operacional";
     if (canExecutiva) return "executiva";
-    return "comercial";
+    return "operacional";
   };
   const [activeTab, setActiveTab] = useState(resolveDefault);
-  const switchTab = (t: string) => { setActiveTab(t); localStorage.setItem("dash_tab", t); };
+  const switchTab = (t: string) => {
+    setActiveTab(t);
+    localStorage.setItem(modo === "comercial" ? "dash_comercial_tab" : "dash_tab", t);
+  };
+
+  // Quem só tem a Visão Comercial (comercial/sdr/gestor_comercial) cai em
+  // /dashboard por link antigo → vai pro dashboard do ambiente certo.
+  const redirecionarParaComercial =
+    modo === "operacional" && !canOperacionalPerm && !canExecutivaPerm && canComercialPerm;
 
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard"],
@@ -250,6 +280,10 @@ export default function Dashboard() {
   const maxSegCount = Math.max(...(d?.segmentoData ?? []).map(s => s.count), 1);
   const opEconomia = (d?.opCompensado ?? 0) - (d?.opHonorarios ?? 0);
 
+  if (redirecionarParaComercial) {
+    return <Navigate to="/dashboard/comercial" replace />;
+  }
+
   return (
     <div className="min-h-[calc(100vh-64px)] bg-[#f2f3f7] font-sans antialiased">
       <DashboardHeader
@@ -260,6 +294,8 @@ export default function Dashboard() {
         canExecutiva={canExecutiva}
         activeTab={activeTab}
         switchTab={switchTab}
+        comercialLabel={modo === "comercial" ? "Visão geral" : "Visão Comercial"}
+        extraTabs={modo === "comercial" ? [{ key: "sla_funil", label: "SLA do funil" }] : []}
       />
 
       {role === "admin" && d?.dataHealth && !d.dataHealth.hasData && (
@@ -275,7 +311,9 @@ export default function Dashboard() {
       )}
 
       <div className="px-7 pt-[18px] pb-9 w-full">
-        {activeTab === "executiva" ? (
+        {activeTab === "sla_funil" && modo === "comercial" ? (
+          <SlaFunilTab />
+        ) : activeTab === "executiva" ? (
           <ExecutivaView navigate={navigate} />
         ) : activeTab === "comercial" ? (
           <CommercialView
@@ -287,6 +325,7 @@ export default function Dashboard() {
             segmentoData={d?.segmentoData ?? []} maxSegCount={maxSegCount} origemData={d?.origemData ?? {}}
             recentLeads={d?.recentLeads ?? []} scoreDistribution={d?.scoreDistribution ?? { A: 0, B: 0, C: 0, D: 0 }}
             motorDiagnosticos={d?.motorDiagnosticos ?? 0} motorTesesAtivas={d?.motorTesesAtivas ?? 0}
+            regimeMix={d?.regimeMix ?? []}
             navigate={navigate}
           />
         ) : (

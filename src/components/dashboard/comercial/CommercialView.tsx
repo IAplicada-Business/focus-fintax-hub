@@ -10,6 +10,8 @@ import { FunilComercial } from "./FunilComercial";
 import { LeadsRecentes } from "./LeadsRecentes";
 import { QualidadeCarteira } from "./QualidadeCarteira";
 import { MotorPerformance } from "./MotorPerformance";
+import { MixRegime } from "./MixRegime";
+import type { RegimeMixRow } from "@/lib/regime-mix";
 import { BottomStripComercial } from "./BottomStripComercial";
 
 interface Props {
@@ -34,6 +36,7 @@ interface Props {
   scoreDistribution: Record<string, number>;
   motorDiagnosticos: number;
   motorTesesAtivas: number;
+  regimeMix: RegimeMixRow[];
   navigate: NavigateFunction;
 }
 
@@ -67,6 +70,8 @@ export const CommercialView = memo(function CommercialView(props: Props) {
               <LeadsRecentes recentLeads={props.recentLeads} navigate={props.navigate} />
               <QualidadeCarteira scoreDistribution={props.scoreDistribution} />
               <MotorPerformance motorDiagnosticos={props.motorDiagnosticos} motorTesesAtivas={props.motorTesesAtivas} />
+              {/* Preenche o espaço abaixo de Performance do motor (a coluna da esquerda é mais alta). */}
+              <MixRegime regimeMix={props.regimeMix} />
             </div>
           </div>
 

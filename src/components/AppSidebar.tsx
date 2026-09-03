@@ -13,7 +13,10 @@ function useSidebarPermissions() {
   const { profile, permissions, signOut } = useAuth();
   const { ambiente } = useEnvironment();
   const location = useLocation();
-  const tree = menuDoAmbiente(ambiente ?? pathToAmbiente(location.pathname) ?? "comercial");
+  // Rota primeiro: o menu tem que ser o da tela em que o usuário está, mesmo
+  // que o ambiente salvo ainda não tenha acompanhado (troca pelo header, link
+  // direto). O ambiente salvo é só o desempate pra rotas neutras.
+  const tree = menuDoAmbiente(pathToAmbiente(location.pathname) ?? ambiente ?? "comercial");
   const canAccess = (key?: string) => {
     if (!key) return true;
     const perm = permissions.find((p) => p.screen_key === key);

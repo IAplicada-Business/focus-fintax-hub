@@ -25,7 +25,7 @@ export const AMBIENTE_LABEL: Record<Ambiente, string> = {
   operacional: "Operacional",
 };
 
-const COMERCIAL_KEYS = ["pipeline", "fila_leads", "atendimento", "marketing"] as const;
+const COMERCIAL_KEYS = ["pipeline", "fila_leads", "atendimento", "marketing", "dashboard.comercial"] as const;
 
 /** Telas que abrem o ambiente operacional de verdade — não dashboard/clientes readonly do comercial. */
 const OPERACIONAL_KEYS = [
@@ -51,6 +51,13 @@ export interface MenuItem {
 }
 
 export const MENU_COMERCIAL: MenuItem[] = [
+  {
+    // Visão Comercial mora aqui (era uma aba do /dashboard operacional).
+    title: "Dashboard",
+    url: "/dashboard/comercial",
+    icon: LayoutDashboard,
+    screenKey: "dashboard.comercial",
+  },
   {
     title: "Leads",
     url: "/pipeline",
@@ -125,11 +132,33 @@ export function readStoredAmbiente(): Ambiente | null {
   }
 }
 
-export function writeStoredAmbiente(ambiente: Ambiente): void {
-  localStorage.setItem(AMBIENTE_STORAGE_KEY, ambiente);
+/**
+ * Assinantes da troca de ambiente. `useEnvironment` é chamado em vários
+ * componentes ao mesmo tempo (header, sidebar, dashboard); sem isso cada um
+ * teria a própria cópia do valor e só quem clicou no switcher enxergaria a
+ * mudança — o sidebar ficava com a árvore do ambiente antigo.
+ */
+const ambienteListeners = new Set<() => void>();
+
+export function subscribeStoredAmbiente(listener: () => void): () => void {
+  ambienteListeners.add(listener);
+  return () => {
+    ambienteListeners.delete(listener);
+  };
 }
 
-const COMERCIAL_PREFIXES = ["/pipeline", "/leads", "/atendimento", "/marketing"];
+export function writeStoredAmbiente(ambiente: Ambiente): void {
+  try {
+    localStorage.setItem(AMBIENTE_STORAGE_KEY, ambiente);
+  } catch {
+    /* storage indisponível — o estado em memória ainda avisa os assinantes */
+  }
+  ambienteListeners.forEach((listener) => listener());
+}
+
+// "/dashboard/comercial" é testado antes de "/dashboard" (operacional) porque
+// pathToAmbiente checa os prefixos comerciais primeiro.
+const COMERCIAL_PREFIXES = ["/dashboard/comercial", "/pipeline", "/leads", "/atendimento", "/marketing"];
 const OPERACIONAL_PREFIXES = [
   "/dashboard",
   "/esteira",

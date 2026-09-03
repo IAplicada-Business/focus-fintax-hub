@@ -91,6 +91,7 @@ const App = () => (
                       <Routes>
                         <Route path="/ambientes" element={<AmbienteSelect />} />
                         <Route path="/dashboard" element={<Dashboard />} />
+                        <Route path="/dashboard/comercial" element={<Dashboard modo="comercial" />} />
                         <Route path="/dashboard/gestao" element={<DashboardGestao />} />
                         <Route path="/esteira" element={<Esteira />} />
                         <Route path="/esteira/organizar" element={<EsteiraOrganizar />} />

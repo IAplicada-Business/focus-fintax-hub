@@ -51,6 +51,10 @@ describe("routeToScreenKey", () => {
     expect(routeToScreenKey("/dashboard/gestao")).toBe("dashboard.gestao");
   });
 
+  it("maps /dashboard/comercial to dashboard.comercial", () => {
+    expect(routeToScreenKey("/dashboard/comercial")).toBe("dashboard.comercial");
+  });
+
   it("maps /pipeline to pipeline", () => {
     expect(routeToScreenKey("/pipeline")).toBe("pipeline");
   });

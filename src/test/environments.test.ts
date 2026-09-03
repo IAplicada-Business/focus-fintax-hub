@@ -1,16 +1,21 @@
 import { describe, it, expect } from "vitest";
 import {
   AMBIENTE_HOME,
+  AMBIENTE_STORAGE_KEY,
   MENU_COMERCIAL,
   MENU_OPERACIONAL,
   ambientesDisponiveis,
   parseAmbiente,
   pathToAmbiente,
+  readStoredAmbiente,
+  subscribeStoredAmbiente,
+  writeStoredAmbiente,
 } from "@/lib/environments";
 import { getDefaultPermissions } from "@/lib/screen-permissions";
 
 describe("pathToAmbiente", () => {
   it("maps comercial routes", () => {
+    expect(pathToAmbiente("/dashboard/comercial")).toBe("comercial");
     expect(pathToAmbiente("/pipeline")).toBe("comercial");
     expect(pathToAmbiente("/leads")).toBe("comercial");
     expect(pathToAmbiente("/leads/novo")).toBe("comercial");
@@ -78,11 +83,14 @@ describe("ambientesDisponiveis", () => {
 describe("menu trees and homes", () => {
   it("keeps comercial items in the planned order", () => {
     expect(MENU_COMERCIAL.map((item) => item.title)).toEqual([
+      "Dashboard",
       "Leads",
       "Marketing",
       "Atendimento",
     ]);
-    expect(MENU_COMERCIAL[0].children?.map((c) => c.title)).toEqual(["Fila de Leads"]);
+    expect(MENU_COMERCIAL[0].url).toBe("/dashboard/comercial");
+    expect(MENU_COMERCIAL[0].screenKey).toBe("dashboard.comercial");
+    expect(MENU_COMERCIAL[1].children?.map((c) => c.title)).toEqual(["Fila de Leads"]);
   });
 
   it("keeps operacional items in the planned order", () => {
@@ -105,5 +113,24 @@ describe("menu trees and homes", () => {
     expect(parseAmbiente("operacional")).toBe("operacional");
     expect(parseAmbiente("dashboard")).toBeNull();
     expect(parseAmbiente(null)).toBeNull();
+  });
+});
+
+describe("store do ambiente (header, sidebar e dashboard compartilham a troca)", () => {
+  it("avisa todos os assinantes ao trocar e persiste no storage", () => {
+    localStorage.removeItem(AMBIENTE_STORAGE_KEY);
+    const vistos: string[] = [];
+    const unsubA = subscribeStoredAmbiente(() => vistos.push(`a:${readStoredAmbiente()}`));
+    const unsubB = subscribeStoredAmbiente(() => vistos.push(`b:${readStoredAmbiente()}`));
+
+    writeStoredAmbiente("operacional");
+    expect(readStoredAmbiente()).toBe("operacional");
+    expect(vistos).toEqual(["a:operacional", "b:operacional"]);
+
+    unsubA();
+    writeStoredAmbiente("comercial");
+    expect(vistos).toEqual(["a:operacional", "b:operacional", "b:comercial"]);
+    unsubB();
+    localStorage.removeItem(AMBIENTE_STORAGE_KEY);
   });
 });

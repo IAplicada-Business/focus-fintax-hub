@@ -28,6 +28,10 @@ export interface EsteiraCliente {
   tentativas_abordagem?: number;
   motivo_parada?: string | null;
   teses_assinadas?: number;
+  /** Fase 2: última ação em cliente_historico (null se nunca registrada). */
+  ultima_acao_em?: string | null;
+  ultima_acao_descricao?: string | null;
+  ultima_acao_tipo?: string | null;
 }
 
 export async function listEsteiraClientes() {
@@ -95,4 +99,34 @@ export async function reiniciarSlaEsteira(clienteIds: string[], motivo?: string)
   });
   if (error) throw error;
   return data ?? 0;
+}
+
+export interface EsteiraHistoricoItem {
+  id: string;
+  cliente_id: string;
+  estagio: string;
+  entrou_em: string;
+  saiu_em: string | null;
+  origem: string;
+  responsavel_id: string | null;
+  responsavel_nome: string | null;
+}
+
+/** Permanências do cliente na esteira, mais recente primeiro, com nome do responsável. */
+export async function listEsteiraHistorico(clienteId: string): Promise<EsteiraHistoricoItem[]> {
+  const { data, error } = await supabase
+    .from("esteira_historico")
+    .select("id, cliente_id, estagio, entrou_em, saiu_em, origem, responsavel_id")
+    .eq("cliente_id", clienteId)
+    .order("entrou_em", { ascending: false });
+  if (error) throw error;
+  const rows = (data ?? []) as Omit<EsteiraHistoricoItem, "responsavel_nome">[];
+
+  const ids = [...new Set(rows.map((r) => r.responsavel_id).filter((v): v is string => !!v))];
+  const nomes = new Map<string, string>();
+  if (ids.length > 0) {
+    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", ids);
+    for (const p of profiles ?? []) nomes.set(p.user_id, p.full_name);
+  }
+  return rows.map((r) => ({ ...r, responsavel_nome: r.responsavel_id ? nomes.get(r.responsavel_id) ?? null : null }));
 }
