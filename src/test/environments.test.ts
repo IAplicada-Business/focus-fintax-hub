@@ -134,3 +134,26 @@ describe("store do ambiente (header, sidebar e dashboard compartilham a troca)",
     localStorage.removeItem(AMBIENTE_STORAGE_KEY);
   });
 });
+
+describe("robô SDR", () => {
+  it("abre o ambiente comercial, apesar de morar sob /configuracoes", () => {
+    expect(pathToAmbiente("/configuracoes/bot")).toBe("comercial");
+  });
+
+  it("não arrasta o resto de /configuracoes para o comercial", () => {
+    expect(pathToAmbiente("/configuracoes/motor")).toBe("operacional");
+    expect(pathToAmbiente("/configuracoes/esteira-sla")).toBe("operacional");
+  });
+
+  it("aparece no menu comercial, sob Atendimento", () => {
+    const atendimento = MENU_COMERCIAL.find((m) => m.title === "Atendimento");
+    expect(atendimento?.children?.some((c) => c.url === "/configuracoes/bot")).toBe(true);
+  });
+});
+
+describe("menu operacional", () => {
+  it("não tem mais o submenu Gestão (virou aba do dashboard)", () => {
+    const dashboard = MENU_OPERACIONAL.find((m) => m.url === "/dashboard");
+    expect(dashboard?.children ?? []).toEqual([]);
+  });
+});

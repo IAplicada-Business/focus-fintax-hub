@@ -15,8 +15,15 @@ import { EsteiraSlaTab } from "@/components/dashboard/gestao/EsteiraSlaTab";
 import { agregarMixRegime } from "@/lib/regime-mix";
 import { agruparPorSegmento } from "@/lib/segmento-lead";
 import { SlaFunilTab } from "@/components/dashboard/comercial/SlaFunilTab";
+type DashboardModo = "comercial" | "operacional";
 
-async function fetchDashboardData() {
+/**
+ * O dashboard comercial e o operacional não compartilham nenhum número. Puxar
+ * leads, funil e segmento no ambiente operacional — ou compensações no
+ * comercial — era carregar dado que a tela nem chega a renderizar. Cada modo
+ * consulta só o seu lado e recebe o outro zerado.
+ */
+async function fetchComercial() {
   const now = new Date();
   const d7 = new Date(now.getTime() - 7 * 86400000).toISOString();
   const d14 = new Date(now.getTime() - 14 * 86400000).toISOString();
@@ -24,8 +31,7 @@ async function fetchDashboardData() {
 
   const [
     pipelineRes, newWeekRes, prevWeekRes, contratosRes, clientesAtivosRes, totalEverRes,
-    allLeadsRes, stalledRes, diagRes, tesesRes,
-    clientesRes, allCompRes, allProcRes, totalAtivosRes, totaisRes, intimRes, motorRegimesRes,
+    allLeadsRes, stalledRes, diagRes, tesesRes, motorRegimesRes,
   ] = await Promise.all([
     supabase.from("leads").select("id", { count: "exact", head: true }).not("status_funil", "in", "(perdido,nao_vai_fazer)"),
     supabase.from("leads").select("id", { count: "exact", head: true }).gte("criado_em", d7),
@@ -37,12 +43,6 @@ async function fetchDashboardData() {
     supabase.from("leads").select("empresa, status_funil_atualizado_em, id").eq("status_funil", "contrato_emitido").lt("status_funil_atualizado_em", d3),
     supabase.from("diagnosticos_leads").select("lead_id"),
     supabase.from("motor_teses_config").select("id", { count: "exact", head: true }).eq("ativo", true),
-    supabase.from("clientes").select("id, empresa", { count: "exact" }).eq("status", "ativo").limit(5000),
-    supabase.from("compensacoes_mensais").select("valor_compensado, valor_nf_servico, honorario_valor, mes_referencia, cliente_id, tese_origem_id").limit(5000),
-    supabase.from("processos_teses").select("id, cliente_id, valor_credito, percentual_honorario, valor_honorario").limit(5000),
-    supabase.from("clientes").select("id", { count: "exact", head: true }).eq("status", "ativo"),
-    (supabase as any).from("v_cliente_totais_calculo").select("cliente_id, credito_apurado, total_compensado, saldo_restante").limit(5000),
-    supabase.from("intimacoes").select("id, status, prazo_vencimento").in("status", ["pendente", "informado_aline", "em_andamento"]),
     supabase.from("motor_teses_config").select("regimes_elegiveis").eq("ativo", true),
   ]);
 
@@ -100,6 +100,33 @@ async function fetchDashboardData() {
   const uniqueDiagLeads = new Set((diagRes.data ?? []).map((d) => d.lead_id));
   const motorDiagnosticos = uniqueDiagLeads.size;
   const motorTesesAtivas = tesesRes.count ?? 0;
+
+  return {
+    comLeads, comNewWeek, comNewPrevWeek, comPotencial, comContratos, comClientesAtivos, comTaxaConversao,
+    funnelData, stalledLeads, segmentoData, scoreDistribution, regimeMix,
+    motorDiagnosticos, motorTesesAtivas,
+  };
+}
+
+const COMERCIAL_ZERADO: Awaited<ReturnType<typeof fetchComercial>> = {
+  comLeads: 0, comNewWeek: 0, comNewPrevWeek: 0, comPotencial: 0, comContratos: 0,
+  comClientesAtivos: 0, comTaxaConversao: 0,
+  funnelData: [], stalledLeads: [], segmentoData: [],
+  scoreDistribution: { A: 0, B: 0, C: 0, D: 0 }, regimeMix: [],
+  motorDiagnosticos: 0, motorTesesAtivas: 0,
+};
+
+async function fetchOperacional() {
+  const now = new Date();
+
+  const [clientesRes, allCompRes, allProcRes, totalAtivosRes, totaisRes, intimRes] = await Promise.all([
+    supabase.from("clientes").select("id, empresa", { count: "exact" }).eq("status", "ativo").limit(5000),
+    supabase.from("compensacoes_mensais").select("valor_compensado, valor_nf_servico, honorario_valor, mes_referencia, cliente_id, tese_origem_id").limit(5000),
+    supabase.from("processos_teses").select("id, cliente_id, valor_credito, percentual_honorario, valor_honorario").limit(5000),
+    supabase.from("clientes").select("id", { count: "exact", head: true }).eq("status", "ativo"),
+    (supabase as any).from("v_cliente_totais_calculo").select("cliente_id, credito_apurado, total_compensado, saldo_restante").limit(5000),
+    supabase.from("intimacoes").select("id, status, prazo_vencimento").in("status", ["pendente", "informado_aline", "em_andamento"]),
+  ]);
 
   const clientes = clientesRes.data ?? [];
   const allComp = allCompRes.data ?? [];
@@ -175,9 +202,6 @@ async function fetchDashboardData() {
   const procCount = allProc.length;
 
   return {
-    comLeads, comNewWeek, comNewPrevWeek, comPotencial, comContratos, comClientesAtivos, comTaxaConversao,
-    funnelData, stalledLeads, segmentoData, scoreDistribution, regimeMix,
-    motorDiagnosticos, motorTesesAtivas,
     opClientes, opTotalAtivos, opCompensado, opHonorarios, opSaldo,
     monthlyBars, topCompensado, topSaldo,
     intimacoesPendentes, intimacoesVencendo,
@@ -185,7 +209,21 @@ async function fetchDashboardData() {
   };
 }
 
-type DashboardModo = "comercial" | "operacional";
+const OPERACIONAL_ZERADO: Awaited<ReturnType<typeof fetchOperacional>> = {
+  opClientes: 0, opTotalAtivos: 0, opCompensado: 0, opHonorarios: 0, opSaldo: 0,
+  monthlyBars: [], topCompensado: [], topSaldo: [],
+  intimacoesPendentes: 0, intimacoesVencendo: 0,
+  dataHealth: { compensacoes: 0, processos: 0, hasData: false },
+};
+
+async function fetchDashboardData(modo: DashboardModo) {
+  const [comercial, operacional] = await Promise.all([
+    modo === "comercial" ? fetchComercial() : Promise.resolve(COMERCIAL_ZERADO),
+    modo === "operacional" ? fetchOperacional() : Promise.resolve(OPERACIONAL_ZERADO),
+  ]);
+  return { ...comercial, ...operacional };
+}
+
 
 /**
  * `modo="comercial"` (/dashboard/comercial, ambiente Comercial): só a Visão
@@ -241,8 +279,8 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
     modo === "operacional" && !canOperacionalPerm && !canExecutivaPerm && canComercialPerm;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["dashboard"],
-    queryFn: fetchDashboardData,
+    queryKey: ["dashboard", modo],
+    queryFn: () => fetchDashboardData(modo),
     staleTime: 60_000,
   });
 

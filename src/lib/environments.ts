@@ -68,7 +68,16 @@ export const MENU_COMERCIAL: MenuItem[] = [
     ],
   },
   { title: "Marketing", url: "/marketing", icon: Megaphone, screenKey: "marketing" },
-  { title: "Atendimento", url: "/atendimento", icon: Inbox, screenKey: "atendimento" },
+  {
+    title: "Atendimento",
+    url: "/atendimento",
+    icon: Inbox,
+    screenKey: "atendimento",
+    children: [
+      // Robô SDR: mora em /configuracoes/bot por histórico, mas é tela comercial.
+      { title: "Robô SDR", url: "/configuracoes/bot", screenKey: "atendimento" },
+    ],
+  },
 ];
 
 export const MENU_OPERACIONAL: MenuItem[] = [
@@ -156,7 +165,14 @@ export function writeStoredAmbiente(ambiente: Ambiente): void {
 
 // "/dashboard/comercial" é testado antes de "/dashboard" (operacional) porque
 // pathToAmbiente checa os prefixos comerciais primeiro.
-const COMERCIAL_PREFIXES = ["/dashboard/comercial", "/pipeline", "/leads", "/atendimento", "/marketing"];
+const COMERCIAL_PREFIXES = [
+  "/dashboard/comercial",
+  "/configuracoes/bot",
+  "/pipeline",
+  "/leads",
+  "/atendimento",
+  "/marketing",
+];
 const OPERACIONAL_PREFIXES = [
   "/dashboard",
   "/esteira",
