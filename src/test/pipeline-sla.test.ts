@@ -2,9 +2,13 @@ import { describe, it, expect } from "vitest";
 import {
   PIPELINE_SLA_DIAS_DEFAULT,
   defaultPipelineSlaConfig,
+  diasDeAtraso,
   diasNaEtapaLead,
+  filtrarFilaSla,
+  isFiltroFilaSla,
   normalizarEtapaFunil,
   resumirSlaFunil,
+  serieGraficoSla,
 } from "@/lib/pipeline-sla";
 
 const AGORA = new Date("2026-09-03T12:00:00Z").getTime();
@@ -68,5 +72,74 @@ describe("resumirSlaFunil", () => {
     const r = resumirSlaFunil(leads, cfg, AGORA);
     expect(r.etapas.find((e) => e.etapa === "novo")!.atrasados).toBe(0);
     expect(r.linhas.find((l) => l.lead.id === "a")!.sla.status).toBe("sem_sla");
+  });
+});
+
+describe("serieGraficoSla", () => {
+  const config = defaultPipelineSlaConfig();
+  const leads = [
+    { id: "a", empresa: "A", status_funil: "novo", status_funil_atualizado_em: diasAtras(10) },
+    { id: "b", empresa: "B", status_funil: "novo", status_funil_atualizado_em: diasAtras(1) },
+    { id: "c", empresa: "C", status_funil: "qualificado", status_funil_atualizado_em: diasAtras(2) },
+  ];
+
+  it("gera um ponto por etapa com média, máximo e meta, marcando média acima da meta", () => {
+    const serie = serieGraficoSla(resumirSlaFunil(leads, config, AGORA));
+    expect(serie.map((p) => p.etapa)).toEqual(["novo", "qualificado", "em_negociacao", "em_apresentacao", "contrato_emitido"]);
+    expect(serie[0]).toMatchObject({ labelCurto: "Novo", media: 5.5, maximo: 10, meta: 3, leads: 2, atrasados: 1, atrasoAcumulado: 7, acimaDaMeta: true });
+    expect(serie[1]).toMatchObject({ media: 2, maximo: 2, meta: 5, leads: 1, atrasados: 0, acimaDaMeta: false });
+    // etapa vazia: zera as barras mas mantém a meta pra linha
+    expect(serie[2]).toMatchObject({ labelCurto: "Negociação", media: 0, maximo: 0, meta: 10, leads: 0, acimaDaMeta: false });
+  });
+
+  it("etapa sem meta nunca fica acima da meta", () => {
+    const semMeta = config.map((c) => (c.etapa === "novo" ? { ...c, sla_dias: null } : c));
+    const serie = serieGraficoSla(resumirSlaFunil(leads, semMeta, AGORA));
+    expect(serie[0]).toMatchObject({ meta: null, acimaDaMeta: false, atrasados: 0 });
+  });
+});
+
+describe("filtrarFilaSla", () => {
+  const config = defaultPipelineSlaConfig();
+  const leads = [
+    { id: "a", empresa: "Alfa Supermercados", status_funil: "novo", status_funil_atualizado_em: diasAtras(10) }, // +7
+    { id: "b", empresa: "Beta Pet", status_funil: "novo", status_funil_atualizado_em: diasAtras(1) },
+    { id: "c", empresa: "Gama Farma", status_funil: "levantamento_teses", status_funil_atualizado_em: diasAtras(12) }, // +2
+    { id: "d", empresa: "Delta", status_funil: "em_negociacao", status_funil_atualizado_em: diasAtras(9) }, // no prazo, 9d
+    { id: "e", empresa: "Épsilon", status_funil: "contrato_emitido", status_funil_atualizado_em: diasAtras(20) }, // +17
+  ];
+  const resumo = resumirSlaFunil(leads, config, AGORA);
+
+  it("atrasados: só estourados, do maior atraso pro menor", () => {
+    expect(filtrarFilaSla(resumo, "atrasados").map((l) => l.lead.id)).toEqual(["e", "a", "c"]);
+  });
+
+  it("todos: atrasados primeiro e depois por dias na etapa", () => {
+    expect(filtrarFilaSla(resumo, "todos").map((l) => l.lead.id)).toEqual(["e", "a", "c", "d", "b"]);
+  });
+
+  it("por etapa inclui no prazo e atrasados da etapa", () => {
+    expect(filtrarFilaSla(resumo, "em_negociacao").map((l) => l.lead.id)).toEqual(["c", "d"]);
+    expect(filtrarFilaSla(resumo, "novo").map((l) => l.lead.id)).toEqual(["a", "b"]);
+  });
+
+  it("busca por empresa ignora caixa e combina com o filtro", () => {
+    expect(filtrarFilaSla(resumo, "todos", "  gama ").map((l) => l.lead.id)).toEqual(["c"]);
+    expect(filtrarFilaSla(resumo, "atrasados", "beta")).toHaveLength(0);
+  });
+
+  it("diasDeAtraso zera fora do estouro", () => {
+    const porId = new Map(resumo.linhas.map((l) => [l.lead.id, l]));
+    expect(diasDeAtraso(porId.get("e")!)).toBe(17);
+    expect(diasDeAtraso(porId.get("d")!)).toBe(0);
+    expect(diasDeAtraso(porId.get("b")!)).toBe(0);
+  });
+
+  it("isFiltroFilaSla aceita etapas e os dois atalhos", () => {
+    expect(isFiltroFilaSla("atrasados")).toBe(true);
+    expect(isFiltroFilaSla("todos")).toBe(true);
+    expect(isFiltroFilaSla("contrato_emitido")).toBe(true);
+    expect(isFiltroFilaSla("perdido")).toBe(false);
+    expect(isFiltroFilaSla(null)).toBe(false);
   });
 });

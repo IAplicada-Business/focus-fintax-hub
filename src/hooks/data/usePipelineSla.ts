@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toastError } from "@/lib/handle-error";
 import type { EtapaFunil } from "@/lib/pipeline-sla";
-import { listLeadsFunil, listPipelineSlaConfig, updatePipelineSlaMeta } from "@/services/pipelineSlaService";
+import { listLeadsFunil, listPipelineSlaConfig, moverLeadFunil, updatePipelineSlaMeta } from "@/services/pipelineSlaService";
 
 export function usePipelineSlaConfig() {
   return useQuery({
@@ -28,5 +28,17 @@ export function useUpdatePipelineSlaMeta() {
       qc.invalidateQueries({ queryKey: ["pipeline", "sla-config"] });
     },
     onError: (err) => toastError(err, "Erro ao salvar a meta da etapa"),
+  });
+}
+
+export function useMoverLeadFunil() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: moverLeadFunil,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (err) => toastError(err, "Erro ao mover o lead de etapa"),
   });
 }

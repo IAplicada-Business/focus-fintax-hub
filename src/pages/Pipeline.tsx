@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -55,7 +56,23 @@ export default function Pipeline() {
 
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [showForm, setShowForm] = useState(false);
-  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // `?lead=<id>` abre o painel do lead direto (ex.: vindo do SLA do funil).
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(() => searchParams.get("lead"));
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("lead");
+    if (fromUrl) setSelectedLeadId(fromUrl);
+  }, [searchParams]);
+
+  const closeLeadPanel = useCallback(() => {
+    setSelectedLeadId(null);
+    if (searchParams.has("lead")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("lead");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [filterStatusComp, setFilterStatusComp] = useState<Set<StatusCompensacao>>(
     new Set(STATUS_COMPENSACAO_VALUES)
   );
@@ -224,7 +241,7 @@ export default function Pipeline() {
       <LeadFormModal open={showForm} onClose={() => setShowForm(false)} onSaved={fetchLeads} />
 
       {/* Side Panel */}
-      <LeadSidePanel lead={selectedLead} onClose={() => setSelectedLeadId(null)} onRefresh={fetchLeads} />
+      <LeadSidePanel lead={selectedLead} onClose={closeLeadPanel} onRefresh={fetchLeads} />
     </div>
   );
 }
