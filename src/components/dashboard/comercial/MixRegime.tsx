@@ -3,12 +3,9 @@ import { PieChart as PieIcon } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { compactCurrency } from "../dashboard-utils";
 import type { RegimeMixKey, RegimeMixRow } from "@/lib/regime-mix";
-import { cn } from "@/lib/utils";
 
 interface Props {
   regimeMix: RegimeMixRow[];
-  /** Permite ao container esticar o card (ex.: flex-1) para alinhar a base da coluna. */
-  className?: string;
 }
 
 /**
@@ -27,12 +24,12 @@ const COR: Record<RegimeMixKey, string> = {
  * quantas teses ativas do motor cobrem cada regime. Regime com lead e zero
  * tese = pipeline sem produto pra vender — é o alerta que o comercial precisa.
  */
-export function MixRegime({ regimeMix, className }: Props) {
+export function MixRegime({ regimeMix }: Props) {
   const total = regimeMix.reduce((s, r) => s + r.leads, 0);
   const semCobertura = regimeMix.filter((r) => r.teses === 0 && r.leads > 0);
 
   return (
-    <div className={cn("card-base overflow-hidden flex flex-col", className)}>
+    <div className="card-base overflow-hidden flex flex-col">
       <div className="px-[18px] pt-3 pb-2.5 border-b border-[rgba(10,21,100,0.10)]">
         <div className="text-[11px] font-bold tracking-[0.8px] uppercase text-navy">Mix por regime tributário</div>
         <div className="text-[11px] text-ink-35 mt-0.5">leads ativos · teses do motor que cobrem cada regime</div>
@@ -42,7 +39,7 @@ export function MixRegime({ regimeMix, className }: Props) {
         <EmptyState icon={<PieIcon size={20} className="text-ink-35" />} title="Sem leads ativos" subtitle="O mix aparece conforme os leads entram." />
       ) : (
         <div className="px-3.5 py-3 flex-1 flex flex-col justify-center">
-          <div className="relative h-[150px]" role="img" aria-label={`Leads por regime: ${regimeMix.map((r) => `${r.label} ${r.leads}`).join(", ")}`}>
+          <div className="relative flex-1 min-h-[160px]" role="img" aria-label={`Leads por regime: ${regimeMix.map((r) => `${r.label} ${r.leads}`).join(", ")}`}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -51,8 +48,8 @@ export function MixRegime({ regimeMix, className }: Props) {
                   nameKey="label"
                   cx="50%"
                   cy="50%"
-                  innerRadius={44}
-                  outerRadius={66}
+                  innerRadius="58%"
+                  outerRadius="88%"
                   paddingAngle={2}
                   stroke="#ffffff"
                   strokeWidth={2}
@@ -78,7 +75,7 @@ export function MixRegime({ regimeMix, className }: Props) {
             </div>
           </div>
 
-          <ul className="mt-1 divide-y divide-[rgba(0,0,0,0.04)]">
+          <ul className="mt-2 shrink-0 divide-y divide-[rgba(0,0,0,0.04)]">
             {regimeMix.map((r) => {
               const pct = total > 0 ? Math.round((r.leads / total) * 100) : 0;
               const semTese = r.teses === 0;

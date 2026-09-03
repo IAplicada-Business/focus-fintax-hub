@@ -80,3 +80,9 @@ describe("routeToScreenKey", () => {
     expect(routeToScreenKey("/")).toBeNull();
   });
 });
+
+describe("robô SDR", () => {
+  it("usa a permissão de Atendimento, não a de Configurações", () => {
+    expect(routeToScreenKey("/configuracoes/bot")).toBe("atendimento");
+  });
+});

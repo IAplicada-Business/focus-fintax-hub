@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FunnelRow, compactCurrency, SEGMENTO_LABELS, SEGMENTO_BAR_COLOR } from "../dashboard-utils";
+import { FunnelRow, compactCurrency } from "../dashboard-utils";
 import type { NavigateFunction } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -8,18 +8,14 @@ interface Props {
   maxFunnelCount: number;
   totalFunnelCount: number;
   totalFunnelPotencial: number;
-  segmentoData: { segmento: string; count: number }[];
-  maxSegCount: number;
   navigate: NavigateFunction;
 }
 
-export function FunilComercial({ funnelData, maxFunnelCount, totalFunnelCount, totalFunnelPotencial, segmentoData, maxSegCount, navigate }: Props) {
+export function FunilComercial({ funnelData, maxFunnelCount, totalFunnelCount, totalFunnelPotencial, navigate }: Props) {
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col gap-4 min-w-0">
-      {/* CARD 1 — Funil */}
-      <div className="card-base overflow-hidden">
+    <div className="card-base overflow-hidden h-full flex flex-col">
         <div className="px-5 pt-3 pb-2.5 border-b border-[rgba(10,21,100,0.06)] flex items-center justify-between">
           <div>
             <div className="text-[11px] font-bold tracking-[0.8px] uppercase text-navy">Funil comercial</div>
@@ -46,7 +42,7 @@ export function FunilComercial({ funnelData, maxFunnelCount, totalFunnelCount, t
             >
               <div className="w-1 h-6 rounded-full flex-shrink-0 mr-4" style={{ background: f.color }} />
               <span className={cn(
-                "flex-1 min-w-0 text-sm truncate pr-4",
+                "min-w-0 truncate text-sm pr-3 w-[170px] shrink-0",
                 isContrato ? "font-bold text-[#b45309]" : isCliente ? "font-semibold text-[#0f7b4e]" : "font-medium text-ink"
               )}>{f.label}</span>
               <span className={cn(
@@ -57,7 +53,7 @@ export function FunilComercial({ funnelData, maxFunnelCount, totalFunnelCount, t
                 "font-mono-dm tabular-nums text-[11px] font-semibold flex-shrink-0 w-[112px] text-right whitespace-nowrap pl-2 pr-3",
                 isContrato ? "text-[#b45309]" : "text-[#0f7b4e]"
               )}>{f.potencial > 0 ? compactCurrency(f.potencial) : "—"}</span>
-              <div className="flex-shrink-0 w-[100px]">
+              <div className="flex-1 min-w-[60px]">
                 <div className="h-1.5 bg-[rgba(15,17,23,0.08)] rounded-full overflow-hidden">
                   <div className="h-full rounded-full transition-all duration-500" style={{ background: f.color, width: `${(f.count / maxFunnelCount) * 100}%` }} />
                 </div>
@@ -73,30 +69,13 @@ export function FunilComercial({ funnelData, maxFunnelCount, totalFunnelCount, t
         })}
 
         {/* Total row */}
-        <div className="flex items-center px-5 py-3 bg-[rgba(10,21,100,0.03)] border-t-2 border-[rgba(10,21,100,0.08)]">
+        <div className="mt-auto flex items-center px-5 py-3 bg-[rgba(10,21,100,0.03)] border-t-2 border-[rgba(10,21,100,0.08)]">
           <span className="text-[10px] font-bold tracking-[1px] uppercase text-ink-35 flex-1 min-w-0 pl-5">Total do pipeline</span>
           <span className="font-display text-[18px] font-bold text-navy w-9 text-right shrink-0">{totalFunnelCount}</span>
           <span className="font-mono-dm tabular-nums text-[13px] font-bold text-dash-green w-[112px] text-right whitespace-nowrap shrink-0 pl-2 pr-3">{compactCurrency(totalFunnelPotencial)}</span>
-          <div className="w-[100px] shrink-0" />
+          <div className="flex-1 min-w-[60px]" />
           <div className="w-[22px]" />
         </div>
-      </div>
-
-      {/* CARD 2 — Distribuição por Segmento (estica até o fim da coluna) */}
-      <div className="card-base p-5 flex-1">
-        <div className="text-[10px] font-bold tracking-[1.2px] uppercase text-ink-35 mb-4">Distribuição por segmento</div>
-        <div className="flex flex-col gap-3">
-          {segmentoData.map((s) => (
-            <div key={s.segmento} className="flex items-center gap-3">
-              <span className="text-xs text-ink-60 w-[120px] shrink-0 font-medium">{SEGMENTO_LABELS[s.segmento] ?? s.segmento}</span>
-              <div className="flex-1 h-1.5 bg-ink-12 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-700" style={{ background: SEGMENTO_BAR_COLOR[s.segmento] ?? "#6b7280", width: `${(s.count / maxSegCount) * 100}%` }} />
-              </div>
-              <span className="font-mono-dm tabular-nums text-[11px] text-navy font-semibold w-6 text-right shrink-0">{s.count}</span>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

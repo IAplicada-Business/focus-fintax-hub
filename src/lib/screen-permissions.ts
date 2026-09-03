@@ -135,6 +135,8 @@ export function getDefaultPermissions(role: string): ScreenPermission[] {
 
 /** Map a route path to a screen key */
 export function routeToScreenKey(path: string): string | null {
+  // O robô SDR é do Atendimento (comercial), apesar de morar sob /configuracoes.
+  if (path.startsWith("/configuracoes/bot")) return "atendimento";
   if (path.startsWith("/configuracoes/motor")) return "motor_calculo";
   if (path.startsWith("/configuracoes/esteira-sla")) return "esteira";
   if (path.startsWith("/configuracoes")) return "configuracoes";

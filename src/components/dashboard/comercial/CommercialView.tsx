@@ -7,6 +7,7 @@ import { SkeletonTable } from "../SkeletonTable";
 import { KpiStripComercial } from "./KpiStripComercial";
 import { AlertasBanner } from "./AlertasBanner";
 import { FunilComercial } from "./FunilComercial";
+import { SegmentoCard } from "./SegmentoCard";
 import { QualidadeCarteira } from "./QualidadeCarteira";
 import { MotorPerformance } from "./MotorPerformance";
 import { MixRegime } from "./MixRegime";
@@ -26,7 +27,7 @@ interface Props {
   maxFunnelCount: number;
   totalFunnelCount: number;
   totalFunnelPotencial: number;
-  segmentoData: { segmento: string; count: number }[];
+  segmentoData: { segmento: string; label: string; count: number }[];
   maxSegCount: number;
   scoreDistribution: Record<string, number>;
   motorDiagnosticos: number;
@@ -54,20 +55,29 @@ export const CommercialView = memo(function CommercialView(props: Props) {
         <>
           <AlertasBanner stalledLeads={props.stalledLeads} />
 
-          {/* Duas colunas de altura igual: o último card de cada coluna estica (flex-1)
-              para que as bordas inferiores fiquem alinhadas, sem buraco em nenhum lado. */}
-          <div className="animate-slide-up delay-3 grid gap-4 w-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
-            <FunilComercial
-              funnelData={props.funnelData} maxFunnelCount={props.maxFunnelCount}
-              totalFunnelCount={props.totalFunnelCount} totalFunnelPotencial={props.totalFunnelPotencial}
-              segmentoData={props.segmentoData} maxSegCount={props.maxSegCount}
-              navigate={props.navigate}
-            />
-            <div className="flex flex-col gap-4 min-w-0">
-              <QualidadeCarteira scoreDistribution={props.scoreDistribution} />
-              <MotorPerformance motorDiagnosticos={props.motorDiagnosticos} motorTesesAtivas={props.motorTesesAtivas} />
-              <MixRegime regimeMix={props.regimeMix} className="flex-1" />
+          {/*
+            Grade de 3 colunas. Linha 1: o funil (2 colunas) ao lado do mix por
+            regime; sao os dois blocos altos e ficam com alturas parecidas.
+            Linha 2: tres cards curtos de mesma largura. Itens de grid ja
+            esticam para a altura da linha, entao nao ha card solto nem vao.
+          */}
+          <div className="animate-slide-up delay-3 grid gap-4 w-full grid-cols-1 lg:grid-cols-3">
+            <div className="lg:col-span-2 min-w-0">
+              <FunilComercial
+                funnelData={props.funnelData} maxFunnelCount={props.maxFunnelCount}
+                totalFunnelCount={props.totalFunnelCount} totalFunnelPotencial={props.totalFunnelPotencial}
+                navigate={props.navigate}
+              />
             </div>
+            <MixRegime regimeMix={props.regimeMix} />
+
+            <SegmentoCard segmentoData={props.segmentoData} maxSegCount={props.maxSegCount} />
+            <QualidadeCarteira scoreDistribution={props.scoreDistribution} />
+            <MotorPerformance
+              motorDiagnosticos={props.motorDiagnosticos}
+              motorTesesAtivas={props.motorTesesAtivas}
+              semCobertura={props.regimeMix.filter((r) => r.teses === 0 && r.leads > 0).length}
+            />
           </div>
         </>
       )}
