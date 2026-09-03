@@ -175,18 +175,27 @@ Se as etapas do funil mudarem em `src/lib/pipeline-constants.ts`, os `CASE` de
 
 ---
 
-# Envio mensal do Mapa Tributário (blueprint Step 15, canal WhatsApp)
+# Envio mensal do Mapa Tributário (blueprint Step 15, WhatsApp + e-mail)
 
-Todo dia 5 (com retomada até o dia 10), cada cliente ativo com WhatsApp
-cadastrado recebe uma mensagem com link para o seu Mapa Tributário.
+Todo dia 5 (com retomada até o dia 10), cada cliente ativo recebe uma mensagem
+com link para o seu Mapa Tributário — por WhatsApp (Z-API) e por e-mail
+(Resend), num único workflow. Versão minimizada de propósito (03/09/2026):
+sem os nodes de segurança extra do desenho original, sem log de envio.
 
 | Arquivo | O que é |
 |---|---|
-| `envio-mapa-mensal.json` | Workflow principal |
-| `supabase/migrations/20260826140000_envio_mapa_mensal.sql` | `mapa_links`, `mapa_envio_log`, `clientes.nao_enviar_mapa`, `normalizar_whatsapp`, `mapa_envios_pendentes`, `get_mapa_by_token` |
-| `scripts/test-envio-mapa.sql` + `scripts/stub-schema-mapa.sql` | Harness SQL (Postgres efêmero) |
-| `docs/superpowers/specs/2026-08-26-envio-mapa-mensal-whatsapp-design.md` | Spec |
-| `docs/superpowers/plans/2026-08-26-envio-mapa-mensal-whatsapp.md` | Plano de implementação |
+| `envio-mapa-mensal.json` | Workflow (único, os dois canais) |
+| `supabase/migrations/20260826140000_envio_mapa_mensal.sql` | `mapa_links`, `mapa_envio_log`, `clientes.nao_enviar_mapa`, `normalizar_whatsapp`, `get_mapa_by_token` |
+| `supabase/migrations/20260903080000_mapa_envios_pendentes_email.sql` | `mapa_envios_pendentes` passa a devolver `email` por cliente |
+| `supabase/migrations/20260903090000_mapa_envios_pendentes_por_canal.sql` | Passo intermediário (canal por RPC) — superseded pela migration seguinte, fica no histórico |
+| `supabase/migrations/20260903100000_mapa_envios_pendentes_unificado_sem_log.sql` | `mapa_envios_pendentes(p_limite)` — fila única, elegível por telefone OU e-mail |
+| `scripts/test-envio-mapa.sql` + `scripts/stub-schema-mapa.sql` | Harness SQL (Postgres efêmero) — cobre o desenho original; não foi atualizado pra e-mail |
+| `docs/superpowers/specs/2026-08-26-envio-mapa-mensal-whatsapp-design.md` | Spec original (WhatsApp) |
+| `docs/superpowers/plans/2026-08-26-envio-mapa-mensal-whatsapp.md` | Plano de implementação original (WhatsApp) |
+
+Todas as migrations acima **já estão aplicadas** no projeto
+`qzkqrhamqtchboxtwpnz` (verificado com `mapa_envios_pendentes(3)` retornando
+telefone + email por cliente).
 
 ## Fluxo
 
@@ -195,61 +204,109 @@ Cron 08:00, dias 5-10 (BRT)
   → POST /rpc/mapa_envios_pendentes  {p_limite: 20}
   → Separa Clientes (1 objeto → N itens)
   → Loop Clientes (batch 1)
-       ├─ passou das 18:00? ──────────────→ Busca Resumo
-       ├─ Z-API phone-exists
-       │     ├─ não tem WhatsApp → Log Inelegível ─┐
-       │     └─ tem → Monta Mensagem → Z-API Enviar → Log Envio ─┤
-       └─ Espera 300-600s aleatório ←───────────────────────────┘
-  → (loop terminou) → Busca Resumo → Monta Resumo → Ops + Alcir
+       ├─ Monta Mensagem → Z-API Enviar → Espera 300-600s ─┐
+       └─ Monta Email (HTML) → Resend Enviar               │
+                                                              │
+       (Z-API Enviar → Espera é quem fecha o loop de volta ←┘)
 ```
 
-**Não há PDF.** O Mapa é entregue como link para `/mapa/:token`, rota pública que
-lê a RPC `get_mapa_by_token`. O PDF do projeto é gerado por `html2canvas` +
-`jsPDF` dentro do browser (ver `src/lib/export-element-pdf.ts`) e não existe
-fora dele; o link resolve isso sem Storage e sem Chrome headless.
+As duas saídas partem do mesmo item do loop — cada cliente pode receber os
+dois canais na mesma volta, um por telefone e outro por e-mail, independente.
+Só o ramo de WhatsApp fecha o loop (`Espera → Loop Clientes`); o ramo de
+e-mail termina em `Resend Enviar` e não precisa realimentar nada.
+
+`Monta Mensagem`/`Z-API Enviar` roda mesmo se `telefone` vier `NULL` (cliente
+só-e-mail) — a chamada à Z-API é quem falha nesse caso, e o mesmo vale pro
+inverso em `Monta Email`/`Resend Enviar` com `email` `NULL`.
+`onError: continueRegularOutput` nos dois garante que essa falha esperada
+(ou qualquer outra) não trava a fila.
+
+**Não há PDF em nenhum dos dois canais.** O Mapa é entregue como link para
+`/mapa/:token`, rota pública que lê a RPC `get_mapa_by_token`. O PDF do
+projeto é gerado por `html2canvas` + `jsPDF` dentro do browser (ver
+`src/lib/export-element-pdf.ts`) e não existe fora dele; o link resolve isso
+sem Storage e sem Chrome headless.
+
+## O e-mail (visual)
+
+`Monta Email` gera HTML com CSS inline e layout em tabela (obrigatório pra
+renderizar igual em Outlook/Gmail/Apple Mail). Paleta e tipografia batem com o
+app: header navy (`#0a1564`) com o logo branco, CTA vermelho (`#c8001e`),
+fundo creme (`#f6f4ee`), fonte Barlow com fallback web-safe (`Arial,
+Helvetica, sans-serif` — cliente de e-mail não garante fonte customizada). O
+logo é lido do domínio público (`focusfintax.com/images/...`), não de um
+caminho do repo — e-mail não resolve asset relativo.
+
+## Sem log de envio (decisão explícita, ver consequência abaixo)
+
+`Log Envio`, `Log Envio Email`, `Log Inelegível`, `Busca/Monta Resumo` foram
+tirados do workflow em 03/09/2026 — o histórico de execução do n8n já registra
+o que foi tentado e a resposta de cada API, e manter também um INSERT em
+`mapa_envio_log` por envio era redundante pra fins de auditoria.
+
+**Efeito colateral aceito:** `mapa_envio_log` deixou de ser a fonte de estado.
+`mapa_envios_pendentes` ainda tem a checagem `NOT EXISTS (... status =
+'sucesso')`, mas como nada escreve na tabela, ela fica **inerte** — o mesmo
+cliente pode ser devolvido pela RPC em mais de um dos dias 5-10, e por
+consequência **pode receber a mesma mensagem/e-mail mais de uma vez no mês**
+se o cron rodar em mais de um desses dias. Antes disso era o mecanismo que
+permitia "roda 5 a 10, repetir é seguro" (ver nota no node `Dia 5-10 08:00
+BRT`). Sem log, essa garantia não existe mais.
+
+Também não há mais resumo (`Resumo → Alcir`/`Resumo → Ops`): sem o log, não
+haveria dado nenhum pra contar.
+
+Se/quando o log voltar: os inserts precisam só de `cliente_id`, `competencia`,
+`status` (e, se quiser granularidade por canal, a coluna `canal` já existe em
+`mapa_envio_log` desde a migration de 09:00 — `mapa_envios_pendentes` não
+exige mais isso, mas a coluna não foi removida).
 
 ## Decisões que valem manter
 
-- **Idempotência é do banco, não do n8n.** Índice único parcial em
-  `mapa_envio_log (cliente_id, competencia)` para `status='sucesso'`. Se a
-  execução morrer no meio, o dia seguinte retoma sem duplicar ninguém — é por
-  isso que o cron roda do dia 5 ao 10 em vez de uma vez só.
-- **O resumo conta do log, não dos itens do loop.** Este node é alcançado por
-  dois caminhos (loop terminou, ou a janela das 18:00 cortou). No segundo,
-  `$input.all()` traria só o item corrente e o resumo sairia subnotificado.
 - **Elegibilidade e telefone moram em SQL.** `normalizar_whatsapp` e
   `mapa_envios_pendentes` são regra de negócio, testáveis com
   `scripts/test-envio-mapa.sql` sem subir o n8n. `clientes.whatsapp` é guardado
   **sem** código de país (convenção de `ClienteDetail.tsx:318`, que monta
   `wa.me/55${whatsapp}`); o `55` é adicionado só no envio.
-- **Falha de um cliente não para a fila.** `onError: continueRegularOutput` no
-  envio; o status vai pro log e o loop segue.
+- **Falha de um cliente não para a fila.** `onError: continueRegularOutput` em
+  ambos os envios.
 
 ## Sobre o risco de restrição
 
-O espaçamento de 5–10 min cobre sinal de **velocidade**. Os dois sinais que mais
-derrubam número não são afetados por ele, e cada um tem seu mitigante aqui:
+O espaçamento de 5–10 min no ramo WhatsApp cobre sinal de **velocidade** — o
+que mais derruba número novo. Sem o node `Tem WhatsApp?` (removido nesta
+versão minimizada) e sem o log, os outros dois mitigantes do desenho original
+ficam mais fracos:
 
-| Sinal | Mitigante |
+| Sinal | Mitigante hoje |
 |---|---|
 | Velocidade / disparo em massa | Wait aleatório 300–600s + `p_limite` diário |
-| Envio para número sem WhatsApp | Node `Tem WhatsApp?` (Z-API `phone-exists`) antes de enviar |
+| Envio para número sem WhatsApp | Nenhum — a Z-API falha na hora do envio, sem pré-checagem |
+| Reenvio pro mesmo cliente em dias diferentes | Nenhum — depende do log, que está desligado |
 | Bloqueio / denúncia do destinatário | Switch "Não enviar Mapa mensal" no cadastro do cliente (`nao_enviar_mapa`) |
 
-`p_limite` começa em **20**. Subir só depois de um mês sem incidente — número
-novo em volume alto cai mais rápido que número aquecido.
+`p_limite` começa em **20**. Subir só depois de um mês sem incidente.
 
 ## Setup
 
-Reusa a credencial `Supabase API` e as variáveis `ZAPI_*` do relatório semanal.
-Nenhuma credencial nova.
+**Sem `$env`.** Este ambiente n8n não dá acesso pra configurar variável de
+ambiente. Os placeholders `SUBSTITUIR_...` (Z-API instance/token/client-token,
+Resend API key) ficam direto nos parâmetros dos nodes `Z-API Enviar` e
+`Resend Enviar` — editar ali depois de importar.
+
+**Nunca commitar o `.json` de volta no repo com os valores reais
+preenchidos.**
 
 1. Importar `envio-mapa-mensal.json`.
-2. Selecionar a credencial Supabase nos três nodes do Supabase
-   (`Busca Pendentes`, `Log Envio`, `Log Inelegível`, `Busca Resumo`).
-3. Confirmar Settings → Timezone `America/Sao_Paulo`.
-4. Settings → Error Workflow → `Focus FinTax — Error Handler`.
-5. **Manter desativado** até o teste com um número só.
+2. Preencher em `Z-API Enviar`: instance/token na URL, `Client-Token` no
+   header (mesmos valores do relatório semanal — mesma instância Z-API).
+3. Preencher em `Resend Enviar`: `Authorization: Bearer <chave>`, e conferir
+   que o domínio do `from` (`mapas@focusfintax.com`) está verificado na
+   Resend.
+4. Selecionar a credencial Supabase (`Supabase Focus FinTax`) em
+   `Busca Pendentes` — vem com `SUBSTITUIR_ID_CREDENCIAL_SUPABASE`.
+5. Confirmar Settings → Timezone `America/Sao_Paulo`.
+6. **Manter desativado** até o teste com um cliente só.
 
 ## Teste antes de ativar
 
@@ -257,26 +314,25 @@ Nenhuma credencial nova.
 -- Opt-out em massa ANTES de rodar, pra garantir que nada sai pra cliente real.
 update public.clientes set nao_enviar_mapa = true where status = 'ativo';
 
--- Libera só um cliente, com o SEU número.
+-- Libera só um cliente, com O SEU número e/ou e-mail.
 update public.clientes
-   set whatsapp = '<seu numero com DDD>', nome_contato = '<seu nome>', nao_enviar_mapa = false
+   set whatsapp = '<seu numero com DDD>',
+       email = '<seu email>',
+       nome_contato = '<seu nome>',
+       nao_enviar_mapa = false
  where id = '<id de um cliente ativo com linhas no mapa>';
 
 select jsonb_pretty(public.mapa_envios_pendentes(20));  -- deve dar total_pendentes: 1
 ```
 
-Rodar "Execute workflow", conferir a mensagem e o link. Depois:
-
-```sql
-select competencia, destinatario, status, erro from public.mapa_envio_log;
-select jsonb_pretty(public.mapa_envios_pendentes(20));  -- agora total_pendentes: 0
-```
+Rodar "Execute workflow", conferir a mensagem, o e-mail e o link. Sem log, não
+há linha pra conferir no banco depois — a confirmação é o que chegou no
+WhatsApp/caixa de entrada e o que o n8n mostrou na execução.
 
 Reverter ao final:
 
 ```sql
 update public.clientes set nao_enviar_mapa = false where status = 'ativo';
-delete from public.mapa_envio_log where destinatario = '<seu numero normalizado>';
 ```
 
 ## Revogar um link
@@ -293,11 +349,19 @@ compensa o token ser permanente.
 
 ## Fora de escopo
 
-- **E-mail com PDF anexo** (task 3 do Step 15). Sem ele, o exit criteria "zero
-  mapa manual" e a verificação "100% dos clientes ativos recebem" não são
-  atingíveis — só WhatsApp alcança quem tem número cadastrado.
-- Tratar resposta do cliente (inbound). O opt-out é manual no cadastro.
+- **PDF anexo no e-mail.** O e-mail entrega o mesmo link que o WhatsApp, não
+  um anexo — ver "Não há PDF" acima. Se isso virar requisito, é gerar o PDF em
+  algum lugar (o `html2canvas`/`jsPDF` atual só roda no browser) e anexar via
+  Resend, não um redesenho do fluxo.
+- Tratar resposta do cliente (inbound), nos dois canais. O opt-out é manual no
+  cadastro (`nao_enviar_mapa`, hoje único pros dois canais — se um cliente
+  pedir "só pare o WhatsApp, mantenha o e-mail", vira coluna por canal).
 - Tela para revogar/regerar token — hoje é SQL.
+- Atualizar `scripts/test-envio-mapa.sql`/`stub-schema-mapa.sql` — o harness
+  ainda cobre só o desenho original (WhatsApp, sem e-mail).
+- **Log de envio / dedupe / resumo.** Removidos de propósito em 03/09/2026
+  (ver seção acima) — não é que ninguém pensou nisso, é decisão consciente com
+  reenvio possível como efeito colateral aceito.
 
 ---
 
