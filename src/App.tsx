@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -17,7 +17,6 @@ const Calculadora = lazy(() => import("@/pages/Calculadora"));
 
 const AmbienteSelect = lazy(() => import("@/pages/AmbienteSelect"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const DashboardGestao = lazy(() => import("@/pages/DashboardGestao"));
 const Esteira = lazy(() => import("@/pages/Esteira"));
 const EsteiraOrganizar = lazy(() => import("@/pages/EsteiraOrganizar"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
@@ -92,7 +91,8 @@ const App = () => (
                         <Route path="/ambientes" element={<AmbienteSelect />} />
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/dashboard/comercial" element={<Dashboard modo="comercial" />} />
-                        <Route path="/dashboard/gestao" element={<DashboardGestao />} />
+                        {/* Gestão virou abas do /dashboard; o link antigo continua funcionando. */}
+                        <Route path="/dashboard/gestao" element={<Navigate to="/dashboard" replace />} />
                         <Route path="/esteira" element={<Esteira />} />
                         <Route path="/esteira/organizar" element={<EsteiraOrganizar />} />
                         <Route path="/pipeline" element={<Pipeline />} />

@@ -28,7 +28,7 @@ export function KpiStripComercial({ comLeads, comNewWeek, trendDiff, comPotencia
   return (
     <div role="region" aria-label="KPIs comerciais" className="animate-slide-up delay-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-5 w-full">
       {kpis.map((kpi, i) => (
-        <div key={i} role="status" aria-label={`${kpi.label}: ${kpi.value}`} className="card-base p-5 flex flex-col justify-between min-h-[110px]">
+        <div key={i} role="status" aria-label={`${kpi.label}: ${kpi.value}`} className="card-base p-5 flex flex-col justify-between min-h-[110px] min-w-0 overflow-hidden">
           <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 mb-2">
             <p className="text-[10px] font-bold uppercase tracking-[1.6px] text-ink-35">{kpi.label}</p>
             {kpi.trend !== undefined && kpi.trend !== 0 && (
@@ -38,7 +38,8 @@ export function KpiStripComercial({ comLeads, comNewWeek, trendDiff, comPotencia
             )}
           </div>
           <div>
-            <p className={`font-display text-[40px] font-bold leading-none ${kpi.colorClass}`}>{kpi.value}</p>
+            {/* Valores monetarios sao longos: encolhe a fonte em vez de estourar o card. */}
+            <p className={`font-display text-[clamp(26px,2.4vw,40px)] font-bold leading-none whitespace-nowrap ${kpi.colorClass}`}>{kpi.value}</p>
             <p className="text-xs text-ink-35 mt-1.5">{kpi.sub}</p>
           </div>
         </div>

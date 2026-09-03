@@ -73,13 +73,11 @@ export const MENU_COMERCIAL: MenuItem[] = [
 
 export const MENU_OPERACIONAL: MenuItem[] = [
   {
+    // Pulso da semana, Ciclo & SLA e SLA por etapa são abas desta tela.
     title: "Dashboard",
     url: "/dashboard",
     icon: LayoutDashboard,
     screenKey: "dashboard",
-    children: [
-      { title: "Gestão", url: "/dashboard/gestao", screenKey: "dashboard.gestao" },
-    ],
   },
   {
     title: "Esteira",

@@ -9,7 +9,11 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { CommercialView } from "@/components/dashboard/comercial/CommercialView";
 import { OperationalView } from "@/components/dashboard/operacional/OperationalView";
 import { ExecutivaView } from "@/components/dashboard/executiva/ExecutivaView";
+import { ResumoSemanalTab } from "@/components/dashboard/gestao/ResumoSemanalTab";
+import { CicloSlaTab } from "@/components/dashboard/gestao/CicloSlaTab";
+import { EsteiraSlaTab } from "@/components/dashboard/gestao/EsteiraSlaTab";
 import { agregarMixRegime } from "@/lib/regime-mix";
+import { agruparPorSegmento } from "@/lib/segmento-lead";
 import { SlaFunilTab } from "@/components/dashboard/comercial/SlaFunilTab";
 
 async function fetchDashboardData() {
@@ -75,9 +79,7 @@ async function fetchDashboardData() {
     potencial: (fCounts[s.value]?.ids ?? []).reduce((sum, id) => sum + (potByLead[id] ?? 0), 0),
   }));
 
-  const segMap: Record<string, number> = {};
-  activeLeads.forEach(l => { segMap[l.segmento] = (segMap[l.segmento] ?? 0) + 1; });
-  const segmentoData = Object.entries(segMap).sort((a, b) => b[1] - a[1]).map(([segmento, count]) => ({ segmento, count }));
+  const segmentoData = agruparPorSegmento(activeLeads.map((l) => l.segmento));
 
   const scoreDistribution: Record<string, number> = { A: 0, B: 0, C: 0, D: 0 };
   activeLeads.forEach(l => {
@@ -209,12 +211,17 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
   const canComercial = modo === "comercial" && canComercialPerm;
   const canOperacional = modo === "operacional" && canOperacionalPerm;
   const canExecutiva = modo === "operacional" && canExecutivaPerm;
+  // As três telas de Gestão eram uma página à parte (/dashboard/gestao) com
+  // submenu próprio; agora são abas daqui, sob a mesma permissão de antes.
+  const canGestao = modo === "operacional" && canTab("dashboard.gestao");
+  const ABAS_GESTAO = ["resumo_semanal", "ciclo_sla", "esteira_sla"];
 
   const resolveDefault = () => {
     if (modo === "comercial") {
       return localStorage.getItem("dash_comercial_tab") === "sla_funil" ? "sla_funil" : "comercial";
     }
     const stored = localStorage.getItem("dash_tab");
+    if (stored && ABAS_GESTAO.includes(stored) && canGestao) return stored;
     if (stored === "executiva" && canExecutiva) return "executiva";
     if (stored === "operacional" && canOperacional) return "operacional";
     if (role === "gestor_tributario" && canOperacional) return "operacional";
@@ -284,7 +291,17 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
         activeTab={activeTab}
         switchTab={switchTab}
         comercialLabel={modo === "comercial" ? "Visão geral" : "Visão Comercial"}
-        extraTabs={modo === "comercial" ? [{ key: "sla_funil", label: "SLA do funil" }] : []}
+        extraTabs={
+          modo === "comercial"
+            ? [{ key: "sla_funil", label: "SLA do funil" }]
+            : canGestao
+              ? [
+                  { key: "resumo_semanal", label: "Pulso da semana" },
+                  { key: "ciclo_sla", label: "Ciclo & SLA" },
+                  { key: "esteira_sla", label: "SLA por etapa" },
+                ]
+              : []
+        }
       />
 
       {role === "admin" && d?.dataHealth && !d.dataHealth.hasData && (
@@ -302,6 +319,12 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
       <div className="px-7 pt-[18px] pb-9 w-full">
         {activeTab === "sla_funil" && modo === "comercial" ? (
           <SlaFunilTab />
+        ) : activeTab === "resumo_semanal" && canGestao ? (
+          <ResumoSemanalTab />
+        ) : activeTab === "ciclo_sla" && canGestao ? (
+          <CicloSlaTab />
+        ) : activeTab === "esteira_sla" && canGestao ? (
+          <EsteiraSlaTab />
         ) : activeTab === "executiva" ? (
           <ExecutivaView navigate={navigate} />
         ) : activeTab === "comercial" ? (
