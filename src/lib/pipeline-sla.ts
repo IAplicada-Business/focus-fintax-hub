@@ -15,6 +15,15 @@ export const PIPELINE_SLA_STAGES = [
 
 export type EtapaFunil = (typeof PIPELINE_SLA_STAGES)[number]["value"];
 
+/** Rótulo curto pro eixo do gráfico (o completo vem da config). */
+export const PIPELINE_SLA_LABEL_CURTO: Record<EtapaFunil, string> = {
+  novo: "Novo",
+  qualificado: "Qualificado",
+  em_negociacao: "Negociação",
+  em_apresentacao: "Apresentação",
+  contrato_emitido: "Contrato",
+};
+
 /** Defaults (seed da tabela). Contrato Emitido = 3d bate com o banner de leads parados. */
 export const PIPELINE_SLA_DIAS_DEFAULT: Record<EtapaFunil, number | null> = {
   novo: 3,
@@ -93,6 +102,8 @@ export interface EtapaFunilResumo {
   atrasados: number;
   /** Soma dos dias acima da meta na fila atual. */
   atrasoAcumulado: number;
+  /** Lead mais parado da etapa (dias); null sem leads. */
+  diasMax: number | null;
   potencial: number;
 }
 
@@ -136,6 +147,7 @@ export function resumirSlaFunil<T extends LeadFunilLike>(
       diasMedios,
       atrasados: atrasadosEtapa.length,
       atrasoAcumulado: atrasadosEtapa.reduce((s, l) => s + Math.abs(l.sla.restante ?? 0), 0),
+      diasMax: daEtapa.length === 0 ? null : Math.max(...daEtapa.map((l) => l.dias)),
       potencial: daEtapa.reduce((s, l) => s + Number(l.lead.potencial ?? 0), 0),
     };
   });
@@ -160,3 +172,66 @@ export const SLA_FUNIL_STATUS_LABEL: Record<SlaStatus, string> = {
   no_prazo: "No prazo",
   sem_sla: "Sem meta",
 };
+
+/** Linha do gráfico barras+linha "tempo parado vs meta" por etapa. */
+export interface PontoGraficoSla {
+  etapa: EtapaFunil;
+  label: string;
+  labelCurto: string;
+  /** Tempo médio parado (barra principal). */
+  media: number;
+  /** Lead mais parado (barra secundária). */
+  maximo: number;
+  /** Meta em dias (linha); null quando a etapa não tem meta. */
+  meta: number | null;
+  leads: number;
+  atrasados: number;
+  atrasoAcumulado: number;
+  acimaDaMeta: boolean;
+}
+
+export function serieGraficoSla(resumo: Pick<SlaFunilResumo, "etapas">): PontoGraficoSla[] {
+  return resumo.etapas.map((e) => ({
+    etapa: e.etapa,
+    label: e.label,
+    labelCurto: PIPELINE_SLA_LABEL_CURTO[e.etapa],
+    media: e.diasMedios ?? 0,
+    maximo: e.diasMax ?? 0,
+    meta: e.sla,
+    leads: e.leads,
+    atrasados: e.atrasados,
+    atrasoAcumulado: e.atrasoAcumulado,
+    acimaDaMeta: e.sla != null && e.diasMedios != null && e.diasMedios > e.sla,
+  }));
+}
+
+export type FiltroFilaSla = EtapaFunil | "atrasados" | "todos";
+
+export function isFiltroFilaSla(value: string | null | undefined): value is FiltroFilaSla {
+  return value === "atrasados" || value === "todos" || (typeof value === "string" && isEtapaFunil(value));
+}
+
+/** Dias acima da meta (0 quando no prazo ou sem meta). */
+export function diasDeAtraso(linha: Pick<LeadFunilLinha, "sla">): number {
+  return linha.sla.status === "estourado" ? Math.abs(linha.sla.restante ?? 0) : 0;
+}
+
+/**
+ * Fila da tabela: filtro por etapa/atrasados + busca por empresa, sempre do
+ * mais atrasado pro menos atrasado (desempate: mais dias na etapa).
+ */
+export function filtrarFilaSla<T extends LeadFunilLike>(
+  resumo: Pick<SlaFunilResumo<T>, "linhas">,
+  filtro: FiltroFilaSla,
+  busca = "",
+): LeadFunilLinha<T>[] {
+  const termo = busca.trim().toLocaleLowerCase("pt-BR");
+  return resumo.linhas
+    .filter((l) => {
+      if (filtro === "atrasados" && l.sla.status !== "estourado") return false;
+      if (filtro !== "atrasados" && filtro !== "todos" && l.etapa !== filtro) return false;
+      if (termo && !(l.lead.empresa ?? "").toLocaleLowerCase("pt-BR").includes(termo)) return false;
+      return true;
+    })
+    .sort((a, b) => diasDeAtraso(b) - diasDeAtraso(a) || b.dias - a.dias);
+}

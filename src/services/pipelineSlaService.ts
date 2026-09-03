@@ -72,3 +72,26 @@ export async function listLeadsFunil(): Promise<LeadFunil[]> {
   }
   return leads;
 }
+
+/**
+ * Move o lead de etapa direto da tabela do SLA (mesma gravação do kanban:
+ * atualiza status + carimbo de entrada na etapa e registra no histórico).
+ */
+export async function moverLeadFunil(params: {
+  leadId: string;
+  deEtapa: string | null;
+  paraEtapa: EtapaFunil;
+  usuarioId?: string | null;
+}): Promise<void> {
+  const { leadId, deEtapa, paraEtapa, usuarioId } = params;
+  const { error } = await supabase
+    .from("leads")
+    .update({ status_funil: paraEtapa, status_funil_atualizado_em: new Date().toISOString() })
+    .eq("id", leadId);
+  if (error) throw error;
+
+  const { error: histErr } = await supabase
+    .from("lead_historico")
+    .insert({ lead_id: leadId, de_etapa: deEtapa, para_etapa: paraEtapa, criado_por: usuarioId ?? null });
+  if (histErr) console.warn("lead_historico não registrado", histErr.message);
+}
