@@ -10,35 +10,135 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
+      atendimento_conversas: {
+        Row: {
+          assumido_em: string | null
+          assumido_por: string | null
+          atualizado_em: string
+          bot_ativo: boolean
+          telefone: string
+        }
+        Insert: {
+          assumido_em?: string | null
+          assumido_por?: string | null
+          atualizado_em?: string
+          bot_ativo?: boolean
+          telefone: string
+        }
+        Update: {
+          assumido_em?: string | null
+          assumido_por?: string | null
+          atualizado_em?: string
+          bot_ativo?: boolean
+          telefone?: string
+        }
+        Relationships: []
+      }
+      atendimento_mensagens: {
+        Row: {
+          autor_id: string | null
+          cliente_id: string | null
+          criado_em: string
+          direcao: string
+          erro: string | null
+          id: string
+          lead_id: string | null
+          midia_url: string | null
+          origem: string
+          status: string
+          telefone: string
+          texto: string | null
+          tipo: string
+          zapi_message_id: string | null
+        }
+        Insert: {
+          autor_id?: string | null
+          cliente_id?: string | null
+          criado_em?: string
+          direcao: string
+          erro?: string | null
+          id?: string
+          lead_id?: string | null
+          midia_url?: string | null
+          origem?: string
+          status?: string
+          telefone: string
+          texto?: string | null
+          tipo?: string
+          zapi_message_id?: string | null
+        }
+        Update: {
+          autor_id?: string | null
+          cliente_id?: string | null
+          criado_em?: string
+          direcao?: string
+          erro?: string | null
+          id?: string
+          lead_id?: string | null
+          midia_url?: string | null
+          origem?: string
+          status?: string
+          telefone?: string
+          texto?: string | null
+          tipo?: string
+          zapi_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atendimento_mensagens_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimento_mensagens_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_clientes_status_compensacao"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "atendimento_mensagens_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_esteira_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimento_mensagens_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "atendimento_mensagens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimento_mensagens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["crm_lead_id"]
+          },
+          {
+            foreignKeyName: "atendimento_mensagens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_sugestao_produto_calculadora"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
       benchmarks_teses: {
         Row: {
           ativo: boolean
@@ -72,6 +172,36 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_config: {
+        Row: {
+          ativo_global: boolean
+          atualizado_em: string
+          atualizado_por: string | null
+          id: boolean
+          max_respostas: number
+          modelo: string
+          prompt: string
+        }
+        Insert: {
+          ativo_global?: boolean
+          atualizado_em?: string
+          atualizado_por?: string | null
+          id?: boolean
+          max_respostas?: number
+          modelo?: string
+          prompt: string
+        }
+        Update: {
+          ativo_global?: boolean
+          atualizado_em?: string
+          atualizado_por?: string | null
+          id?: boolean
+          max_respostas?: number
+          modelo?: string
+          prompt?: string
+        }
+        Relationships: []
+      }
       calculadora_leads: {
         Row: {
           aceite_lgpd: boolean
@@ -89,6 +219,8 @@ export type Database = {
           resultado_dre_atual: Json | null
           resultado_dre_reforma: Json | null
           segmento: string
+          sugestao_produto: string | null
+          sugestao_produto_racional: Json | null
           telefone: string
           user_agent: string | null
           utm_campaign: string | null
@@ -113,6 +245,8 @@ export type Database = {
           resultado_dre_atual?: Json | null
           resultado_dre_reforma?: Json | null
           segmento: string
+          sugestao_produto?: string | null
+          sugestao_produto_racional?: Json | null
           telefone: string
           user_agent?: string | null
           utm_campaign?: string | null
@@ -137,6 +271,8 @@ export type Database = {
           resultado_dre_atual?: Json | null
           resultado_dre_reforma?: Json | null
           segmento?: string
+          sugestao_produto?: string | null
+          sugestao_produto_racional?: Json | null
           telefone?: string
           user_agent?: string | null
           utm_campaign?: string | null
@@ -182,6 +318,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "calculadora_leads"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calculadora_snapshots_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_sugestao_produto_calculadora"
+            referencedColumns: ["calculadora_lead_id"]
           },
         ]
       }
@@ -262,6 +405,7 @@ export type Database = {
           faturamento_faixa: string | null
           id: string
           lead_id: string | null
+          motivo_parada: string | null
           nao_enviar_mapa: boolean
           nome_contato: string | null
           observacoes: string | null
@@ -292,6 +436,7 @@ export type Database = {
           faturamento_faixa?: string | null
           id?: string
           lead_id?: string | null
+          motivo_parada?: string | null
           nao_enviar_mapa?: boolean
           nome_contato?: string | null
           observacoes?: string | null
@@ -322,6 +467,7 @@ export type Database = {
           faturamento_faixa?: string | null
           id?: string
           lead_id?: string | null
+          motivo_parada?: string | null
           nao_enviar_mapa?: boolean
           nome_contato?: string | null
           observacoes?: string | null
@@ -352,6 +498,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_meta_lead_funnel"
             referencedColumns: ["crm_lead_id"]
+          },
+          {
+            foreignKeyName: "clientes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_sugestao_produto_calculadora"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "clientes_tese_ativa_id_fkey"
@@ -627,7 +780,97 @@ export type Database = {
             referencedRelation: "v_meta_lead_funnel"
             referencedColumns: ["crm_lead_id"]
           },
+          {
+            foreignKeyName: "diagnosticos_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_sugestao_produto_calculadora"
+            referencedColumns: ["lead_id"]
+          },
         ]
+      }
+      esteira_historico: {
+        Row: {
+          cliente_id: string
+          entrou_em: string
+          estagio: Database["public"]["Enums"]["estagio_esteira"]
+          id: string
+          origem: string
+          saiu_em: string | null
+        }
+        Insert: {
+          cliente_id: string
+          entrou_em?: string
+          estagio: Database["public"]["Enums"]["estagio_esteira"]
+          id?: string
+          origem?: string
+          saiu_em?: string | null
+        }
+        Update: {
+          cliente_id?: string
+          entrou_em?: string
+          estagio?: Database["public"]["Enums"]["estagio_esteira"]
+          id?: string
+          origem?: string
+          saiu_em?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esteira_historico_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esteira_historico_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_clientes_status_compensacao"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "esteira_historico_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_esteira_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esteira_historico_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["cliente_id"]
+          },
+        ]
+      }
+      esteira_sla_config: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          estagio: Database["public"]["Enums"]["estagio_esteira"]
+          label: string
+          ordem: number
+          sla_dias: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          estagio: Database["public"]["Enums"]["estagio_esteira"]
+          label: string
+          ordem: number
+          sla_dias?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          estagio?: Database["public"]["Enums"]["estagio_esteira"]
+          label?: string
+          ordem?: number
+          sla_dias?: number | null
+        }
+        Relationships: []
       }
       focus_indices: {
         Row: {
@@ -789,6 +1032,13 @@ export type Database = {
             referencedColumns: ["crm_lead_id"]
           },
           {
+            foreignKeyName: "fk_lead_historico_lead"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_sugestao_produto_calculadora"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "lead_historico_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
@@ -801,6 +1051,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_meta_lead_funnel"
             referencedColumns: ["crm_lead_id"]
+          },
+          {
+            foreignKeyName: "lead_historico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_sugestao_produto_calculadora"
+            referencedColumns: ["lead_id"]
           },
         ]
       }
@@ -875,6 +1132,140 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "calculadora_leads"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_calculadora_lead_id_fkey"
+            columns: ["calculadora_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_sugestao_produto_calculadora"
+            referencedColumns: ["calculadora_lead_id"]
+          },
+        ]
+      }
+      mapa_envio_log: {
+        Row: {
+          cliente_id: string
+          competencia: string
+          destinatario: string
+          erro: string | null
+          executado_em: string
+          id: string
+          link: string
+          mensagem: string
+          status: string
+          zapi_response: Json | null
+        }
+        Insert: {
+          cliente_id: string
+          competencia: string
+          destinatario: string
+          erro?: string | null
+          executado_em?: string
+          id?: string
+          link: string
+          mensagem: string
+          status: string
+          zapi_response?: Json | null
+        }
+        Update: {
+          cliente_id?: string
+          competencia?: string
+          destinatario?: string
+          erro?: string | null
+          executado_em?: string
+          id?: string
+          link?: string
+          mensagem?: string
+          status?: string
+          zapi_response?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mapa_envio_log_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mapa_envio_log_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_clientes_status_compensacao"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "mapa_envio_log_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_esteira_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mapa_envio_log_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["cliente_id"]
+          },
+        ]
+      }
+      mapa_links: {
+        Row: {
+          acessos: number
+          cliente_id: string
+          criado_em: string
+          id: string
+          revogado_em: string | null
+          token: string
+          ultimo_acesso_em: string | null
+        }
+        Insert: {
+          acessos?: number
+          cliente_id: string
+          criado_em?: string
+          id?: string
+          revogado_em?: string | null
+          token: string
+          ultimo_acesso_em?: string | null
+        }
+        Update: {
+          acessos?: number
+          cliente_id?: string
+          criado_em?: string
+          id?: string
+          revogado_em?: string | null
+          token?: string
+          ultimo_acesso_em?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mapa_links_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: true
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mapa_links_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: true
+            referencedRelation: "v_clientes_status_compensacao"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "mapa_links_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: true
+            referencedRelation: "v_esteira_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mapa_links_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: true
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["cliente_id"]
           },
         ]
       }
@@ -1341,6 +1732,13 @@ export type Database = {
             referencedColumns: ["crm_lead_id"]
           },
           {
+            foreignKeyName: "meta_leads_crm_lead_id_fkey"
+            columns: ["crm_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_sugestao_produto_calculadora"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "meta_leads_form_id_fkey"
             columns: ["form_id"]
             isOneToOne: false
@@ -1420,6 +1818,74 @@ export type Database = {
           tipo_recuperacao_padrao?: Database["public"]["Enums"]["tipo_recuperacao"]
         }
         Relationships: []
+      }
+      notificacao_compensacao_log: {
+        Row: {
+          cliente_id: string
+          destinatario: string | null
+          disparado_em: string
+          enviado_em: string | null
+          erro: string | null
+          id: string
+          mensagem: string | null
+          mes_referencia: string
+          status: string
+          zapi_response: Json | null
+        }
+        Insert: {
+          cliente_id: string
+          destinatario?: string | null
+          disparado_em?: string
+          enviado_em?: string | null
+          erro?: string | null
+          id?: string
+          mensagem?: string | null
+          mes_referencia: string
+          status?: string
+          zapi_response?: Json | null
+        }
+        Update: {
+          cliente_id?: string
+          destinatario?: string | null
+          disparado_em?: string
+          enviado_em?: string | null
+          erro?: string | null
+          id?: string
+          mensagem?: string | null
+          mes_referencia?: string
+          status?: string
+          zapi_response?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificacao_compensacao_log_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacao_compensacao_log_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_clientes_status_compensacao"
+            referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "notificacao_compensacao_log_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_esteira_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacao_compensacao_log_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "v_meta_lead_funnel"
+            referencedColumns: ["cliente_id"]
+          },
+        ]
       }
       observacoes_cliente: {
         Row: {
@@ -1691,6 +2157,13 @@ export type Database = {
             referencedRelation: "v_meta_lead_funnel"
             referencedColumns: ["crm_lead_id"]
           },
+          {
+            foreignKeyName: "relatorios_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_sugestao_produto_calculadora"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       teses_tributarias: {
@@ -1774,6 +2247,42 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_report_log: {
+        Row: {
+          destinatario: string
+          erro: string | null
+          executado_em: string
+          id: string
+          mensagem: string
+          periodo_fim: string
+          periodo_inicio: string
+          status: string
+          zapi_response: Json | null
+        }
+        Insert: {
+          destinatario: string
+          erro?: string | null
+          executado_em?: string
+          id?: string
+          mensagem: string
+          periodo_fim: string
+          periodo_inicio: string
+          status: string
+          zapi_response?: Json | null
+        }
+        Update: {
+          destinatario?: string
+          erro?: string | null
+          executado_em?: string
+          id?: string
+          mensagem?: string
+          periodo_fim?: string
+          periodo_inicio?: string
+          status?: string
+          zapi_response?: Json | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       v_cliente_totais_calculo: {
@@ -1845,6 +2354,7 @@ export type Database = {
           empresa: string | null
           estagio_esteira: Database["public"]["Enums"]["estagio_esteira"] | null
           id: string | null
+          motivo_parada: string | null
           origem: string | null
           regime_tributario: string | null
           responsavel_id: string | null
@@ -1855,12 +2365,26 @@ export type Database = {
           status_operacional:
             | Database["public"]["Enums"]["status_cliente"]
             | null
-          motivo_parada: string | null
           tem_ramo_compensacao: boolean | null
           tem_ramo_judicial: boolean | null
           tem_ramo_ressarcimento: boolean | null
           tentativas_abordagem: number | null
           teses_assinadas: number | null
+        }
+        Relationships: []
+      }
+      v_esteira_sla: {
+        Row: {
+          atrasados: number | null
+          atraso_acumulado_dias: number | null
+          ciclos_concluidos: number | null
+          clientes_na_etapa: number | null
+          dias_medios_atuais: number | null
+          estagio: Database["public"]["Enums"]["estagio_esteira"] | null
+          label: string | null
+          ordem: number | null
+          sla_dias: number | null
+          tempo_medio_dias: number | null
         }
         Relationships: []
       }
@@ -1947,8 +2471,53 @@ export type Database = {
         }
         Relationships: []
       }
+      v_sugestao_produto_calculadora: {
+        Row: {
+          calculadora_lead_id: string | null
+          criado_em: string | null
+          economia_potencial_anual: number | null
+          email: string | null
+          faturamento_mensal: number | null
+          ibs_cbs_estimado: number | null
+          ja_faz_recuperacao: boolean | null
+          lead_id: string | null
+          nome: string | null
+          potencial_compensacao_max: number | null
+          potencial_compensacao_min: number | null
+          regime_calculadora: string | null
+          regime_motor: string | null
+          segmento: string | null
+          status_funil: string | null
+          sugestao_produto: string | null
+          sugestao_produto_efetiva: string | null
+          sugestao_produto_racional: Json | null
+          telefone: string | null
+          teses_elegiveis: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      atendimento_conversa: { Args: { p_whatsapp: string }; Returns: Json }
+      atendimento_registrar_entrada: {
+        Args: {
+          p_midia_url?: string
+          p_telefone_raw: string
+          p_texto?: string
+          p_tipo?: string
+          p_zapi_message_id?: string
+        }
+        Returns: Json
+      }
+      atendimento_resolver_contato: {
+        Args: { p_telefone: string }
+        Returns: Json
+      }
+      bot_contexto: { Args: { p_telefone: string }; Returns: Json }
+      bot_registrar_resposta: {
+        Args: { p_telefone: string; p_texto: string }
+        Returns: Json
+      }
       calcular_diagnostico: {
         Args: {
           _faturamento_mensal: number
@@ -1962,17 +2531,29 @@ export type Database = {
         Args: { p_itens: Json; p_motivo?: string }
         Returns: number
       }
+      esteira_exige_admin_pmo: { Args: never; Returns: undefined }
       esteira_reiniciar_sla: {
         Args: { p_cliente_ids: string[]; p_motivo?: string }
         Returns: number
       }
       get_diagnostico_by_token: { Args: { _token: string }; Returns: Json }
+      get_mapa_by_token: { Args: { _token: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      mapa_envios_pendentes: { Args: { p_limite?: number }; Returns: Json }
+      normalizar_whatsapp: { Args: { p_raw: string }; Returns: string }
+      notificacao_compensacao_payload: {
+        Args: { p_cliente_id: string; p_mes: string }
+        Returns: Json
+      }
+      relatorio_semanal_esteira: {
+        Args: { p_referencia?: string }
+        Returns: Json
       }
     }
     Enums: {
@@ -1991,14 +2572,10 @@ export type Database = {
         | "emitir_contrato"
         | "receber_assinado"
         | "em_compensacao"
-        | "encaminhar_financeiro"
         | "concluido"
+        | "encaminhar_financeiro"
         | "nova_abordagem"
         | "devolutiva_cliente"
-      tipo_recuperacao:
-        | "compensacao"
-        | "ressarcimento"
-        | "recuperacao_judicial"
       regime_tributario: "lucro_real" | "lucro_presumido" | "simples_nacional"
       status_cliente: "fechado" | "relatorio_enviado" | "em_analise" | "ativo"
       status_pagamento: "pendente" | "pago"
@@ -2010,6 +2587,7 @@ export type Database = {
         | "PIS_COFINS_JUD"
         | "PREVIDENCIARIO"
         | "REPORTO"
+      tipo_recuperacao: "compensacao" | "ressarcimento" | "recuperacao_judicial"
       tributo:
         | "INSS_52"
         | "INSS_retidos"
@@ -2034,12 +2612,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2063,11 +2641,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2088,11 +2666,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2113,11 +2691,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2130,11 +2708,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2144,9 +2722,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_role: [
@@ -2165,15 +2740,10 @@ export const Constants = {
         "emitir_contrato",
         "receber_assinado",
         "em_compensacao",
-        "encaminhar_financeiro",
         "concluido",
+        "encaminhar_financeiro",
         "nova_abordagem",
         "devolutiva_cliente",
-      ],
-      tipo_recuperacao: [
-        "compensacao",
-        "ressarcimento",
-        "recuperacao_judicial",
       ],
       regime_tributario: ["lucro_real", "lucro_presumido", "simples_nacional"],
       status_cliente: ["fechado", "relatorio_enviado", "em_analise", "ativo"],
@@ -2186,6 +2756,11 @@ export const Constants = {
         "PIS_COFINS_JUD",
         "PREVIDENCIARIO",
         "REPORTO",
+      ],
+      tipo_recuperacao: [
+        "compensacao",
+        "ressarcimento",
+        "recuperacao_judicial",
       ],
       tributo: [
         "INSS_52",
