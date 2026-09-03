@@ -17,7 +17,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { toastError } from "@/lib/handle-error";
 import { Plus, Pencil, Calculator, AlertTriangle, Clock, ShieldCheck, BarChart3 } from "lucide-react";
-import { TIPOS_RECUPERACAO, isTipoRecuperacao, type TipoRecuperacao } from "@/lib/tipo-recuperacao";
+import {
+  TIPOS_RECUPERACAO,
+  TIPO_RECUPERACAO_BADGE,
+  TIPO_RECUPERACAO_LABEL,
+  isTipoRecuperacao,
+  type TipoRecuperacao,
+} from "@/lib/tipo-recuperacao";
 
 interface TeseConfig {
   id: string;
@@ -402,6 +408,7 @@ export default function MotorConfig() {
                   <TableHead>Regimes</TableHead>
                   <TableHead>Segmentos</TableHead>
                   <TableHead>Tributos</TableHead>
+                  <TableHead>Esteira</TableHead>
                   <TableHead className="text-right w-[80px]">% Mín</TableHead>
                   <TableHead className="text-right w-[80px]">% Máx</TableHead>
                   <TableHead className="text-center w-[60px]">Ativo</TableHead>
@@ -686,6 +693,16 @@ function TeseRow({
             ))
           )}
         </div>
+      </TableCell>
+      <TableCell>
+        {/* Ramo padrão = qual esteira a tese alimenta. Editável no diálogo da tese. */}
+        <span
+          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap ${
+            TIPO_RECUPERACAO_BADGE[t.tipo_recuperacao_padrao]
+          }`}
+        >
+          {TIPO_RECUPERACAO_LABEL[t.tipo_recuperacao_padrao]}
+        </span>
       </TableCell>
       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
         <Input

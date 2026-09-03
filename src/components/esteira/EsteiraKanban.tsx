@@ -261,6 +261,19 @@ function ClienteCard({
                 SLA
               </span>
             )}
+            {(cliente.teses_assinadas ?? 0) > 1 && (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium"
+                title={`${cliente.teses_assinadas} teses assinadas`}
+              >
+                {cliente.teses_assinadas} teses
+              </span>
+            )}
+            {cliente.estagio_esteira === "nova_abordagem" && (cliente.tentativas_abordagem ?? 0) > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-700 font-semibold">
+                {cliente.tentativas_abordagem}ª tentativa
+              </span>
+            )}
           </div>
           <div className="mt-1 flex items-center justify-between">
             <span className="text-[10px] text-muted-foreground truncate">

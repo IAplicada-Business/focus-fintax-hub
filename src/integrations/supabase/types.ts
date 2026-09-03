@@ -274,6 +274,7 @@ export type Database = {
             | Database["public"]["Enums"]["status_cliente"]
             | null
           taxa_honorario: number | null
+          tentativas_abordagem: number
           tese_ativa_id: string | null
           whatsapp: string | null
         }
@@ -303,6 +304,7 @@ export type Database = {
             | Database["public"]["Enums"]["status_cliente"]
             | null
           taxa_honorario?: number | null
+          tentativas_abordagem?: number
           tese_ativa_id?: string | null
           whatsapp?: string | null
         }
@@ -332,6 +334,7 @@ export type Database = {
             | Database["public"]["Enums"]["status_cliente"]
             | null
           taxa_honorario?: number | null
+          tentativas_abordagem?: number
           tese_ativa_id?: string | null
           whatsapp?: string | null
         }
@@ -1852,9 +1855,12 @@ export type Database = {
           status_operacional:
             | Database["public"]["Enums"]["status_cliente"]
             | null
+          motivo_parada: string | null
           tem_ramo_compensacao: boolean | null
           tem_ramo_judicial: boolean | null
           tem_ramo_ressarcimento: boolean | null
+          tentativas_abordagem: number | null
+          teses_assinadas: number | null
         }
         Relationships: []
       }
@@ -1952,6 +1958,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      esteira_aplicar_realocacao: {
+        Args: { p_itens: Json; p_motivo?: string }
+        Returns: number
+      }
+      esteira_reiniciar_sla: {
+        Args: { p_cliente_ids: string[]; p_motivo?: string }
+        Returns: number
+      }
       get_diagnostico_by_token: { Args: { _token: string }; Returns: Json }
       has_role: {
         Args: {
@@ -1979,6 +1993,8 @@ export type Database = {
         | "em_compensacao"
         | "encaminhar_financeiro"
         | "concluido"
+        | "nova_abordagem"
+        | "devolutiva_cliente"
       tipo_recuperacao:
         | "compensacao"
         | "ressarcimento"
@@ -2151,6 +2167,8 @@ export const Constants = {
         "em_compensacao",
         "encaminhar_financeiro",
         "concluido",
+        "nova_abordagem",
+        "devolutiva_cliente",
       ],
       tipo_recuperacao: [
         "compensacao",

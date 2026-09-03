@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
-import { Settings2 } from "lucide-react";
+import { ListChecks, Settings2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useEsteiraClientes, useEsteiraSlaConfig } from "@/hooks/data/useEsteira";
 import { EsteiraKanban } from "@/components/esteira/EsteiraKanban";
@@ -12,6 +13,8 @@ import { visibleEsteiraStages } from "@/lib/esteira-constants";
 export default function Esteira() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { userRole } = useAuth();
+  const podeOrganizar = userRole === "admin" || userRole === "pmo";
   const { data: clientes, isLoading } = useEsteiraClientes();
   const { data: slaConfig } = useEsteiraSlaConfig();
 
@@ -45,12 +48,22 @@ export default function Esteira() {
             Fluxo operacional dos clientes ativos (triagem → financeiro → concluído).
           </p>
         </div>
-        <Button asChild size="sm" variant="outline" className="shrink-0">
-          <Link to="/configuracoes/esteira-sla">
-            <Settings2 className="mr-1.5 h-3.5 w-3.5" />
-            Configurar SLA
-          </Link>
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          {podeOrganizar && (
+            <Button asChild size="sm" variant="outline">
+              <Link to="/esteira/organizar">
+                <ListChecks className="mr-1.5 h-3.5 w-3.5" />
+                Organizar
+              </Link>
+            </Button>
+          )}
+          <Button asChild size="sm" variant="outline">
+            <Link to="/configuracoes/esteira-sla">
+              <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+              Configurar SLA
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (

@@ -19,6 +19,7 @@ const AmbienteSelect = lazy(() => import("@/pages/AmbienteSelect"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const DashboardGestao = lazy(() => import("@/pages/DashboardGestao"));
 const Esteira = lazy(() => import("@/pages/Esteira"));
+const EsteiraOrganizar = lazy(() => import("@/pages/EsteiraOrganizar"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
 const LeadQueue = lazy(() => import("@/pages/LeadQueue"));
 const LeadForm = lazy(() => import("@/pages/LeadForm"));
@@ -92,6 +93,7 @@ const App = () => (
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/dashboard/gestao" element={<DashboardGestao />} />
                         <Route path="/esteira" element={<Esteira />} />
+                        <Route path="/esteira/organizar" element={<EsteiraOrganizar />} />
                         <Route path="/pipeline" element={<Pipeline />} />
                         <Route path="/atendimento" element={<Atendimento />} />
                         <Route path="/leads" element={<LeadQueue />} />

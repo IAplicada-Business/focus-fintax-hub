@@ -19,9 +19,9 @@ export const TIPO_RECUPERACAO_LABEL: Record<TipoRecuperacao, string> = {
 
 /** Classes Tailwind para badge/tag por ramo. */
 export const TIPO_RECUPERACAO_BADGE: Record<TipoRecuperacao, string> = {
-  compensacao: "border-sky-200 bg-sky-50 text-sky-800",
-  ressarcimento: "border-amber-200 bg-amber-50 text-amber-800",
-  recuperacao_judicial: "border-rose-200 bg-rose-50 text-rose-800",
+  compensacao: "border-blue-200 bg-blue-50 text-blue-800",
+  ressarcimento: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  recuperacao_judicial: "border-violet-200 bg-violet-50 text-violet-800",
 };
 
 export function isTipoRecuperacao(value: string): value is TipoRecuperacao {

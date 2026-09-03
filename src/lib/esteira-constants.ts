@@ -1,4 +1,5 @@
 export const ESTEIRA_STAGES = [
+  { value: "nova_abordagem", label: "Nova abordagem" },
   { value: "triagem", label: "Triagem" },
   { value: "levantamento", label: "Levantamento" },
   { value: "emitir_contrato", label: "Emitir Contrato" },
@@ -6,6 +7,7 @@ export const ESTEIRA_STAGES = [
   { value: "em_compensacao", label: "Em Compensação" },
   { value: "encaminhar_financeiro", label: "Encaminhar Financeiro" },
   { value: "concluido", label: "Concluído" },
+  { value: "devolutiva_cliente", label: "Devolutiva ao cliente" },
 ] as const;
 
 /** Espelha o enum `estagio_esteira` do Postgres. */
@@ -17,6 +19,7 @@ export type EstagioEsteira = (typeof ESTEIRA_STAGES)[number]["value"];
  * `null` = etapa sem meta.
  */
 export const ESTEIRA_SLA_DIAS: Record<EstagioEsteira, number | null> = {
+  nova_abordagem: 5,
   triagem: 1,
   levantamento: 3,
   emitir_contrato: 1,
@@ -24,9 +27,53 @@ export const ESTEIRA_SLA_DIAS: Record<EstagioEsteira, number | null> = {
   em_compensacao: 30,
   encaminhar_financeiro: 5,
   concluido: null,
+  devolutiva_cliente: null,
 };
 
+/** Etapas terminais: cliente saiu do fluxo (com sucesso ou por tese inviável). */
+export const ESTEIRA_STAGES_TERMINAIS: readonly EstagioEsteira[] = ["concluido", "devolutiva_cliente"];
+
 export type EsteiraSlaMap = Partial<Record<EstagioEsteira, number | null>>;
+
+export interface RealocacaoSugerida {
+  estagio: EstagioEsteira;
+  motivo: string;
+}
+
+/**
+ * Sugestão de etapa pra realocação em massa (Fase 1 — decisão 03/09/2026).
+ * Só sugere pra quem ainda está em Triagem; quem já foi movido mantém a etapa.
+ * Regra a partir do status consolidado (`v_clientes_status_compensacao`):
+ *   compensando | reporto | prevista | ressarcimento | judicial → em_compensacao
+ *   encerrado → concluido
+ *   sem_operacao (ou desconhecido) → triagem (fica, com SLA reiniciado)
+ * Quem revisa o preview pode sobrescrever qualquer linha.
+ */
+export function sugerirEstagioRealocacao(
+  statusPrincipal: string | null | undefined,
+  estagioAtual: string,
+): RealocacaoSugerida {
+  if (estagioAtual !== "triagem") {
+    const estagio = isEstagioEsteira(estagioAtual) ? estagioAtual : "triagem";
+    return { estagio, motivo: "Já movido manualmente — mantém a etapa atual" };
+  }
+  switch (statusPrincipal) {
+    case "compensando":
+      return { estagio: "em_compensacao", motivo: "Compensação lançada no mês corrente" };
+    case "reporto":
+      return { estagio: "em_compensacao", motivo: "Tese Reporto assinada em andamento" };
+    case "prevista":
+      return { estagio: "em_compensacao", motivo: "Tese assinada aguardando compensação" };
+    case "ressarcimento":
+      return { estagio: "em_compensacao", motivo: "Ressarcimento em andamento" };
+    case "judicial":
+      return { estagio: "em_compensacao", motivo: "Recuperação judicial em andamento" };
+    case "encerrado":
+      return { estagio: "concluido", motivo: "Todas as teses encerradas" };
+    default:
+      return { estagio: "triagem", motivo: "Sem operação registrada — fica em Triagem" };
+  }
+}
 
 /**
  * Valida ids que chegam de fontes não tipadas (ex.: `droppableId` do
