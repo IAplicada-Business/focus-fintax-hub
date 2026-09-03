@@ -25,7 +25,7 @@ export const AMBIENTE_LABEL: Record<Ambiente, string> = {
   operacional: "Operacional",
 };
 
-const COMERCIAL_KEYS = ["pipeline", "fila_leads", "atendimento", "marketing"] as const;
+const COMERCIAL_KEYS = ["pipeline", "fila_leads", "atendimento", "marketing", "dashboard.comercial"] as const;
 
 /** Telas que abrem o ambiente operacional de verdade — não dashboard/clientes readonly do comercial. */
 const OPERACIONAL_KEYS = [
@@ -51,6 +51,13 @@ export interface MenuItem {
 }
 
 export const MENU_COMERCIAL: MenuItem[] = [
+  {
+    // Visão Comercial mora aqui (era uma aba do /dashboard operacional).
+    title: "Dashboard",
+    url: "/dashboard/comercial",
+    icon: LayoutDashboard,
+    screenKey: "dashboard.comercial",
+  },
   {
     title: "Leads",
     url: "/pipeline",
@@ -149,7 +156,9 @@ export function writeStoredAmbiente(ambiente: Ambiente): void {
   ambienteListeners.forEach((listener) => listener());
 }
 
-const COMERCIAL_PREFIXES = ["/pipeline", "/leads", "/atendimento", "/marketing"];
+// "/dashboard/comercial" é testado antes de "/dashboard" (operacional) porque
+// pathToAmbiente checa os prefixos comerciais primeiro.
+const COMERCIAL_PREFIXES = ["/dashboard/comercial", "/pipeline", "/leads", "/atendimento", "/marketing"];
 const OPERACIONAL_PREFIXES = [
   "/dashboard",
   "/esteira",

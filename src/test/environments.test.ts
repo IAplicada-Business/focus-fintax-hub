@@ -15,6 +15,7 @@ import { getDefaultPermissions } from "@/lib/screen-permissions";
 
 describe("pathToAmbiente", () => {
   it("maps comercial routes", () => {
+    expect(pathToAmbiente("/dashboard/comercial")).toBe("comercial");
     expect(pathToAmbiente("/pipeline")).toBe("comercial");
     expect(pathToAmbiente("/leads")).toBe("comercial");
     expect(pathToAmbiente("/leads/novo")).toBe("comercial");
@@ -82,11 +83,14 @@ describe("ambientesDisponiveis", () => {
 describe("menu trees and homes", () => {
   it("keeps comercial items in the planned order", () => {
     expect(MENU_COMERCIAL.map((item) => item.title)).toEqual([
+      "Dashboard",
       "Leads",
       "Marketing",
       "Atendimento",
     ]);
-    expect(MENU_COMERCIAL[0].children?.map((c) => c.title)).toEqual(["Fila de Leads"]);
+    expect(MENU_COMERCIAL[0].url).toBe("/dashboard/comercial");
+    expect(MENU_COMERCIAL[0].screenKey).toBe("dashboard.comercial");
+    expect(MENU_COMERCIAL[1].children?.map((c) => c.title)).toEqual(["Fila de Leads"]);
   });
 
   it("keeps operacional items in the planned order", () => {
