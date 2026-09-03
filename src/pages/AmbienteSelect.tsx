@@ -4,7 +4,6 @@ import { ArrowRight, Briefcase, LayoutDashboard } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useEnvironment } from "@/hooks/useEnvironment";
 import { AMBIENTE_HOME, AMBIENTE_LABEL, type Ambiente } from "@/lib/environments";
-import logoWhite from "@/assets/logo-focus-fintax-white.png";
 import { cn } from "@/lib/utils";
 
 const CARDS: { ambiente: Ambiente; icon: typeof Briefcase; description: string }[] = [
@@ -56,18 +55,6 @@ export default function AmbienteSelect() {
             "radial-gradient(ellipse 80% 50% at 50% 100%, rgba(1,15,105,0.55) 0%, transparent 70%), radial-gradient(ellipse 100% 60% at 50% 0%, rgba(14,18,53,1) 0%, transparent 60%)",
         }}
       />
-      <div
-        aria-hidden
-        className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
-      >
-        <img
-          src={logoWhite}
-          alt=""
-          className="w-[78vmin] max-w-[820px] h-auto opacity-[0.18]"
-          draggable={false}
-        />
-      </div>
-
       <div className="relative z-10 w-full max-w-2xl text-center">
         <p className="text-[10px] uppercase tracking-[0.18em] text-white/40 font-semibold mb-3">
           Focus FinTax · Grupo Focus

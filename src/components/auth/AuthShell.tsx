@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import logoWhite from "@/assets/logo-focus-fintax-white.png";
 
 const INPUT_BASE =
   "w-full pl-11 py-3 h-12 bg-[rgba(6,8,31,0.6)] border border-white/15 rounded-xl text-white text-[15px] placeholder-white/45 transition-all duration-200 focus:outline-none focus:border-[#d04545]/55 focus:bg-[rgba(6,8,31,0.75)] focus:shadow-[0_0_0_3px_rgba(208,69,69,0.18)]";
@@ -73,19 +72,6 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
         }}
       />
 
-      {/* ─── Background layer: Focus logo as huge watermark (visible through card) ─── */}
-      <div
-        aria-hidden
-        className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
-      >
-        <img
-          src={logoWhite}
-          alt=""
-          className="w-[78vmin] max-w-[820px] h-auto opacity-[0.22]"
-          draggable={false}
-        />
-      </div>
-
       {/* ─── Background layer: animated red orbit halo ─── */}
       <div
         aria-hidden
@@ -113,7 +99,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
         }}
       />
 
-      {/* ─── Center card (semi-transparente — logo aparece atrás mas inputs ficam legíveis) ─── */}
+      {/* ─── Center card ─── */}
       <div
         className="relative z-10 w-full max-w-md p-7 sm:p-9 rounded-2xl border border-white/12 shadow-[0_32px_80px_-24px_rgba(0,0,0,0.65),0_1px_0_0_rgba(255,255,255,0.06)_inset] backdrop-blur-md"
         style={{
