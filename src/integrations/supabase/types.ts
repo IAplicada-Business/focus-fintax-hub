@@ -1147,6 +1147,7 @@ export type Database = {
       }
       mapa_envio_log: {
         Row: {
+          canal: string
           cliente_id: string
           competencia: string
           destinatario: string
@@ -1159,6 +1160,7 @@ export type Database = {
           zapi_response: Json | null
         }
         Insert: {
+          canal?: string
           cliente_id: string
           competencia: string
           destinatario: string
@@ -1171,6 +1173,7 @@ export type Database = {
           zapi_response?: Json | null
         }
         Update: {
+          canal?: string
           cliente_id?: string
           competencia?: string
           destinatario?: string
@@ -1946,6 +1949,33 @@ export type Database = {
           },
         ]
       }
+      pipeline_sla_config: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          etapa: string
+          label: string
+          ordem: number
+          sla_dias: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          etapa: string
+          label: string
+          ordem: number
+          sla_dias?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          etapa?: string
+          label?: string
+          ordem?: number
+          sla_dias?: number | null
+        }
+        Relationships: []
+      }
       processos_teses: {
         Row: {
           atualizado_em: string | null
@@ -2084,33 +2114,6 @@ export type Database = {
           is_active?: boolean
           updated_at?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      pipeline_sla_config: {
-        Row: {
-          ativo: boolean
-          atualizado_em: string
-          etapa: string
-          label: string
-          ordem: number
-          sla_dias: number | null
-        }
-        Insert: {
-          ativo?: boolean
-          atualizado_em?: string
-          etapa: string
-          label: string
-          ordem: number
-          sla_dias?: number | null
-        }
-        Update: {
-          ativo?: boolean
-          atualizado_em?: string
-          etapa?: string
-          label?: string
-          ordem?: number
-          sla_dias?: number | null
         }
         Relationships: []
       }
