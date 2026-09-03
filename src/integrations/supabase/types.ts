@@ -2093,18 +2093,21 @@ export type Database = {
           chave: string
           descricao: string | null
           valor: number
+          valor_texto: string | null
         }
         Insert: {
           atualizado_em?: string
           chave: string
           descricao?: string | null
           valor: number
+          valor_texto?: string | null
         }
         Update: {
           atualizado_em?: string
           chave?: string
           descricao?: string | null
           valor?: number
+          valor_texto?: string | null
         }
         Relationships: []
       }

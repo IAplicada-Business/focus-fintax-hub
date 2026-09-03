@@ -22,7 +22,7 @@ describe("parseReformaConfigPublica", () => {
       { chave: "cbs_net_split", valor: "0.3142857" },
       { chave: "ibs_net_split", valor: 0.6857143 },
       { chave: "aliquota_ibs_cbs_total", valor: "0.28" },
-      { chave: "texto_explicativo_pdf", valor: "  Texto do Alcir  " },
+      { chave: "texto_explicativo_pdf", valor: 0, valor_texto: "  Texto do Alcir  " },
     ]);
     expect(cfg.split.cbs).toBeCloseTo(0.3142857, 6);
     expect(cfg.split.ibs).toBeCloseTo(0.6857143, 6);
@@ -35,7 +35,7 @@ describe("parseReformaConfigPublica", () => {
     const cfg = parseReformaConfigPublica([
       { chave: "cbs_net_split", valor: 0.5 },
       { chave: "ibs_net_split", valor: 0.9 },
-      { chave: "texto_explicativo_pdf", valor: "   " },
+      { chave: "texto_explicativo_pdf", valor: 0, valor_texto: "   " },
     ]);
     expect(cfg.split).toEqual(SPLIT_ESFERAS_DEFAULT);
     expect(cfg.textoDoBanco).toBe(false);

@@ -524,7 +524,7 @@ function ResultadoView({
     let ativo = true;
     supabase
       .from("reforma_config")
-      .select("chave, valor")
+      .select("chave, valor, valor_texto")
       .in("chave", ["cbs_net_split", "ibs_net_split", "aliquota_ibs_cbs_total", "texto_explicativo_pdf"])
       .then(({ data, error }) => {
         if (!ativo) return;
