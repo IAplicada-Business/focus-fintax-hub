@@ -10,6 +10,7 @@ import { CommercialView } from "@/components/dashboard/comercial/CommercialView"
 import { OperationalView } from "@/components/dashboard/operacional/OperationalView";
 import { ExecutivaView } from "@/components/dashboard/executiva/ExecutivaView";
 import { agregarMixRegime } from "@/lib/regime-mix";
+import { SlaFunilTab } from "@/components/dashboard/comercial/SlaFunilTab";
 
 async function fetchDashboardData() {
   const now = new Date();
@@ -221,7 +222,9 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
   const canExecutiva = modo === "operacional" && canExecutivaPerm;
 
   const resolveDefault = () => {
-    if (modo === "comercial") return "comercial";
+    if (modo === "comercial") {
+      return localStorage.getItem("dash_comercial_tab") === "sla_funil" ? "sla_funil" : "comercial";
+    }
     const stored = localStorage.getItem("dash_tab");
     if (stored === "executiva" && canExecutiva) return "executiva";
     if (stored === "operacional" && canOperacional) return "operacional";
@@ -231,7 +234,10 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
     return "operacional";
   };
   const [activeTab, setActiveTab] = useState(resolveDefault);
-  const switchTab = (t: string) => { setActiveTab(t); localStorage.setItem("dash_tab", t); };
+  const switchTab = (t: string) => {
+    setActiveTab(t);
+    localStorage.setItem(modo === "comercial" ? "dash_comercial_tab" : "dash_tab", t);
+  };
 
   // Quem só tem a Visão Comercial (comercial/sdr/gestor_comercial) cai em
   // /dashboard por link antigo → vai pro dashboard do ambiente certo.
@@ -288,6 +294,8 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
         canExecutiva={canExecutiva}
         activeTab={activeTab}
         switchTab={switchTab}
+        comercialLabel={modo === "comercial" ? "Visão geral" : "Visão Comercial"}
+        extraTabs={modo === "comercial" ? [{ key: "sla_funil", label: "SLA do funil" }] : []}
       />
 
       {role === "admin" && d?.dataHealth && !d.dataHealth.hasData && (
@@ -303,7 +311,9 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
       )}
 
       <div className="px-7 pt-[18px] pb-9 w-full">
-        {activeTab === "executiva" ? (
+        {activeTab === "sla_funil" && modo === "comercial" ? (
+          <SlaFunilTab />
+        ) : activeTab === "executiva" ? (
           <ExecutivaView navigate={navigate} />
         ) : activeTab === "comercial" ? (
           <CommercialView

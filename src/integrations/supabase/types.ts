@@ -2087,6 +2087,33 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_sla_config: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          etapa: string
+          label: string
+          ordem: number
+          sla_dias: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          etapa: string
+          label: string
+          ordem: number
+          sla_dias?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          etapa?: string
+          label?: string
+          ordem?: number
+          sla_dias?: number | null
+        }
+        Relationships: []
+      }
       reforma_config: {
         Row: {
           atualizado_em: string

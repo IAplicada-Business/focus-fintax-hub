@@ -11,13 +11,18 @@ interface Props {
   canExecutiva: boolean;
   activeTab: string;
   switchTab: (t: string) => void;
+  /** Rótulo da aba comercial ("Visão geral" no dashboard do ambiente Comercial). */
+  comercialLabel?: string;
+  /** Abas extras depois das visões (ex.: "SLA do funil" no comercial). */
+  extraTabs?: { key: string; label: string }[];
 }
 
-export function DashboardHeader({ profileName, role, canComercial, canOperacional, canExecutiva, activeTab, switchTab }: Props) {
+export function DashboardHeader({ profileName, role, canComercial, canOperacional, canExecutiva, activeTab, switchTab, comercialLabel = "Visão Comercial", extraTabs = [] }: Props) {
   const tabs = [
-    canComercial && { key: "comercial", label: "Visão Comercial" },
+    canComercial && { key: "comercial", label: comercialLabel },
     canOperacional && { key: "operacional", label: "Visão Operacional" },
     canExecutiva && { key: "executiva", label: "Visão Executiva" },
+    ...extraTabs,
   ].filter(Boolean) as { key: string; label: string }[];
   return (
     <div className="sticky top-0 z-[100]">
