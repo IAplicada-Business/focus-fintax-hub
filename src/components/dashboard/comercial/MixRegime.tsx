@@ -3,9 +3,12 @@ import { PieChart as PieIcon } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { compactCurrency } from "../dashboard-utils";
 import type { RegimeMixKey, RegimeMixRow } from "@/lib/regime-mix";
+import { cn } from "@/lib/utils";
 
 interface Props {
   regimeMix: RegimeMixRow[];
+  /** Permite ao container esticar o card (ex.: flex-1) para alinhar a base da coluna. */
+  className?: string;
 }
 
 /**
@@ -24,12 +27,12 @@ const COR: Record<RegimeMixKey, string> = {
  * quantas teses ativas do motor cobrem cada regime. Regime com lead e zero
  * tese = pipeline sem produto pra vender — é o alerta que o comercial precisa.
  */
-export function MixRegime({ regimeMix }: Props) {
+export function MixRegime({ regimeMix, className }: Props) {
   const total = regimeMix.reduce((s, r) => s + r.leads, 0);
   const semCobertura = regimeMix.filter((r) => r.teses === 0 && r.leads > 0);
 
   return (
-    <div className="card-base overflow-hidden">
+    <div className={cn("card-base overflow-hidden flex flex-col", className)}>
       <div className="px-[18px] pt-3 pb-2.5 border-b border-[rgba(10,21,100,0.10)]">
         <div className="text-[11px] font-bold tracking-[0.8px] uppercase text-navy">Mix por regime tributário</div>
         <div className="text-[11px] text-ink-35 mt-0.5">leads ativos · teses do motor que cobrem cada regime</div>
@@ -38,7 +41,7 @@ export function MixRegime({ regimeMix }: Props) {
       {total === 0 ? (
         <EmptyState icon={<PieIcon size={20} className="text-ink-35" />} title="Sem leads ativos" subtitle="O mix aparece conforme os leads entram." />
       ) : (
-        <div className="px-3.5 py-3">
+        <div className="px-3.5 py-3 flex-1 flex flex-col justify-center">
           <div className="relative h-[150px]" role="img" aria-label={`Leads por regime: ${regimeMix.map((r) => `${r.label} ${r.leads}`).join(", ")}`}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>

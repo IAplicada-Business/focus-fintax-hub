@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { getScoreLabel, daysSince } from "@/lib/pipeline-constants";
-import { FUNNEL_STAGES_COM, type FunnelRow, type RecentLead, type MonthBar, type ClientRank, MONTH_ABBR } from "@/components/dashboard/dashboard-utils";
+import { FUNNEL_STAGES_COM, type FunnelRow, type MonthBar, type ClientRank, MONTH_ABBR } from "@/components/dashboard/dashboard-utils";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { CommercialView } from "@/components/dashboard/comercial/CommercialView";
 import { OperationalView } from "@/components/dashboard/operacional/OperationalView";
@@ -20,7 +20,7 @@ async function fetchDashboardData() {
 
   const [
     pipelineRes, newWeekRes, prevWeekRes, contratosRes, clientesAtivosRes, totalEverRes,
-    allLeadsRes, recentRes, stalledRes, diagRes, tesesRes,
+    allLeadsRes, stalledRes, diagRes, tesesRes,
     clientesRes, allCompRes, allProcRes, totalAtivosRes, totaisRes, intimRes, motorRegimesRes,
   ] = await Promise.all([
     supabase.from("leads").select("id", { count: "exact", head: true }).not("status_funil", "in", "(perdido,nao_vai_fazer)"),
@@ -29,8 +29,7 @@ async function fetchDashboardData() {
     supabase.from("leads").select("id", { count: "exact", head: true }).eq("status_funil", "contrato_emitido"),
     supabase.from("clientes").select("id", { count: "exact", head: true }).eq("status", "ativo"),
     supabase.from("leads").select("id", { count: "exact", head: true }),
-    supabase.from("leads").select("id, status_funil, segmento, origem, score_lead, regime_tributario").not("status_funil", "in", "(perdido,nao_vai_fazer)").limit(5000),
-    supabase.from("leads").select("empresa, segmento, criado_em, id, score_lead").not("status_funil", "in", "(perdido,nao_vai_fazer)").order("criado_em", { ascending: false }).limit(4),
+    supabase.from("leads").select("id, status_funil, segmento, score_lead, regime_tributario").not("status_funil", "in", "(perdido,nao_vai_fazer)").limit(5000),
     supabase.from("leads").select("empresa, status_funil_atualizado_em, id").eq("status_funil", "contrato_emitido").lt("status_funil_atualizado_em", d3),
     supabase.from("diagnosticos_leads").select("lead_id"),
     supabase.from("motor_teses_config").select("id", { count: "exact", head: true }).eq("ativo", true),
@@ -52,9 +51,7 @@ async function fetchDashboardData() {
   const comTaxaConversao = totalEver > 0 ? Math.min(Math.round((comClientesAtivos / totalEver) * 100), 100) : 0;
 
   const activeLeads = allLeadsRes.data ?? [];
-  const recent = recentRes.data ?? [];
-  const recentIds = recent.map((r) => r.id);
-  const relIds = [...new Set([...activeLeads.map((l) => l.id), ...recentIds])];
+  const relIds = activeLeads.map((l) => l.id);
   const potByLead: Record<string, number> = {};
   if (relIds.length) {
     const { data: rels } = await supabase.from("relatorios_leads").select("lead_id, estimativa_total_maxima").in("lead_id", relIds);
@@ -82,19 +79,11 @@ async function fetchDashboardData() {
   activeLeads.forEach(l => { segMap[l.segmento] = (segMap[l.segmento] ?? 0) + 1; });
   const segmentoData = Object.entries(segMap).sort((a, b) => b[1] - a[1]).map(([segmento, count]) => ({ segmento, count }));
 
-  const origemData: Record<string, number> = {};
-  activeLeads.forEach(l => { origemData[l.origem] = (origemData[l.origem] ?? 0) + 1; });
-
   const scoreDistribution: Record<string, number> = { A: 0, B: 0, C: 0, D: 0 };
   activeLeads.forEach(l => {
     const letter = getScoreLabel(l.score_lead);
     scoreDistribution[letter] = (scoreDistribution[letter] ?? 0) + 1;
   });
-
-  const recentLeads: RecentLead[] = recent.map((r) => ({
-    id: r.id, empresa: r.empresa, segmento: r.segmento, criado_em: r.criado_em,
-    potencial: potByLead[r.id] ?? 0, score: r.score_lead,
-  }));
 
   const stalledLeads = (stalledRes.data ?? [])
     .map((l) => ({ empresa: l.empresa || "Sem empresa", days: daysSince(l.status_funil_atualizado_em!), id: l.id }))
@@ -185,7 +174,7 @@ async function fetchDashboardData() {
 
   return {
     comLeads, comNewWeek, comNewPrevWeek, comPotencial, comContratos, comClientesAtivos, comTaxaConversao,
-    funnelData, recentLeads, stalledLeads, segmentoData, origemData, scoreDistribution, regimeMix,
+    funnelData, stalledLeads, segmentoData, scoreDistribution, regimeMix,
     motorDiagnosticos, motorTesesAtivas,
     opClientes, opTotalAtivos, opCompensado, opHonorarios, opSaldo,
     monthlyBars, topCompensado, topSaldo,
@@ -320,10 +309,10 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
             kpiLoading={kpiLoading} chartLoading={chartLoading}
             comLeads={d?.comLeads ?? 0} comNewWeek={d?.comNewWeek ?? 0} trendDiff={trendDiff}
             comPotencial={d?.comPotencial ?? 0} comContratos={d?.comContratos ?? 0} comTaxaConversao={d?.comTaxaConversao ?? 0}
-            comClientesAtivos={d?.comClientesAtivos ?? 0} stalledLeads={d?.stalledLeads ?? []} funnelData={d?.funnelData ?? []}
+            stalledLeads={d?.stalledLeads ?? []} funnelData={d?.funnelData ?? []}
             maxFunnelCount={maxFunnelCount} totalFunnelCount={totalFunnelCount} totalFunnelPotencial={totalFunnelPotencial}
-            segmentoData={d?.segmentoData ?? []} maxSegCount={maxSegCount} origemData={d?.origemData ?? {}}
-            recentLeads={d?.recentLeads ?? []} scoreDistribution={d?.scoreDistribution ?? { A: 0, B: 0, C: 0, D: 0 }}
+            segmentoData={d?.segmentoData ?? []} maxSegCount={maxSegCount}
+            scoreDistribution={d?.scoreDistribution ?? { A: 0, B: 0, C: 0, D: 0 }}
             motorDiagnosticos={d?.motorDiagnosticos ?? 0} motorTesesAtivas={d?.motorTesesAtivas ?? 0}
             regimeMix={d?.regimeMix ?? []}
             navigate={navigate}

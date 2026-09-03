@@ -1,18 +1,16 @@
 import { memo } from "react";
 import type { NavigateFunction } from "react-router-dom";
-import type { FunnelRow, RecentLead } from "../dashboard-utils";
+import type { FunnelRow } from "../dashboard-utils";
 import { SkeletonKpi } from "../SkeletonKpi";
 import { SkeletonChart } from "../SkeletonChart";
 import { SkeletonTable } from "../SkeletonTable";
 import { KpiStripComercial } from "./KpiStripComercial";
 import { AlertasBanner } from "./AlertasBanner";
 import { FunilComercial } from "./FunilComercial";
-import { LeadsRecentes } from "./LeadsRecentes";
 import { QualidadeCarteira } from "./QualidadeCarteira";
 import { MotorPerformance } from "./MotorPerformance";
 import { MixRegime } from "./MixRegime";
 import type { RegimeMixRow } from "@/lib/regime-mix";
-import { BottomStripComercial } from "./BottomStripComercial";
 
 interface Props {
   kpiLoading: boolean;
@@ -23,7 +21,6 @@ interface Props {
   comPotencial: number;
   comContratos: number;
   comTaxaConversao: number;
-  comClientesAtivos: number;
   stalledLeads: { empresa: string; days: number; id: string }[];
   funnelData: FunnelRow[];
   maxFunnelCount: number;
@@ -31,8 +28,6 @@ interface Props {
   totalFunnelPotencial: number;
   segmentoData: { segmento: string; count: number }[];
   maxSegCount: number;
-  origemData: Record<string, number>;
-  recentLeads: RecentLead[];
   scoreDistribution: Record<string, number>;
   motorDiagnosticos: number;
   motorTesesAtivas: number;
@@ -59,27 +54,21 @@ export const CommercialView = memo(function CommercialView(props: Props) {
         <>
           <AlertasBanner stalledLeads={props.stalledLeads} />
 
-          <div className="animate-slide-up delay-3 grid gap-4 mb-4 w-full grid-cols-1 lg:grid-cols-[1fr_340px]">
+          {/* Duas colunas de altura igual: o último card de cada coluna estica (flex-1)
+              para que as bordas inferiores fiquem alinhadas, sem buraco em nenhum lado. */}
+          <div className="animate-slide-up delay-3 grid gap-4 w-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
             <FunilComercial
               funnelData={props.funnelData} maxFunnelCount={props.maxFunnelCount}
               totalFunnelCount={props.totalFunnelCount} totalFunnelPotencial={props.totalFunnelPotencial}
               segmentoData={props.segmentoData} maxSegCount={props.maxSegCount}
-              origemData={props.origemData} navigate={props.navigate}
+              navigate={props.navigate}
             />
-            <div className="flex flex-col gap-4">
-              <LeadsRecentes recentLeads={props.recentLeads} navigate={props.navigate} />
+            <div className="flex flex-col gap-4 min-w-0">
               <QualidadeCarteira scoreDistribution={props.scoreDistribution} />
               <MotorPerformance motorDiagnosticos={props.motorDiagnosticos} motorTesesAtivas={props.motorTesesAtivas} />
-              {/* Preenche o espaço abaixo de Performance do motor (a coluna da esquerda é mais alta). */}
-              <MixRegime regimeMix={props.regimeMix} />
+              <MixRegime regimeMix={props.regimeMix} className="flex-1" />
             </div>
           </div>
-
-          <BottomStripComercial
-            comLeads={props.comLeads} comContratos={props.comContratos}
-            comClientesAtivos={props.comClientesAtivos} comPotencial={props.comPotencial}
-            comTaxaConversao={props.comTaxaConversao}
-          />
         </>
       )}
     </>
