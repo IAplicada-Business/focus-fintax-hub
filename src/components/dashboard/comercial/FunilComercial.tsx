@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FunnelRow, compactCurrency, SEGMENTO_LABELS, SEGMENTO_BAR_COLOR, ORIGEM_LABELS } from "../dashboard-utils";
+import { FunnelRow, compactCurrency, SEGMENTO_LABELS, SEGMENTO_BAR_COLOR } from "../dashboard-utils";
 import type { NavigateFunction } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -10,15 +10,14 @@ interface Props {
   totalFunnelPotencial: number;
   segmentoData: { segmento: string; count: number }[];
   maxSegCount: number;
-  origemData: Record<string, number>;
   navigate: NavigateFunction;
 }
 
-export function FunilComercial({ funnelData, maxFunnelCount, totalFunnelCount, totalFunnelPotencial, segmentoData, maxSegCount, origemData, navigate }: Props) {
+export function FunilComercial({ funnelData, maxFunnelCount, totalFunnelCount, totalFunnelPotencial, segmentoData, maxSegCount, navigate }: Props) {
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col gap-3.5">
+    <div className="flex flex-col gap-4 min-w-0">
       {/* CARD 1 — Funil */}
       <div className="card-base overflow-hidden">
         <div className="px-5 pt-3 pb-2.5 border-b border-[rgba(10,21,100,0.06)] flex items-center justify-between">
@@ -83,8 +82,8 @@ export function FunilComercial({ funnelData, maxFunnelCount, totalFunnelCount, t
         </div>
       </div>
 
-      {/* CARD 2 — Distribuição por Segmento */}
-      <div className="card-base p-5">
+      {/* CARD 2 — Distribuição por Segmento (estica até o fim da coluna) */}
+      <div className="card-base p-5 flex-1">
         <div className="text-[10px] font-bold tracking-[1.2px] uppercase text-ink-35 mb-4">Distribuição por segmento</div>
         <div className="flex flex-col gap-3">
           {segmentoData.map((s) => (
@@ -94,19 +93,6 @@ export function FunilComercial({ funnelData, maxFunnelCount, totalFunnelCount, t
                 <div className="h-full rounded-full transition-all duration-700" style={{ background: SEGMENTO_BAR_COLOR[s.segmento] ?? "#6b7280", width: `${(s.count / maxSegCount) * 100}%` }} />
               </div>
               <span className="font-mono-dm tabular-nums text-[11px] text-navy font-semibold w-6 text-right shrink-0">{s.count}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* CARD 3 — Origem dos Leads */}
-      <div className="card-base p-5">
-        <div className="text-[10px] font-bold tracking-[1.2px] uppercase text-ink-35 mb-4">Origem dos leads</div>
-        <div className="grid grid-cols-3 gap-3">
-          {["formulario", "manual", "meta_ads"].map(key => (
-            <div key={key} className="bg-[rgba(10,21,100,0.03)] rounded-xl p-4 text-center">
-              <div className={`font-display text-[26px] font-bold leading-none ${key === "meta_ads" ? "text-dash-red" : "text-navy"}`}>{origemData[key] ?? 0}</div>
-              <div className="text-[9px] text-ink-35 font-bold uppercase tracking-[0.8px] mt-1">{ORIGEM_LABELS[key] ?? key}</div>
             </div>
           ))}
         </div>
