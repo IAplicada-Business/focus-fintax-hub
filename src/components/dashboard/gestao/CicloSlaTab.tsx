@@ -5,12 +5,15 @@ import { compactCurrency } from "@/components/dashboard/dashboard-utils";
 import {
   ETAPA_LABEL,
   fetchCicloSla,
+  type ClienteCiclo,
   type EtapaCiclo,
 } from "@/services/gestaoDashboardService";
 import { SkeletonKpi } from "../SkeletonKpi";
 import { useCountUp } from "@/hooks/useCountUp";
 import { Badge } from "@/components/ui/badge";
 import { Target, Clock } from "lucide-react";
+
+const FILA_LIMIT = 10;
 
 const ETAPAS: EtapaCiclo[] = [
   "cadastrado",
@@ -202,90 +205,113 @@ export function CicloSlaTab() {
         </div>
       </div>
 
-      {/* Fila de ação — cards, não tabela densa */}
-      <div className="animate-slide-up delay-3 bg-[rgba(200,0,30,0.04)] border border-[rgba(200,0,30,0.18)] rounded-2xl overflow-hidden">
-        <div className="px-4 py-2.5 bg-[rgba(200,0,30,0.08)] border-b border-[rgba(200,0,30,0.15)] flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <Target className="w-3.5 h-3.5 text-dash-red flex-shrink-0" />
-            <span className="text-[11px] font-bold tracking-[0.8px] uppercase text-dash-red truncate">
-              {filtroEtapa === "atrasados"
-                ? "Fila de atraso — quem destravar primeiro"
-                : `Etapa: ${ETAPA_LABEL[filtroEtapa]}`}
-            </span>
-          </div>
-          <span className="text-[11px] font-mono-dm text-dash-red/80 shrink-0">
-            {fila.length} cliente{fila.length !== 1 ? "s" : ""}
+      <FilaTable fila={fila} filtroEtapa={filtroEtapa} navigate={navigate} />
+    </div>
+  );
+}
+
+function FilaTable({
+  fila,
+  filtroEtapa,
+  navigate,
+}: {
+  fila: ClienteCiclo[];
+  filtroEtapa: EtapaCiclo | "atrasados";
+  navigate: (to: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? fila : fila.slice(0, FILA_LIMIT);
+  const showExpand = fila.length > FILA_LIMIT;
+
+  return (
+    <div className="animate-slide-up delay-3 bg-[rgba(200,0,30,0.04)] border border-[rgba(200,0,30,0.18)] rounded-2xl overflow-hidden">
+      <div className="px-4 py-2.5 bg-[rgba(200,0,30,0.08)] border-b border-[rgba(200,0,30,0.15)] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Target className="w-3.5 h-3.5 text-dash-red flex-shrink-0" />
+          <span className="text-[11px] font-bold tracking-[0.8px] uppercase text-dash-red truncate">
+            {filtroEtapa === "atrasados"
+              ? "Fila de atraso — quem destravar primeiro"
+              : `Etapa: ${ETAPA_LABEL[filtroEtapa]}`}
           </span>
         </div>
-
-        {fila.length === 0 ? (
-          <p className="px-5 py-10 text-sm text-ink-35 text-center">
-            {filtroEtapa === "atrasados"
-              ? "Nenhum cliente acima do SLA — esteira saudável."
-              : "Nenhum cliente nesta etapa."}
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
-            {fila.slice(0, 12).map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => navigate(`/clientes/${c.id}`)}
-                className="rounded-xl p-4 text-left transition-all duration-200 hover:-translate-y-0.5 bg-white border border-[rgba(200,0,30,0.12)] shadow-[0_2px_8px_rgba(200,0,30,0.06)]"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-bold text-ink leading-snug line-clamp-2">
-                    {c.empresa}
-                  </p>
-                  {c.atrasado ? (
-                    <Badge
-                      variant="outline"
-                      className="bg-red-50 text-red-700 border-red-200 text-[9px] shrink-0"
-                    >
-                      Atrasado
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] shrink-0"
-                    >
-                      No prazo
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-[11px] text-ink-35 mt-2">
-                  {ETAPA_LABEL[c.etapa]}
-                  {c.teseAtiva ? ` · ${c.teseAtiva}` : ""}
-                </p>
-                <div className="flex items-end justify-between mt-3">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-ink-35">Na etapa</p>
-                    <p
-                      className={`font-display text-2xl font-bold leading-none ${
-                        c.atrasado ? "text-dash-red" : "text-navy"
-                      }`}
-                    >
-                      {c.diasNaEtapa}d
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-wider text-ink-35">Saldo</p>
-                    <p className="font-display text-lg font-bold text-navy leading-none">
-                      {compactCurrency(c.saldo)}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {fila.length > 12 && (
-          <p className="px-4 pb-3 text-[11px] text-ink-35 text-center">
-            Mostrando os 12 mais críticos · {fila.length - 12} restantes na etapa
-          </p>
-        )}
+        <span className="text-[11px] font-mono-dm text-dash-red/80 shrink-0">
+          {fila.length} cliente{fila.length !== 1 ? "s" : ""}
+        </span>
       </div>
+
+      {fila.length === 0 ? (
+        <p className="px-5 py-10 text-sm text-ink-35 text-center">
+          {filtroEtapa === "atrasados"
+            ? "Nenhum cliente acima do SLA — esteira saudável."
+            : "Nenhum cliente nesta etapa."}
+        </p>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-[rgba(200,0,30,0.12)] text-[10px] font-bold uppercase tracking-wide text-ink-35">
+                  <th className="px-4 py-2 w-10">#</th>
+                  <th className="px-4 py-2">Cliente</th>
+                  <th className="px-4 py-2">Etapa</th>
+                  <th className="px-4 py-2 text-right">Na etapa</th>
+                  <th className="px-4 py-2 text-right">Saldo</th>
+                  <th className="px-4 py-2 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[rgba(200,0,30,0.08)]">
+                {visible.map((c, i) => (
+                  <tr
+                    key={c.id}
+                    onClick={() => navigate(`/clientes/${c.id}`)}
+                    className="cursor-pointer hover:bg-[rgba(200,0,30,0.04)] transition-colors group"
+                  >
+                    <td className="px-4 py-2.5 text-[11px] font-mono-dm text-ink-35">{i + 1}</td>
+                    <td className="px-4 py-2.5">
+                      <p className="text-sm font-semibold text-ink truncate max-w-[280px] group-hover:underline">
+                        {c.empresa}
+                      </p>
+                      {c.teseAtiva && (
+                        <p className="text-[10px] text-ink-35 mt-0.5 truncate max-w-[280px]">{c.teseAtiva}</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-ink-60 whitespace-nowrap">{ETAPA_LABEL[c.etapa]}</td>
+                    <td className={`px-4 py-2.5 text-sm font-bold tabular-nums text-right whitespace-nowrap ${c.atrasado ? "text-dash-red" : "text-navy"}`}>
+                      {c.diasNaEtapa}d
+                    </td>
+                    <td className="px-4 py-2.5 text-sm font-bold text-navy tabular-nums text-right whitespace-nowrap">
+                      {compactCurrency(c.saldo)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      {c.atrasado ? (
+                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[9px]">
+                          Atrasado
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px]">
+                          No prazo
+                        </Badge>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {showExpand && (
+            <div className="px-4 py-2.5 border-t border-[rgba(200,0,30,0.12)] text-center">
+              <button
+                type="button"
+                onClick={() => setExpanded(!expanded)}
+                className="text-[11px] font-semibold text-dash-red hover:underline"
+              >
+                {expanded ? "Mostrar menos" : `Ver todos (${fila.length})`}
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

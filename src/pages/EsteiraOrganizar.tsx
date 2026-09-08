@@ -239,7 +239,7 @@ export default function EsteiraOrganizar() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 pb-28">
+    <div className="space-y-5 pb-28">
       <div>
         <Link
           to="/esteira"
@@ -515,7 +515,7 @@ export default function EsteiraOrganizar() {
 
       {/* Barra fixa de aplicação */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
           <div className="text-xs text-muted-foreground">
             {pendentes.length === 0 ? (
               "Nenhuma alteração pendente."

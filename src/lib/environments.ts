@@ -93,6 +93,11 @@ export const MENU_OPERACIONAL: MenuItem[] = [
     url: "/esteira",
     icon: KanbanSquare,
     screenKey: "esteira",
+    routeMatch: ["/configuracoes/esteira-sla"],
+    children: [
+      { title: "Organizar", url: "/esteira/organizar", screenKey: "esteira" },
+      { title: "Estágios da Esteira", url: "/configuracoes/esteira-sla", screenKey: "esteira" },
+    ],
   },
   {
     title: "Clientes",
@@ -109,7 +114,6 @@ export const MENU_OPERACIONAL: MenuItem[] = [
     routeMatch: ["/configuracoes", "/benchmarks"],
     children: [
       { title: "Motor de Cálculo", url: "/configuracoes/motor", screenKey: "motor_calculo" },
-      { title: "Estágios da Esteira", url: "/configuracoes/esteira-sla", screenKey: "esteira" },
       { title: "Benchmarks e Teses", url: "/benchmarks", screenKey: "benchmarks" },
     ],
   },
