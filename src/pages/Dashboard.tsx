@@ -251,7 +251,10 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
   // As três telas de Gestão eram uma página à parte (/dashboard/gestao) com
   // submenu próprio; agora são abas daqui, sob a mesma permissão de antes.
   const canGestao = modo === "operacional" && canTab("dashboard.gestao");
-  const canGestaoComercial = modo === "comercial" && canTab("dashboard.gestao");
+  // Ciclo & SLA virou aba comercial, então segue a permissão do dashboard
+  // comercial. Sob "dashboard.gestao" (admin/pmo/gestor_tributario) o público
+  // comercial — comercial, sdr, gestor_comercial — não enxergava a aba.
+  const canGestaoComercial = modo === "comercial" && canComercialPerm;
   const ABAS_GESTAO = ["resumo_semanal", "ciclo_sla"];
 
   const resolveDefault = () => {

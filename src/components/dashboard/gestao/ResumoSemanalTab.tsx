@@ -73,8 +73,8 @@ export function ResumoSemanalTab() {
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-destructive" />
             <span className="text-sm font-semibold text-foreground">
-              {data.intimacoesNovas} intimação{data.intimacoesNovas > 1 ? "ões" : ""} nova
-              {data.intimacoesNovas > 1 ? "s" : ""} na semana
+              {data.intimacoesNovas}{" "}
+              {data.intimacoesNovas > 1 ? "intimações novas" : "intimação nova"} na semana
             </span>
           </div>
           <Link to="/intimacoes" className="text-xs font-bold text-destructive hover:underline">
