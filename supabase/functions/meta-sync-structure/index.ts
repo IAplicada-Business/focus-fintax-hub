@@ -11,7 +11,7 @@
 //     erro fora do loop de contas)
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { pagedFetchWithRetry } from "../_shared/meta-fetch.ts";
+import { fetchWithRetry, pagedFetchWithRetry } from "../_shared/meta-fetch.ts";
 
 // Aceita nome novo ou antigo do secret (transição sem downtime)
 const ACCESS_TOKEN =
@@ -126,9 +126,19 @@ Deno.serve(async () => {
           totals.creatives++;
         }
 
-        // Lead forms (page-level)
+        // Lead forms (page-level) — a Graph API exige um Page Access Token
+        // pra esse endpoint, o token de anúncios do System User é recusado
+        // com (#190) mesmo com acesso à página. Troca pelo token da página.
+        const pageTokenResp = await fetchWithRetry(
+          `${GRAPH}/${c.page_id}?fields=access_token${tk}`,
+        );
+        const pageToken = pageTokenResp.access_token;
+        if (!pageToken) {
+          throw new Error(`sem access_token pra página ${c.page_id} (System User sem acesso à página?)`);
+        }
+
         for (const x of await pagedFetchWithRetry(
-          `${GRAPH}/${c.page_id}/leadgen_forms?fields=name,status,leads_count,questions,created_time&limit=200${tk}`,
+          `${GRAPH}/${c.page_id}/leadgen_forms?fields=name,status,leads_count,questions,created_time&limit=200&access_token=${pageToken}`,
         )) {
           await sb.from("meta_leadgen_forms").upsert({
             id: x.id,
