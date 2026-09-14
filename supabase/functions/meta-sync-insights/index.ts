@@ -23,6 +23,12 @@ const sb = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
 const FIELDS = [
   "campaign_id", "campaign_name",
   "adset_id", "adset_name",
@@ -42,7 +48,11 @@ function pickLeadAction(arr: any[]): number | null {
   return f ? Number(f.value) : null;
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   const exec = await sb
     .from("meta_execution_log")
     .insert({ function_name: "meta-sync-insights" })
@@ -140,7 +150,7 @@ Deno.serve(async () => {
       }),
       {
         status: allOk ? 200 : (successCount > 0 ? 207 : 500),
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
   } catch (e) {
@@ -154,7 +164,7 @@ Deno.serve(async () => {
       .eq("id", exec.data?.id);
     return new Response(JSON.stringify({ ok: false, error: String(e) }), {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
