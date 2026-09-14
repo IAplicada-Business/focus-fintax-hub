@@ -3,20 +3,33 @@ import { runMetaSync, type MetaSyncType } from "@/services/metaSyncService";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-/** Última execução com erro (qualquer função Meta). */
+/** Última falha ainda "ativa" (sem sync bem-sucedida da mesma função depois dela). */
 export function useMetaLastFailure() {
   return useQuery({
     queryKey: ["meta", "last-failure"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: lastFail, error: failError } = await supabase
         .from("meta_execution_log")
         .select("function_name, started_at, finished_at, ok, error_text")
         .eq("ok", false)
         .order("started_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (error) throw error;
-      return data;
+      if (failError) throw failError;
+      if (!lastFail) return null;
+
+      // Já rodou com sucesso essa mesma função depois dessa falha? Problema resolvido, não mostra mais.
+      const { data: laterSuccess, error: successError } = await supabase
+        .from("meta_execution_log")
+        .select("id")
+        .eq("function_name", lastFail.function_name)
+        .eq("ok", true)
+        .gt("started_at", lastFail.started_at)
+        .limit(1)
+        .maybeSingle();
+      if (successError) throw successError;
+
+      return laterSuccess ? null : lastFail;
     },
     staleTime: 30_000,
     refetchInterval: 60_000,
