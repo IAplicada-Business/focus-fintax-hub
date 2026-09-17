@@ -20,6 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { canEditLead } from "@/lib/role-permissions";
 import type { PipelineLead } from "@/pages/Pipeline";
 import { ConvertClientModal } from "./ConvertClientModal";
+import AtendimentoTab from "./AtendimentoTab";
 import { useNavigate } from "react-router-dom";
 
 interface Props {
@@ -333,6 +334,7 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
                   <TabsTrigger value="dados">Dados</TabsTrigger>
                   <TabsTrigger value="diagnostico">Diagnóstico</TabsTrigger>
                   <TabsTrigger value="historico">Histórico</TabsTrigger>
+                  <TabsTrigger value="conversa">Conversa</TabsTrigger>
                 </TabsList>
 
                 {/* Dados Tab */}
@@ -622,6 +624,27 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
                       })}
                     </div>
                   )}
+                </TabsContent>
+
+                {/* Conversa (WhatsApp) — mesmo inbox do Atendimento, sem sair do pipeline */}
+                <TabsContent value="conversa" className="flex-1 min-h-0 flex flex-col pt-3 pb-0 data-[state=inactive]:hidden">
+                  <div className="flex items-center justify-between px-6 pb-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      {lead.whatsapp ? `WhatsApp ${lead.whatsapp}` : "Lead sem WhatsApp cadastrado"}
+                    </p>
+                    {lead.whatsapp && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/atendimento?tel=${encodeURIComponent(lead.whatsapp)}`)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                      >
+                        Abrir no inbox <ExternalLink className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex-1 min-h-[360px]">
+                    {aba === "conversa" && <AtendimentoTab whatsapp={lead.whatsapp || null} />}
+                  </div>
                 </TabsContent>
               </Tabs>
 

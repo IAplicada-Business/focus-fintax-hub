@@ -34,6 +34,7 @@ export default {
           35: 'rgba(15,17,23,0.35)',
           12: 'rgba(15,17,23,0.12)',
           '06': 'rgba(15,17,23,0.05)',
+          '03': 'rgba(8,17,29,0.03)',
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

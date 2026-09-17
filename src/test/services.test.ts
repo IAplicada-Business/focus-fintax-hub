@@ -46,13 +46,11 @@ describe("services module structure", () => {
     expect(mod.deleteCompensacoes).toBeDefined();
   });
 
-  it("dashboardService exports expected functions", async () => {
-    const mod = await import("@/services/dashboardService");
-    expect(mod.fetchCommercialKpis).toBeDefined();
-    expect(mod.fetchCommercialCharts).toBeDefined();
-    expect(mod.fetchOperationalKpis).toBeDefined();
-    expect(mod.fetchOperationalHealth).toBeDefined();
-    expect(mod.fetchIntimacoesSummary).toBeDefined();
+  it("dashboard services export expected functions", async () => {
+    const comercial = await import("@/services/comercialDashboardService");
+    expect(comercial.fetchComercialDashboard).toBeDefined();
+    const operacional = await import("@/services/operacionalDashboardService");
+    expect(operacional.fetchOperacionalDashboard).toBeDefined();
   });
 
   it("intimacoesService exports expected functions", async () => {
