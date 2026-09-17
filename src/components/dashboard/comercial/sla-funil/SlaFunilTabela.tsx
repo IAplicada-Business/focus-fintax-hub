@@ -76,13 +76,13 @@ export function SlaFunilTabela({ resumo, filtro, onFiltro }: Props) {
       ativo
         ? tom === "vermelho"
           ? "bg-[rgba(200,0,30,0.08)] border-[rgba(200,0,30,0.25)] text-dash-red"
-          : "bg-[rgba(10,21,100,0.06)] border-navy/30 text-navy"
-        : "bg-white border-[rgba(10,21,100,0.10)] text-ink-60 hover:text-navy"
+          : "bg-[rgba(8,17,29,0.06)] border-navy/30 text-navy"
+        : "bg-white border-[rgba(8,17,29,0.10)] text-ink-60 hover:text-navy"
     }`;
 
   return (
     <div className="card-base overflow-hidden">
-      <div className="px-5 pt-4 pb-3 border-b border-[rgba(10,21,100,0.10)] flex flex-wrap items-end justify-between gap-3">
+      <div className="px-5 pt-4 pb-3 border-b border-[rgba(8,17,29,0.10)] flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[1.6px] text-ink-35 flex items-center gap-1.5">
             <Target className="w-3 h-3 text-dash-red" />
@@ -116,7 +116,7 @@ export function SlaFunilTabela({ resumo, filtro, onFiltro }: Props) {
                 setLimite(PAGINA);
               }}
               placeholder="Buscar empresa"
-              className="h-8 w-[180px] rounded-md border border-[rgba(10,21,100,0.12)] bg-white pl-8 pr-2 text-xs text-navy placeholder:text-ink-35 focus:outline-none focus:ring-1 focus:ring-navy/40"
+              className="h-8 w-[180px] rounded-md border border-[rgba(8,17,29,0.12)] bg-white pl-8 pr-2 text-xs text-navy placeholder:text-ink-35 focus:outline-none focus:ring-1 focus:ring-navy/40"
               aria-label="Buscar empresa"
             />
           </label>
@@ -136,7 +136,7 @@ export function SlaFunilTabela({ resumo, filtro, onFiltro }: Props) {
       ) : (
         <Table>
           <TableHeader>
-            <TableRow className="hover:bg-transparent border-[rgba(10,21,100,0.08)]">
+            <TableRow className="hover:bg-transparent border-[rgba(8,17,29,0.08)]">
               <Th className="pl-5">Empresa</Th>
               <Th>Etapa</Th>
               <Th align="right">Na etapa</Th>
@@ -157,8 +157,8 @@ export function SlaFunilTabela({ resumo, filtro, onFiltro }: Props) {
                 <TableRow
                   key={l.lead.id}
                   onClick={() => abrirNoPipeline(l.lead.id)}
-                  className={`cursor-pointer border-[rgba(10,21,100,0.06)] transition-colors ${
-                    atrasado ? "hover:bg-[rgba(200,0,30,0.04)]" : "hover:bg-[rgba(10,21,100,0.03)]"
+                  className={`cursor-pointer border-[rgba(8,17,29,0.06)] transition-colors ${
+                    atrasado ? "hover:bg-[rgba(200,0,30,0.04)]" : "hover:bg-[rgba(8,17,29,0.03)]"
                   }`}
                 >
                   <TableCell className="pl-5 py-2.5 max-w-[260px]">
@@ -171,7 +171,7 @@ export function SlaFunilTabela({ resumo, filtro, onFiltro }: Props) {
                   <TableCell className="py-2.5" onClick={(e) => e.stopPropagation()}>
                     {editavel ? (
                       <Select value={l.etapa} onValueChange={(v) => void trocarEtapa(l, v)} disabled={mover.isPending}>
-                        <SelectTrigger className="h-7 w-[168px] text-[11px] font-semibold bg-white border-[rgba(10,21,100,0.12)]" aria-label={`Etapa de ${l.lead.empresa}`}>
+                        <SelectTrigger className="h-7 w-[168px] text-[11px] font-semibold bg-white border-[rgba(8,17,29,0.12)]" aria-label={`Etapa de ${l.lead.empresa}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -214,7 +214,7 @@ export function SlaFunilTabela({ resumo, filtro, onFiltro }: Props) {
                         e.stopPropagation();
                         abrirNoPipeline(l.lead.id);
                       }}
-                      className="inline-flex items-center gap-1 rounded-md border border-[rgba(10,21,100,0.12)] bg-white px-2 py-1 text-[10px] font-semibold text-navy hover:bg-[rgba(10,21,100,0.05)] transition-colors"
+                      className="inline-flex items-center gap-1 rounded-md border border-[rgba(8,17,29,0.12)] bg-white px-2 py-1 text-[10px] font-semibold text-navy hover:bg-[rgba(8,17,29,0.05)] transition-colors"
                       aria-label={`Abrir ${l.lead.empresa} no pipeline`}
                     >
                       <ExternalLink className="w-3 h-3" />
@@ -229,7 +229,7 @@ export function SlaFunilTabela({ resumo, filtro, onFiltro }: Props) {
       )}
 
       {fila.length > visiveis.length && (
-        <div className="px-5 py-3 border-t border-[rgba(10,21,100,0.08)] flex items-center justify-between gap-3">
+        <div className="px-5 py-3 border-t border-[rgba(8,17,29,0.08)] flex items-center justify-between gap-3">
           <p className="text-[11px] text-ink-35">
             Mostrando {visiveis.length} de {fila.length}
           </p>

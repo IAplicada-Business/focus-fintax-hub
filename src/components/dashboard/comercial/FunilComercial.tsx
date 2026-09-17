@@ -16,7 +16,7 @@ export function FunilComercial({ funnelData, maxFunnelCount, totalFunnelCount, t
 
   return (
     <div className="card-base overflow-hidden h-full flex flex-col">
-        <div className="px-5 pt-3 pb-2.5 border-b border-[rgba(10,21,100,0.06)] flex items-center justify-between">
+        <div className="px-5 pt-3 pb-2.5 border-b border-[rgba(8,17,29,0.06)] flex items-center justify-between">
           <div>
             <div className="text-[11px] font-bold tracking-[0.8px] uppercase text-navy">Funil comercial</div>
             <div className="text-[11px] text-ink-35 mt-0.5">clique em uma etapa para filtrar o pipeline</div>
@@ -35,7 +35,7 @@ export function FunilComercial({ funnelData, maxFunnelCount, totalFunnelCount, t
                 "flex items-center px-5 py-3 cursor-pointer transition-colors duration-150",
                 isContrato
                   ? hoveredRow === f.stage ? "bg-[rgba(251,191,36,0.12)]" : "bg-[rgba(251,191,36,0.06)]"
-                  : hoveredRow === f.stage ? "bg-[rgba(10,21,100,0.03)]" : "bg-transparent"
+                  : hoveredRow === f.stage ? "bg-[rgba(8,17,29,0.03)]" : "bg-transparent"
               )}
               onMouseEnter={() => setHoveredRow(f.stage)}
               onMouseLeave={() => setHoveredRow(null)}
@@ -69,7 +69,7 @@ export function FunilComercial({ funnelData, maxFunnelCount, totalFunnelCount, t
         })}
 
         {/* Total row */}
-        <div className="mt-auto flex items-center px-5 py-3 bg-[rgba(10,21,100,0.03)] border-t-2 border-[rgba(10,21,100,0.08)]">
+        <div className="mt-auto flex items-center px-5 py-3 bg-[rgba(8,17,29,0.03)] border-t-2 border-[rgba(8,17,29,0.08)]">
           <span className="text-[10px] font-bold tracking-[1px] uppercase text-ink-35 flex-1 min-w-0 pl-5">Total do pipeline</span>
           <span className="font-display text-[18px] font-bold text-navy w-9 text-right shrink-0">{totalFunnelCount}</span>
           <span className="font-mono-dm tabular-nums text-[13px] font-bold text-dash-green w-[112px] text-right whitespace-nowrap shrink-0 pl-2 pr-3">{compactCurrency(totalFunnelPotencial)}</span>

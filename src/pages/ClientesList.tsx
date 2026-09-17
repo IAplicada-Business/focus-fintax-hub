@@ -195,7 +195,7 @@ export default function ClientesList() {
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
-    XLSX.writeFile(wb, `FocusFinTax_Clientes_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `AGFFinTax_Clientes_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const exportClientesPorTese = async () => {
@@ -224,7 +224,7 @@ export default function ClientesList() {
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Processos por Tese');
-    XLSX.writeFile(wb, `FocusFinTax_Teses_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `AGFFinTax_Teses_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   return (
@@ -359,11 +359,11 @@ export default function ClientesList() {
            ) : paginated.length === 0 ? (
              <TableRow><TableCell colSpan={!isComercial ? 11 : 10}>
                <EmptyState
-                 icon={<Building2 className="w-5 h-5 text-[rgba(10,21,100,0.3)]" />}
+                 icon={<Building2 className="w-5 h-5 text-[rgba(8,17,29,0.3)]" />}
                  title="Nenhum cliente encontrado"
                  subtitle={search ? `Sem resultados para "${search}"` : "Cadastre o primeiro cliente para começar"}
                  action={!search ? (
-                   <button onClick={(e) => { e.stopPropagation(); setModalOpen(true); }} className="text-xs font-bold text-[#0a1564] hover:underline mt-1">
+                   <button onClick={(e) => { e.stopPropagation(); setModalOpen(true); }} className="text-xs font-bold text-[#08111d] hover:underline mt-1">
                      Cadastrar cliente →
                    </button>
                  ) : undefined}
@@ -534,7 +534,7 @@ export default function ClientesList() {
           <div id="report-content" className="space-y-6 print:space-y-4">
             {/* Title */}
             <div className="text-center border-b pb-4">
-              <h2 className="text-xl font-bold text-foreground">Carteira Focus FinTax — Visão Consolidada</h2>
+              <h2 className="text-xl font-bold text-foreground">Carteira AGF FinTax — Visão Consolidada</h2>
               <p className="text-sm text-muted-foreground mt-1">{reportDate}</p>
             </div>
 

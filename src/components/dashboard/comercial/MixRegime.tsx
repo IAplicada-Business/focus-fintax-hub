@@ -30,7 +30,7 @@ export function MixRegime({ regimeMix }: Props) {
 
   return (
     <div className="card-base overflow-hidden flex flex-col">
-      <div className="px-[18px] pt-3 pb-2.5 border-b border-[rgba(10,21,100,0.10)]">
+      <div className="px-[18px] pt-3 pb-2.5 border-b border-[rgba(8,17,29,0.10)]">
         <div className="text-[11px] font-bold tracking-[0.8px] uppercase text-navy">Mix por regime tributário</div>
         <div className="text-[11px] text-ink-35 mt-0.5">leads ativos · teses do motor que cobrem cada regime</div>
       </div>
@@ -65,7 +65,7 @@ export function MixRegime({ regimeMix }: Props) {
                     const pct = total > 0 ? Math.round((Number(v) / total) * 100) : 0;
                     return [`${v} lead${Number(v) !== 1 ? "s" : ""} · ${pct}%${row ? ` · ${compactCurrency(row.potencial)}` : ""}`, row?.label ?? ""];
                   }}
-                  contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid rgba(10,21,100,0.10)" }}
+                  contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid rgba(8,17,29,0.10)" }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -86,7 +86,7 @@ export function MixRegime({ regimeMix }: Props) {
                   {r.teses !== null && (
                     <span
                       className={`shrink-0 rounded px-1.5 py-[1px] text-[9px] font-bold uppercase tracking-[0.4px] ${
-                        semTese ? "bg-[rgba(200,0,30,0.10)] text-dash-red" : "bg-[rgba(10,21,100,0.06)] text-navy"
+                        semTese ? "bg-[rgba(200,0,30,0.10)] text-dash-red" : "bg-[rgba(8,17,29,0.06)] text-navy"
                       }`}
                       title={semTese ? "Nenhuma tese ativa no motor cobre este regime" : `${r.teses} tese(s) ativa(s) elegíveis`}
                     >

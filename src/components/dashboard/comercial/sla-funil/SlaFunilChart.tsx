@@ -24,13 +24,13 @@ function SlaTooltip({ active, payload }: { active?: boolean; payload?: TooltipPa
   const p = payload?.[0]?.payload;
   if (!active || !p) return null;
   return (
-    <div className="rounded-lg border border-[rgba(10,21,100,0.12)] bg-white px-3 py-2.5 shadow-lg text-[11px] min-w-[190px]">
+    <div className="rounded-lg border border-[rgba(8,17,29,0.12)] bg-white px-3 py-2.5 shadow-lg text-[11px] min-w-[190px]">
       <p className="font-bold text-navy mb-1.5">{p.label}</p>
       <div className="space-y-1 font-mono-dm tabular-nums">
         <Row label="Tempo médio parado" value={`${p.media}d`} className={p.acimaDaMeta ? "text-dash-red font-semibold" : "text-navy"} />
         <Row label="Lead mais parado" value={`${p.maximo}d`} className="text-ink-60" />
         <Row label="Meta" value={p.meta != null ? `${p.meta}d` : "sem meta"} className="text-dash-amber" />
-        <div className="border-t border-[rgba(10,21,100,0.08)] my-1" />
+        <div className="border-t border-[rgba(8,17,29,0.08)] my-1" />
         <Row label="Leads na etapa" value={String(p.leads)} className="text-ink-60" />
         <Row label="Atrasados" value={String(p.atrasados)} className={p.atrasados > 0 ? "text-dash-red font-semibold" : "text-ink-60"} />
         <Row label="Atraso acumulado" value={`${p.atrasoAcumulado}d`} className={p.atrasoAcumulado > 0 ? "text-dash-red" : "text-ink-60"} />
@@ -68,7 +68,7 @@ export function SlaFunilChart({ serie, etapas, etapaAtiva, podeEditarMeta, salva
 
   return (
     <div className="card-base overflow-hidden">
-      <div className="px-5 pt-4 pb-3 border-b border-[rgba(10,21,100,0.10)] flex flex-wrap items-start justify-between gap-3">
+      <div className="px-5 pt-4 pb-3 border-b border-[rgba(8,17,29,0.10)] flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[1.6px] text-ink-35">SLA por etapa do funil</p>
           <h3 className="font-display text-lg font-bold text-navy mt-0.5">Tempo parado vs meta</h3>
@@ -103,7 +103,7 @@ export function SlaFunilChart({ serie, etapas, etapaAtiva, podeEditarMeta, salva
                 allowDecimals={false}
                 tickFormatter={(v: number) => `${v}d`}
               />
-              <RechartsTooltip content={<SlaTooltip />} cursor={{ fill: "rgba(10,21,100,0.04)" }} />
+              <RechartsTooltip content={<SlaTooltip />} cursor={{ fill: "rgba(8,17,29,0.04)" }} />
               <Bar dataKey="media" name="Tempo médio parado" radius={[3, 3, 0, 0]} maxBarSize={40}>
                 {serie.map((p) => (
                   <Cell key={p.etapa} fill={p.acimaDaMeta ? "var(--dash-red)" : "var(--navy)"} opacity={etapaAtiva && etapaAtiva !== p.etapa ? 0.35 : 1} />
@@ -115,9 +115,9 @@ export function SlaFunilChart({ serie, etapas, etapaAtiva, podeEditarMeta, salva
                   formatter={(v: number) => (v > 0 ? `${v}d` : "")}
                 />
               </Bar>
-              <Bar dataKey="maximo" name="Lead mais parado" fill="rgba(10,21,100,0.22)" radius={[3, 3, 0, 0]} maxBarSize={40}>
+              <Bar dataKey="maximo" name="Lead mais parado" fill="rgba(8,17,29,0.22)" radius={[3, 3, 0, 0]} maxBarSize={40}>
                 {serie.map((p) => (
-                  <Cell key={p.etapa} fill="rgba(10,21,100,0.22)" opacity={etapaAtiva && etapaAtiva !== p.etapa ? 0.4 : 1} />
+                  <Cell key={p.etapa} fill="rgba(8,17,29,0.22)" opacity={etapaAtiva && etapaAtiva !== p.etapa ? 0.4 : 1} />
                 ))}
               </Bar>
               <Line
@@ -142,20 +142,20 @@ export function SlaFunilChart({ serie, etapas, etapaAtiva, podeEditarMeta, salva
       <div className="flex flex-wrap gap-4 px-5 py-2.5">
         <LegendItem swatch={<div className="w-2.5 h-2.5 rounded-sm bg-navy" />} label="Tempo médio parado" />
         <LegendItem swatch={<div className="w-2.5 h-2.5 rounded-sm bg-dash-red" />} label="Média acima da meta" />
-        <LegendItem swatch={<div className="w-2.5 h-2.5 rounded-sm bg-[rgba(10,21,100,0.22)]" />} label="Lead mais parado" />
+        <LegendItem swatch={<div className="w-2.5 h-2.5 rounded-sm bg-[rgba(8,17,29,0.22)]" />} label="Lead mais parado" />
         <LegendItem swatch={<div className="w-4 h-0 border-t-2 border-dashed border-dash-amber" />} label="Meta (dias)" />
       </div>
 
       {/* Régua de metas: filtra a tabela e edita a meta inline. */}
-      <div className="border-t border-[rgba(10,21,100,0.10)] grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="border-t border-[rgba(8,17,29,0.10)] grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
         {etapas.map((e, i) => {
           const ativa = etapaAtiva === e.etapa;
           const acima = e.sla != null && e.diasMedios != null && e.diasMedios > e.sla;
           return (
             <div
               key={e.etapa}
-              className={`px-4 py-3 transition-colors ${i < etapas.length - 1 ? "lg:border-r border-[rgba(10,21,100,0.08)]" : ""} ${
-                ativa ? "bg-[rgba(10,21,100,0.05)]" : "bg-white"
+              className={`px-4 py-3 transition-colors ${i < etapas.length - 1 ? "lg:border-r border-[rgba(8,17,29,0.08)]" : ""} ${
+                ativa ? "bg-[rgba(8,17,29,0.05)]" : "bg-white"
               }`}
             >
               <button type="button" onClick={() => onSelecionarEtapa(e.etapa)} className="w-full text-left group">
@@ -186,7 +186,7 @@ export function SlaFunilChart({ serie, etapas, etapaAtiva, podeEditarMeta, salva
                       onKeyDown={(ev) => {
                         if (ev.key === "Enter") (ev.target as HTMLInputElement).blur();
                       }}
-                      className="h-6 w-14 rounded border border-[rgba(10,21,100,0.15)] bg-white px-1.5 text-right font-mono-dm text-[11px] tabular-nums text-navy focus:outline-none focus:ring-1 focus:ring-navy/40 disabled:opacity-60"
+                      className="h-6 w-14 rounded border border-[rgba(8,17,29,0.15)] bg-white px-1.5 text-right font-mono-dm text-[11px] tabular-nums text-navy focus:outline-none focus:ring-1 focus:ring-navy/40 disabled:opacity-60"
                       aria-label={`Meta em dias para ${e.label}`}
                     />
                   ) : (

@@ -181,18 +181,18 @@ function PulsoTable({
             </p>
           ) : (
             <>
-              <div className="grid grid-cols-[2.5rem_1fr_auto] gap-x-3 px-5 pb-2 text-[10px] font-bold uppercase tracking-wide text-ink-35 border-b border-[rgba(10,21,100,0.06)]">
+              <div className="grid grid-cols-[2.5rem_1fr_auto] gap-x-3 px-5 pb-2 text-[10px] font-bold uppercase tracking-wide text-ink-35 border-b border-[rgba(8,17,29,0.06)]">
                 <span>#</span>
                 <span>Cliente</span>
                 <span className="text-right">Compensado</span>
               </div>
-              <ul className="divide-y divide-[rgba(10,21,100,0.06)]">
+              <ul className="divide-y divide-[rgba(8,17,29,0.06)]">
                 {(expanded ? topClientes : topClientes.slice(0, LIMIT)).map((c, i) => (
                   <li key={c.id}>
                     <button
                       type="button"
                       onClick={() => navigate(`/clientes/${c.id}`)}
-                      className="w-full grid grid-cols-[2.5rem_1fr_auto] gap-x-3 items-center px-5 py-2.5 text-left hover:bg-[rgba(10,21,100,0.03)] transition-colors group"
+                      className="w-full grid grid-cols-[2.5rem_1fr_auto] gap-x-3 items-center px-5 py-2.5 text-left hover:bg-[rgba(8,17,29,0.03)] transition-colors group"
                     >
                       <span className="text-[11px] font-mono-dm text-ink-35">{i + 1}</span>
                       <div className="min-w-0">
@@ -217,13 +217,13 @@ function PulsoTable({
             </p>
           ) : (
             <>
-              <div className="grid grid-cols-[2.5rem_1fr_auto_auto] gap-x-3 px-5 pb-2 text-[10px] font-bold uppercase tracking-wide text-ink-35 border-b border-[rgba(10,21,100,0.06)]">
+              <div className="grid grid-cols-[2.5rem_1fr_auto_auto] gap-x-3 px-5 pb-2 text-[10px] font-bold uppercase tracking-wide text-ink-35 border-b border-[rgba(8,17,29,0.06)]">
                 <span>#</span>
                 <span>Cliente</span>
                 <span className="text-right">Parado</span>
                 <span className="text-right">Saldo</span>
               </div>
-              <ul className="divide-y divide-[rgba(10,21,100,0.06)]">
+              <ul className="divide-y divide-[rgba(8,17,29,0.06)]">
                 {(expanded ? clientesSemMovimento : clientesSemMovimento.slice(0, LIMIT)).map((c, i) => {
                   const st = c.status as StatusCompensacao;
                   return (
@@ -259,7 +259,7 @@ function PulsoTable({
       </div>
 
       {showExpand && (
-        <div className="px-5 py-2.5 border-t border-[rgba(10,21,100,0.06)] text-center">
+        <div className="px-5 py-2.5 border-t border-[rgba(8,17,29,0.06)] text-center">
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}

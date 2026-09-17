@@ -14,7 +14,7 @@ export function ProjectionBand({ projAnual, projHonAnual, prazoSaldo, honFuturos
   const items = [
     { label: "Projeção anual", val: compactCurrency(projAnual), sub: "compensado se ritmo mantido", colorClass: "text-red-300" },
     null,
-    { label: "Honorários projetados / ano", val: compactCurrency(projHonAnual), sub: "receita estimada Focus FinTax", colorClass: "text-emerald-300" },
+    { label: "Honorários projetados / ano", val: compactCurrency(projHonAnual), sub: "receita estimada AGF FinTax", colorClass: "text-emerald-300" },
     null,
     { label: "Prazo do saldo atual", val: `${prazoSaldo.toFixed(1)} meses`, sub: "ao ritmo médio atual", colorClass: "text-amber-300" },
     null,
@@ -24,7 +24,7 @@ export function ProjectionBand({ projAnual, projHonAnual, prazoSaldo, honFuturos
   ];
 
   return (
-    <div className="animate-slide-up delay-2 relative overflow-hidden rounded-2xl px-6 py-3.5 grid grid-cols-[1fr_1px_1fr_1px_1fr_1px_1fr_1px_1fr] mb-3.5 items-center" style={{ background: 'linear-gradient(135deg, #0a1564 0%, #1a2d8a 100%)', boxShadow: '0 8px 32px rgba(10,21,100,0.25)' }}>
+    <div className="animate-slide-up delay-2 relative overflow-hidden rounded-2xl px-6 py-3.5 grid grid-cols-[1fr_1px_1fr_1px_1fr_1px_1fr_1px_1fr] mb-3.5 items-center" style={{ background: 'linear-gradient(135deg, #08111d 0%, #1c3150 100%)', boxShadow: '0 8px 32px rgba(8,17,29,0.25)' }}>
       <div className="absolute inset-x-0 top-0 h-px rounded-t-2xl bg-white/10" />
       {items.map((item, i) => {
         if (!item) return <div key={i} className="w-px bg-[rgba(255,255,255,0.12)] self-stretch" />;

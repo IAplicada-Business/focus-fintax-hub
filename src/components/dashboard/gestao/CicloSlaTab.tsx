@@ -152,7 +152,7 @@ export function CicloSlaTab() {
             className={`text-[11px] font-semibold px-3 py-1.5 rounded-md border transition-colors ${
               filtroEtapa === "atrasados"
                 ? "bg-[rgba(200,0,30,0.08)] border-[rgba(200,0,30,0.25)] text-dash-red"
-                : "bg-white border-[rgba(10,21,100,0.10)] text-ink-60 hover:text-navy"
+                : "bg-white border-[rgba(8,17,29,0.10)] text-ink-60 hover:text-navy"
             }`}
           >
             Ver só atrasados
@@ -173,8 +173,8 @@ export function CicloSlaTab() {
                 onClick={() => setFiltroEtapa(e)}
                 className={`rounded-xl px-3 py-3 text-left transition-all border ${
                   active
-                    ? "border-navy/30 bg-[rgba(10,21,100,0.06)] shadow-sm"
-                    : "border-[rgba(10,21,100,0.08)] bg-white hover:border-navy/20"
+                    ? "border-navy/30 bg-[rgba(8,17,29,0.06)] shadow-sm"
+                    : "border-[rgba(8,17,29,0.08)] bg-white hover:border-navy/20"
                 }`}
               >
                 <p className="text-[10px] font-semibold text-ink-35 leading-tight min-h-[28px]">
@@ -183,7 +183,7 @@ export function CicloSlaTab() {
                 <p className="font-display text-[28px] font-bold text-navy leading-none mt-1">
                   {count}
                 </p>
-                <div className="mt-2 h-1 rounded-full bg-[rgba(10,21,100,0.06)] overflow-hidden">
+                <div className="mt-2 h-1 rounded-full bg-[rgba(8,17,29,0.06)] overflow-hidden">
                   <div
                     className="h-full rounded-full bg-navy/70"
                     style={{ width: `${(count / maxEtapa) * 100}%` }}

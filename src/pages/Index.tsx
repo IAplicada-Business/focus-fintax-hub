@@ -56,7 +56,7 @@ const Index = () => {
     return () => {
       // Remove injected styles
       document.querySelectorAll("style").forEach((style) => {
-        if (style.textContent?.includes("--navy:#0a1a6b")) {
+        if (style.textContent?.includes("__AGF_LP__")) {
           style.remove();
         }
       });

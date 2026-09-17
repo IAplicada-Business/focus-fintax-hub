@@ -446,7 +446,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
                   margin={{ top: 4, right: 72, bottom: 0, left: 0 }}
                   barCategoryGap={8}
                 >
-                  <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="rgba(10,21,100,0.06)" />
+                  <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="rgba(8,17,29,0.06)" />
                   <XAxis
                     type="number"
                     tickFormatter={(v) => compactCurrency(Number(v))}
@@ -463,7 +463,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
                     tickLine={false}
                   />
                   <Tooltip
-                    cursor={{ fill: "rgba(10,21,100,0.04)" }}
+                    cursor={{ fill: "rgba(8,17,29,0.04)" }}
                     content={<TributoTooltip />}
                   />
                   <Bar dataKey="compensado" name="Compensado" fill="var(--navy)" radius={[0, 4, 4, 0]} barSize={18}>
@@ -489,7 +489,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartMensal} barGap={4}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,21,100,0.06)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(8,17,29,0.06)" />
               <XAxis
                 dataKey="label"
                 tick={{ fontSize: 10, fill: "rgba(15,17,23,0.4)" }}
@@ -543,7 +543,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
                 {semTeseVisiveis.map((c, i) => (
                   <tr
                     key={c.id}
-                    className="border-b border-[rgba(10,21,100,0.06)] hover:bg-muted/40 cursor-pointer"
+                    className="border-b border-[rgba(8,17,29,0.06)] hover:bg-muted/40 cursor-pointer"
                     onClick={() => _navigate(`/clientes/${c.id}`)}
                   >
                     <td className="py-2 text-ink-35 font-mono-dm tabular-nums">{i + 1}</td>
@@ -615,7 +615,7 @@ export const ExecutivaView = memo(function ExecutivaView({ navigate: _navigate }
               {topPorCredito.map((r, i) => (
                 <tr
                   key={r.cliente_id}
-                  className="border-b border-[rgba(10,21,100,0.06)] hover:bg-muted/40 cursor-pointer"
+                  className="border-b border-[rgba(8,17,29,0.06)] hover:bg-muted/40 cursor-pointer"
                   onClick={() => _navigate(`/clientes/${r.cliente_id}`)}
                 >
                   <td className="py-2">

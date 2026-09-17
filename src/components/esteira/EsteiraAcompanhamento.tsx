@@ -143,7 +143,7 @@ export function EsteiraAcompanhamento({ clientes, slaConfig }: Props) {
       {linhas.length === 0 ? (
         <div className="rounded-lg border bg-card">
           <EmptyState
-            icon={<ListChecks className="h-5 w-5 text-[rgba(10,21,100,0.3)]" />}
+            icon={<ListChecks className="h-5 w-5 text-[rgba(8,17,29,0.3)]" />}
             title="Nenhum cliente neste filtro"
             subtitle="Troque a faixa, o responsável ou o ramo."
           />

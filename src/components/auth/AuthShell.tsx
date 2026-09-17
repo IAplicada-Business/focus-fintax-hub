@@ -3,7 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const INPUT_BASE =
-  "w-full pl-11 py-3 h-12 bg-[rgba(6,8,31,0.6)] border border-white/15 rounded-xl text-white text-[15px] placeholder-white/45 transition-all duration-200 focus:outline-none focus:border-[#d04545]/55 focus:bg-[rgba(6,8,31,0.75)] focus:shadow-[0_0_0_3px_rgba(208,69,69,0.18)]";
+  "w-full pl-11 py-3 h-12 bg-[rgba(8,17,29,0.6)] border border-white/15 rounded-xl text-white text-[15px] placeholder-white/45 transition-all duration-200 focus:outline-none focus:border-[#c6964f]/55 focus:bg-[rgba(8,17,29,0.75)] focus:shadow-[0_0_0_3px_rgba(198,150,79,0.18)]";
 
 /** `withToggle` reserva espaço à direita para o botão de mostrar/ocultar senha. */
 export function authInputClass(withToggle = false) {
@@ -23,11 +23,11 @@ export function AuthSubmitButton({ loading, children }: { loading: boolean; chil
     <button
       type="submit"
       disabled={loading}
-      className="w-full h-12 rounded-full text-white text-sm font-semibold tracking-[-0.005em] transition-all duration-200 ease-out hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#d04545]/55 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none shadow-[0_8px_24px_-8px_rgba(208,69,69,0.55)] hover:shadow-[0_14px_36px_-10px_rgba(208,69,69,0.65)] flex items-center justify-center gap-2"
-      style={{ background: "linear-gradient(180deg, #d04545 0%, #b53939 100%)" }}
+      className="w-full h-12 rounded-full text-[#08111d] text-sm font-bold tracking-[-0.005em] transition-all duration-200 ease-out hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#c6964f]/55 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none shadow-[0_8px_24px_-8px_rgba(198,150,79,0.55)] hover:shadow-[0_14px_36px_-10px_rgba(198,150,79,0.65)] flex items-center justify-center gap-2"
+      style={{ background: "linear-gradient(180deg, #c6964f 0%, #a67a38 100%)" }}
     >
       {loading ? (
-        <div className="h-4 w-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
+        <div className="h-4 w-4 border-2 border-[#08111d]/80 border-t-transparent rounded-full animate-spin" />
       ) : (
         <>
           {children}
@@ -49,7 +49,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
   return (
     <div
       className="min-h-screen w-full flex items-center justify-center relative overflow-hidden p-4"
-      style={{ background: "#06081f" }}
+      style={{ background: "#08111d" }}
     >
       <style>{`
         @keyframes halo-orbit {
@@ -68,7 +68,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 80% 50% at 50% 100%, rgba(1,15,105,0.55) 0%, transparent 70%), radial-gradient(ellipse 100% 60% at 50% 0%, rgba(14,18,53,1) 0%, transparent 60%)",
+            "radial-gradient(ellipse 80% 50% at 50% 100%, rgba(28,49,80,0.55) 0%, transparent 70%), radial-gradient(ellipse 100% 60% at 50% 0%, rgba(16,28,46,1) 0%, transparent 60%)",
         }}
       />
 
@@ -80,7 +80,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
           width: "min(1200px, 130vw)",
           aspectRatio: "1",
           background:
-            "radial-gradient(circle at 38% 42%, rgba(208,69,69,0.22) 0%, rgba(208,69,69,0.06) 30%, transparent 55%)",
+            "radial-gradient(circle at 38% 42%, rgba(198,150,79,0.22) 0%, rgba(198,150,79,0.06) 30%, transparent 55%)",
           filter: "blur(40px)",
           animation: "halo-orbit 32s linear infinite",
           willChange: "transform",
@@ -103,7 +103,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
       <div
         className="relative z-10 w-full max-w-md p-7 sm:p-9 rounded-2xl border border-white/12 shadow-[0_32px_80px_-24px_rgba(0,0,0,0.65),0_1px_0_0_rgba(255,255,255,0.06)_inset] backdrop-blur-md"
         style={{
-          background: "linear-gradient(180deg, rgba(6,8,31,0.55) 0%, rgba(6,8,31,0.72) 100%)",
+          background: "linear-gradient(180deg, rgba(8,17,29,0.55) 0%, rgba(8,17,29,0.72) 100%)",
           animation: "fade-up-soft .6s cubic-bezier(0.16, 1, 0.3, 1) both",
         }}
       >
@@ -113,7 +113,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
           className="absolute left-0 top-5 bottom-5 w-[2px] rounded-r"
           style={{
             background:
-              "linear-gradient(180deg, transparent 0%, #d04545 22%, #e06b6b 78%, transparent 100%)",
+              "linear-gradient(180deg, transparent 0%, #c6964f 22%, #d9b06e 78%, transparent 100%)",
             opacity: 0.7,
           }}
         />
@@ -125,15 +125,15 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
               className="absolute -inset-2 blur-xl opacity-60 transition-opacity duration-500 group-hover:opacity-90"
               style={{
                 background:
-                  "linear-gradient(90deg, rgba(208,69,69,0.45) 0%, rgba(224,107,107,0.35) 50%, rgba(1,15,105,0.45) 100%)",
+                  "linear-gradient(90deg, rgba(198,150,79,0.45) 0%, rgba(217,176,110,0.35) 50%, rgba(28,49,80,0.45) 100%)",
               }}
             />
             <span className="relative inline-block tracking-[-0.022em] text-white">{title}</span>
           </h1>
           <p className="text-sm text-white/65 leading-relaxed mt-2">{subtitle}</p>
           <div className="mt-3 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/40 font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#d04545]" />
-            Focus FinTax · Grupo Focus
+            <span className="w-1.5 h-1.5 rounded-full bg-[#c6964f]" />
+            AGF FinTax · Grupo AGF
           </div>
         </div>
 
@@ -142,7 +142,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
         {footer && <div className="mt-6 text-center">{footer}</div>}
 
         <p className="mt-7 text-center text-[11px] text-white/35 tracking-[0.08em] uppercase">
-          © {new Date().getFullYear()} · Grupo Focus
+          © {new Date().getFullYear()} · Grupo AGF
         </p>
       </div>
     </div>

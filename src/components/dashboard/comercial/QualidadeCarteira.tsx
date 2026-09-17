@@ -7,7 +7,7 @@ interface Props {
 export function QualidadeCarteira({ scoreDistribution }: Props) {
   return (
     <div className="card-base overflow-hidden">
-      <div className="px-[18px] pt-3 pb-2.5 border-b border-[rgba(10,21,100,0.10)]">
+      <div className="px-[18px] pt-3 pb-2.5 border-b border-[rgba(8,17,29,0.10)]">
         <div className="text-[11px] font-bold tracking-[0.8px] uppercase text-navy">Qualidade da carteira</div>
       </div>
       <div className="px-3.5 py-2">

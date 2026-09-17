@@ -17,12 +17,12 @@ interface Props {
 export function ChartEvolucao({ monthlyBars, avgMensal, nextMonthLabel, periodLabel, trendPct, taxaHon, insightVar, insightVarLabel }: Props) {
   return (
     <div className="card-base overflow-hidden">
-      <div className="px-[18px] pt-3 pb-2.5 border-b border-[rgba(10,21,100,0.10)] flex items-center justify-between">
+      <div className="px-[18px] pt-3 pb-2.5 border-b border-[rgba(8,17,29,0.10)] flex items-center justify-between">
         <div>
           <div className="text-[11px] font-bold tracking-[0.8px] uppercase text-navy">Evolução mensal — compensações realizadas</div>
-          <div className="text-[11px] text-ink-35 mt-0.5">receita da Focus FinTax vs economia bruta dos clientes</div>
+          <div className="text-[11px] text-ink-35 mt-0.5">receita da AGF FinTax vs economia bruta dos clientes</div>
         </div>
-        <span className="inline-flex items-center bg-[rgba(10,21,100,0.08)] rounded-[5px] px-2 py-[2px] text-[10px] font-semibold text-navy font-mono-dm tabular-nums">{periodLabel}</span>
+        <span className="inline-flex items-center bg-[rgba(8,17,29,0.08)] rounded-[5px] px-2 py-[2px] text-[10px] font-semibold text-navy font-mono-dm tabular-nums">{periodLabel}</span>
       </div>
 
       {monthlyBars.length === 0 ? (
@@ -47,19 +47,19 @@ export function ChartEvolucao({ monthlyBars, avgMensal, nextMonthLabel, periodLa
               <div className="w-2 h-2 rounded-sm bg-navy" />Compensado
             </div>
             <div className="flex items-center gap-[5px] text-[10px] text-ink-60">
-              <div className="w-2 h-2 rounded-sm bg-dash-red opacity-65" />Honorários Focus
+              <div className="w-2 h-2 rounded-sm bg-dash-red opacity-65" />Honorários AGF
             </div>
             <div className="flex items-center gap-[5px] text-[10px] text-ink-60">
               <div className="w-2 h-2 rounded-sm border-2 border-dashed border-navy bg-transparent" />Projeção
             </div>
           </div>
           {/* Insight strip */}
-          <div className="grid grid-cols-3 border-t border-[rgba(10,21,100,0.10)]">
-            <div className="px-3.5 py-2.5 border-r border-[rgba(10,21,100,0.10)] text-center">
+          <div className="grid grid-cols-3 border-t border-[rgba(8,17,29,0.10)]">
+            <div className="px-3.5 py-2.5 border-r border-[rgba(8,17,29,0.10)] text-center">
               <div className={`font-display text-lg font-bold leading-none ${trendPct < 0 ? "text-dash-red" : trendPct > 0 ? "text-dash-green" : "text-navy"}`}>{insightVar}</div>
               <div className="text-[9px] text-ink-35 tracking-[0.8px] uppercase mt-[3px] font-semibold">{insightVarLabel}</div>
             </div>
-            <div className="px-3.5 py-2.5 border-r border-[rgba(10,21,100,0.10)] text-center">
+            <div className="px-3.5 py-2.5 border-r border-[rgba(8,17,29,0.10)] text-center">
               <div className="font-display text-lg font-bold text-navy leading-none">{(taxaHon * 100).toFixed(1)}%</div>
               <div className="text-[9px] text-ink-35 tracking-[0.8px] uppercase mt-[3px] font-semibold">Taxa hon. média</div>
             </div>

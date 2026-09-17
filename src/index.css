@@ -1,7 +1,13 @@
 :root {
-  --navy: #0a1564;
-  --navy-10: rgba(10,21,100,0.08);
-  --navy-06: rgba(10,21,100,0.05);
+  /* Paleta oficial Grupo AGF: navy #08111d · dourado #c6964f · off-white #f5f5f5 */
+  --navy: #08111d;
+  --gold: #c6964f;
+  --gold-soft: #d9b06e;
+  --gold-deep: #a67a38;
+  --gold-10: rgba(198,150,79,0.10);
+  --gold-20: rgba(198,150,79,0.20);
+  --navy-10: rgba(8,17,29,0.08);
+  --navy-06: rgba(8,17,29,0.05);
   --dash-red: #c8001e;
   --dash-green: #0f7b4e;
   --dash-green-10: rgba(15,123,78,0.10);
@@ -14,8 +20,8 @@
   --ink-12: rgba(15,17,23,0.12);
   --ink-06: rgba(15,17,23,0.05);
   --dash-surface: #fff;
-  --dash-page: #f2f3f7;
-  --dash-border: rgba(10,21,100,0.10);
+  --dash-page: #f5f5f5;
+  --dash-border: rgba(8,17,29,0.10);
 }
 
 @keyframes slideUp {
@@ -35,9 +41,9 @@
   background: #ffffff;
   border-radius: 20px;
   box-shadow:
-    0 0 0 1px rgba(6,8,31,0.05),
-    0 1px 2px rgba(6,8,31,0.04),
-    0 8px 24px -12px rgba(6,8,31,0.10);
+    0 0 0 1px rgba(8,17,29,0.05),
+    0 1px 2px rgba(8,17,29,0.04),
+    0 8px 24px -12px rgba(8,17,29,0.10);
   border: none;
   transition: box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -46,9 +52,9 @@
 }
 .card-hover:hover {
   box-shadow:
-    0 0 0 1px rgba(208,69,69,0.18),
-    0 4px 12px rgba(6,8,31,0.08),
-    0 18px 40px -16px rgba(6,8,31,0.16);
+    0 0 0 1px rgba(198,150,79,0.18),
+    0 4px 12px rgba(8,17,29,0.08),
+    0 18px 40px -16px rgba(8,17,29,0.16);
   transform: translateY(-2px);
 }
 
@@ -77,14 +83,14 @@
 .card-flush {
   background: #ffffff;
   border-radius: 20px;
-  box-shadow: 0 0 0 1px rgba(6,8,31,0.05);
+  box-shadow: 0 0 0 1px rgba(8,17,29,0.05);
 }
 
 /* Hide scrollbar but keep scroll functionality (used em tabs nav etc) */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
-/* Modern link/CTA with diagonal arrow micro-interaction (uses brand red as accent) */
+/* Modern link/CTA with diagonal arrow micro-interaction (dourado AGF como acento) */
 .link-arrow {
   display: inline-flex;
   align-items: center;
@@ -169,48 +175,48 @@
 
 @layer base {
   :root {
-    /* Neutros warm aligned with LP signature */
-    --background: 36 18% 96%;          /* #f6f4ee — warm cream */
-    --foreground: 233 56% 13%;          /* navy escuro (preservado) */
+    /* Neutros AGF: off-white #f5f5f5 da marca, navy #08111d como tinta */
+    --background: 0 0% 96%;             /* #f5f5f5 — off-white da marca */
+    --foreground: 214 57% 7%;           /* #08111d — navy AGF */
 
     --card: 0 0% 100%;
-    --card-foreground: 233 56% 13%;
-    --card-border: 36 16% 88%;          /* warm border (era frio) */
+    --card-foreground: 214 57% 7%;
+    --card-border: 0 0% 88%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 233 56% 13%;
+    --popover-foreground: 214 57% 7%;
 
-    --primary: 233 83% 24%;             /* navy da marca */
-    --primary-foreground: 0 0% 100%;
+    --primary: 214 57% 7%;              /* navy AGF */
+    --primary-foreground: 0 0% 96%;
 
-    --secondary: 0 59% 50%;             /* #c8001e dash-red */
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 36 51% 54%;            /* #c6964f — dourado AGF */
+    --secondary-foreground: 214 57% 7%;
 
-    --muted: 36 18% 92%;                /* warm muted */
-    --muted-foreground: 233 28% 40%;
+    --muted: 0 0% 92%;
+    --muted-foreground: 214 15% 40%;
 
-    --accent: 36 18% 92%;               /* warm accent surface */
-    --accent-foreground: 233 97% 21%;
+    --accent: 36 51% 94%;               /* dourado bem claro (superfície de destaque) */
+    --accent-foreground: 214 57% 7%;
 
     --destructive: 0 59% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 36 16% 88%;
-    --input: 36 16% 88%;
-    --ring: 0 59% 50%;                  /* focus ring agora é red (era navy) */
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 36 51% 54%;                 /* focus ring dourado */
 
     --radius: 0.875rem;
 
-    --sidebar-background: 234 68% 7%;
-    --sidebar-foreground: 230 33% 85%;
-    --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 233 97% 21%;
-    --sidebar-accent: 234 68% 12%;
+    --sidebar-background: 214 57% 7%;   /* #08111d */
+    --sidebar-foreground: 214 20% 85%;
+    --sidebar-primary: 36 51% 54%;
+    --sidebar-primary-foreground: 214 57% 7%;
+    --sidebar-accent: 214 45% 12%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 234 50% 14%;
-    --sidebar-ring: 0 59% 50%;
+    --sidebar-border: 214 40% 16%;
+    --sidebar-ring: 36 51% 54%;
 
-    --body-text: 233 28% 40%;
+    --body-text: 214 15% 40%;
   }
 }
 
@@ -228,8 +234,8 @@
   body {
     @apply text-foreground font-sans;
     background:
-      radial-gradient(ellipse at 80% 100%, rgba(200,0,30,0.025) 0%, transparent 50%),
-      #f6f4ee;
+      radial-gradient(ellipse at 80% 100%, rgba(198,150,79,0.06) 0%, transparent 50%),
+      #f5f5f5;
     letter-spacing: -0.005em;
   }
 
@@ -239,12 +245,12 @@
 
   :focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(200,0,30,0.22);
+    box-shadow: 0 0 0 3px rgba(198,150,79,0.35);
     border-radius: 8px;
   }
 
   ::selection {
-    background: rgba(10,21,100,0.18);
+    background: rgba(198,150,79,0.30);
   }
 }
 

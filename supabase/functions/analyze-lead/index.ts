@@ -114,7 +114,7 @@ serve(async (req) => {
     let conteudoHtml = "";
 
     if (lovableApiKey && teses.length > 0) {
-      const prompt = `Você é um consultor tributário da Focus FinTax. Gere um relatório HTML formatado (apenas o body content, sem tags html/head/body) com DOIS BLOCOS distintos.
+      const prompt = `Você é um consultor tributário da AGF FinTax. Gere um relatório HTML formatado (apenas o body content, sem tags html/head/body) com DOIS BLOCOS distintos.
 
 BLOCO 1 — CONTEXTO EDUCATIVO (fixo, independe do lead):
 - Título chamativo tipo "Você pode estar pagando mais imposto do que deveria"

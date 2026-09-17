@@ -150,7 +150,7 @@ export function PipelineList({ leads, onLeadClick }: Props) {
               const stageColor = STAGE_COLORS[lead.status_funil] || "";
 
               return (
-                <TableRow key={lead.id} className={`cursor-pointer hover:bg-[rgba(10,21,100,0.025)] ${idx % 2 === 0 ? "bg-[rgba(10,21,100,0.012)]" : ""}`} onClick={() => onLeadClick(lead.id)}>
+                <TableRow key={lead.id} className={`cursor-pointer hover:bg-[rgba(8,17,29,0.025)] ${idx % 2 === 0 ? "bg-[rgba(8,17,29,0.012)]" : ""}`} onClick={() => onLeadClick(lead.id)}>
                   <TableCell className="font-medium">{lead.empresa}</TableCell>
                   <TableCell><span className="text-xs">{SEGMENTO_LABELS[lead.segmento] || lead.segmento}</span></TableCell>
                   <TableCell><span className="text-xs">{lead.regime_tributario}</span></TableCell>

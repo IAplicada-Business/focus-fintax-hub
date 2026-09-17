@@ -5,7 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useEnvironment } from "@/hooks/useEnvironment";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { menuDoAmbiente, pathToAmbiente, type MenuItem } from "@/lib/environments";
-import logoWhite from "@/assets/logo-focus-fintax-white.png";
+import logoWhite from "@/assets/logo-agf-fintax-white.svg";
+import lionMark from "@/assets/agf-lion.svg";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -74,7 +75,7 @@ function SidebarNav({ visibleItems, canAccess, isReadOnly, expanded, onNavigate 
         const rowClass = cn(
           "group flex items-center gap-3 h-9 rounded-full px-3 text-sidebar-foreground transition-all duration-150 ease-out-modern whitespace-nowrap w-full",
           active
-            ? "bg-[rgba(208,69,69,0.16)] text-white font-semibold ring-1 ring-inset ring-[rgba(208,69,69,0.32)]"
+            ? "bg-[rgba(198,150,79,0.16)] text-white font-semibold ring-1 ring-inset ring-[rgba(198,150,79,0.32)]"
             : "hover:bg-white/[0.06]"
         );
 
@@ -109,7 +110,7 @@ function SidebarNav({ visibleItems, canAccess, isReadOnly, expanded, onNavigate 
                   className={cn(
                     "flex items-center h-8 rounded-full pl-10 pr-3 text-sidebar-foreground transition-all duration-150 ease-out-modern whitespace-nowrap",
                     childActive
-                      ? "bg-[rgba(208,69,69,0.16)] text-white font-semibold ring-1 ring-inset ring-[rgba(208,69,69,0.32)]"
+                      ? "bg-[rgba(198,150,79,0.16)] text-white font-semibold ring-1 ring-inset ring-[rgba(198,150,79,0.32)]"
                       : "hover:bg-white/[0.06] text-sidebar-foreground/85"
                   )}
                 >
@@ -165,7 +166,7 @@ function SidebarFooter({ profile, expanded, onLogout }: SidebarFooterProps) {
   return (
     <div className="px-2 pb-4 mt-auto shrink-0 border-t border-white/[0.06] pt-3">
       <div className="flex items-center gap-3 px-3 py-2 rounded-md">
-        <div className="h-7 w-7 rounded-full bg-[rgba(208,69,69,0.16)] ring-1 ring-inset ring-[rgba(208,69,69,0.32)] flex items-center justify-center shrink-0">
+        <div className="h-7 w-7 rounded-full bg-[rgba(198,150,79,0.16)] ring-1 ring-inset ring-[rgba(198,150,79,0.32)] flex items-center justify-center shrink-0">
           <span className="text-white text-xs font-bold">
             {(profile?.full_name || "U")[0].toUpperCase()}
           </span>
@@ -186,8 +187,8 @@ function SidebarFooter({ profile, expanded, onLogout }: SidebarFooterProps) {
   );
 }
 
-// Paleta LP — mesma signature visual (#06081f deep navy-black)
-const SIDEBAR_GRADIENT = "linear-gradient(180deg, #06081f 0%, #03051a 100%)";
+// Paleta AGF — navy #08111d (Manual de Marca Grupo AGF)
+const SIDEBAR_GRADIENT = "linear-gradient(180deg, #08111d 0%, #060c15 100%)";
 
 const sidebarStyle = {
   background: SIDEBAR_GRADIENT,
@@ -213,7 +214,7 @@ export function AppSidebar() {
         <SheetTrigger asChild>
           <button
             className="fixed top-3 left-3 z-50 h-10 w-10 rounded-xl flex items-center justify-center shadow-lg"
-            style={{ background: "#06081f", border: "1px solid rgba(255,255,255,0.10)" }}
+            style={{ background: "#08111d", border: "1px solid rgba(255,255,255,0.10)" }}
             aria-label="Abrir menu"
           >
             <Menu className="h-5 w-5 text-white" />
@@ -222,7 +223,7 @@ export function AppSidebar() {
         <SheetContent side="left" className="p-0 w-[280px] border-r-0" style={sidebarStyle}>
           <div className="h-full flex flex-col">
             <div className="flex items-center h-20 px-3 shrink-0 border-b border-white/[0.06]">
-              <img src={logoWhite} alt="Focus FinTax" className="h-16 w-auto object-contain ml-1 select-none" draggable={false} />
+              <img src={logoWhite} alt="AGF FinTax" className="h-14 w-auto object-contain ml-1 select-none" draggable={false} />
             </div>
             <SidebarNav
               visibleItems={visibleItems}
@@ -252,17 +253,17 @@ export function AppSidebar() {
       <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-white/10 via-white/5 to-transparent pointer-events-none" />
       <div className={cn("flex items-center h-20 shrink-0 border-b border-white/[0.06]", open ? "px-3" : "justify-center")}>
         {open ? (
-          <img src={logoWhite} alt="Focus FinTax" className="h-16 w-auto object-contain ml-1 select-none" draggable={false} />
+          <img src={logoWhite} alt="AGF FinTax" className="h-14 w-auto object-contain ml-1 select-none" draggable={false} />
         ) : (
           <div
-            className="h-9 w-9 rounded-xl flex items-center justify-center"
+            className="h-10 w-10 rounded-xl flex items-center justify-center"
             style={{
-              background: "linear-gradient(180deg, rgba(208,69,69,0.22) 0%, rgba(208,69,69,0.10) 100%)",
-              border: "1px solid rgba(208,69,69,0.32)",
+              background: "linear-gradient(180deg, rgba(198,150,79,0.16) 0%, rgba(198,150,79,0.06) 100%)",
+              border: "1px solid rgba(198,150,79,0.28)",
             }}
-            aria-label="Focus FinTax"
+            aria-label="AGF FinTax"
           >
-            <span className="text-white font-extrabold text-sm tracking-tight">F</span>
+            <img src={lionMark} alt="" className="h-7 w-auto select-none" draggable={false} />
           </div>
         )}
       </div>

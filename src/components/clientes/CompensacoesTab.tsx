@@ -404,7 +404,7 @@ Competência: ${mesLabel}
 ECONOMIA NO MÊS: ${formatCurrencyBR(economia)}
 Pix: financeiro@focusfintax.com.br
 Quaisquer dúvidas estamos à disposição,
-Equipe Focus.`;
+Equipe AGF.`;
   };
 
   const fullWhatsMessage = whatsComps.map((comp) => {
@@ -802,7 +802,7 @@ Equipe Focus.`;
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-3 border-b border-[var(--ink-06)] bg-[rgba(10,21,100,0.03)] px-6 py-4 sm:grid-cols-2">
+          <div className="grid gap-3 border-b border-[var(--ink-06)] bg-[rgba(8,17,29,0.03)] px-6 py-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Competência</Label>
               <Select value={mapaMes} onValueChange={setMapaMes}>
@@ -852,7 +852,7 @@ Equipe Focus.`;
             >
               <div
                 style={{
-                  background: "#0a1564",
+                  background: "#08111d",
                   color: "white",
                   padding: "28px 32px",
                   display: "flex",
@@ -863,7 +863,7 @@ Equipe Focus.`;
               >
                 <p
                   style={{
-                    fontFamily: "Barlow, sans-serif",
+                    fontFamily: "Montserrat, sans-serif",
                     fontSize: "38px",
                     fontWeight: 700,
                     letterSpacing: "-0.02em",
@@ -871,7 +871,7 @@ Equipe Focus.`;
                     margin: 0,
                   }}
                 >
-                  FinTax
+                  AGF FinTax
                 </p>
                 <div style={{ textAlign: "right" }}>
                   <p style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "1px", margin: 0 }}>
@@ -892,23 +892,23 @@ Equipe Focus.`;
               >
                 <div>
                   <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Razão Social</p>
-                  <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>{cliente?.empresa || "—"}</p>
+                  <p style={{ fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>{cliente?.empresa || "—"}</p>
                 </div>
                 <div>
                   <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>CNPJ</p>
-                  <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>{cliente?.cnpj || "—"}</p>
+                  <p style={{ fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>{cliente?.cnpj || "—"}</p>
                 </div>
                 <div>
                   <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Competência</p>
-                  <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>{formatMesPT(mapaMes)}</p>
+                  <p style={{ fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>{formatMesPT(mapaMes)}</p>
                 </div>
                 <div>
                   <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Tese</p>
-                  <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>{mapaTeseLabel}</p>
+                  <p style={{ fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>{mapaTeseLabel}</p>
                 </div>
                 <div>
                   <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Gerado em</p>
-                  <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>
+                  <p style={{ fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>
                     {new Date().toLocaleDateString("pt-BR")}
                   </p>
                 </div>
@@ -958,22 +958,22 @@ Equipe Focus.`;
                       style={{
                         marginBottom: "18px",
                         paddingBottom: "8px",
-                        borderBottom: "2px solid #0a1564",
+                        borderBottom: "2px solid #08111d",
                       }}
                     >
                       <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "2px", color: "#6b7280", margin: 0 }}>
                         Processo {procIdx + 1} de {mesProcessos.length}
                       </p>
-                      <p style={{ fontWeight: 700, fontSize: "15px", color: "#0a1564", margin: "2px 0 0" }}>
+                      <p style={{ fontWeight: 700, fontSize: "15px", color: "#08111d", margin: "2px 0 0" }}>
                         {proc.nome_exibicao}
                       </p>
                     </div>
 
                     {/* Section 1 */}
-                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>1. DADOS GERAIS DO TRABALHO</h3>
+                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#08111d", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>1. DADOS GERAIS DO TRABALHO</h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px" }}>
                       <thead>
-                        <tr style={{ background: "#0a1564", color: "white" }}>
+                        <tr style={{ background: "#08111d", color: "white" }}>
                           <th style={{ padding: "6px 10px", textAlign: "left", fontSize: "11px" }}>Descrição</th>
                           <th style={{ padding: "6px 10px", textAlign: "right", fontSize: "11px" }}>Detalhe</th>
                         </tr>
@@ -999,10 +999,10 @@ Equipe Focus.`;
                     </table>
 
                     {/* Section 2 */}
-                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>2. DÉBITOS COMPENSADOS</h3>
+                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#08111d", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>2. DÉBITOS COMPENSADOS</h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px" }}>
                       <thead>
-                        <tr style={{ background: "#0a1564", color: "white" }}>
+                        <tr style={{ background: "#08111d", color: "white" }}>
                           {["Tributo", "DCOMP", "Valor Débito", "Multa", "Juros"].map((h) => (
                             <th key={h} style={{ padding: "6px 10px", textAlign: h === "Tributo" || h === "DCOMP" ? "left" : "right", fontSize: "11px" }}>{h}</th>
                           ))}
@@ -1029,10 +1029,10 @@ Equipe Focus.`;
                     </table>
 
                     {/* Section 3 */}
-                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>3. CONTROLE DOS CRÉDITOS — 3.1 Créditos Apurados</h3>
+                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#08111d", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>3. CONTROLE DOS CRÉDITOS — 3.1 Créditos Apurados</h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px" }}>
                       <thead>
-                        <tr style={{ background: "#0a1564", color: "white" }}>
+                        <tr style={{ background: "#08111d", color: "white" }}>
                           <th style={{ padding: "6px 10px", textAlign: "left", fontSize: "11px" }}>Descrição</th>
                           <th style={{ padding: "6px 10px", textAlign: "right", fontSize: "11px" }}>Valor R$</th>
                         </tr>
@@ -1053,10 +1053,10 @@ Equipe Focus.`;
                     </table>
 
                     {/* Section 4 */}
-                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>4. RESUMO DE COMPLIANCE FISCAL</h3>
+                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#08111d", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>4. RESUMO DE COMPLIANCE FISCAL</h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px" }}>
                       <thead>
-                        <tr style={{ background: "#0a1564", color: "white" }}>
+                        <tr style={{ background: "#08111d", color: "white" }}>
                           <th style={{ padding: "6px 10px", textAlign: "left", fontSize: "11px" }}>Item</th>
                           <th style={{ padding: "6px 10px", textAlign: "left", fontSize: "11px" }}>Detalhe</th>
                         </tr>
@@ -1080,23 +1080,23 @@ Equipe Focus.`;
                     </table>
 
                     {/* Section 5 */}
-                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#0a1564", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>5. CONSIDERAÇÕES FINAIS</h3>
+                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#08111d", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>5. CONSIDERAÇÕES FINAIS</h3>
                     <p style={{ fontSize: "11px", textAlign: "justify", marginBottom: "16px" }}>
                       O trabalho realizado assegura que: Os créditos foram aproveitados em conformidade com a legislação vigente; As obrigações acessórias foram devidamente retificadas, refletindo a realidade fiscal da empresa; A empresa encontra-se em situação de compliance tributário, com redução de riscos fiscais e segurança jurídica quanto ao aproveitamento dos créditos. Sem mais para o momento, consideramos encerrado o trabalho de auditoria técnica e compliance fiscal, permanecendo à disposição para eventuais fiscalizações, esclarecimentos ou suportes futuros.
                     </p>
 
                     {/* Footer */}
-                    <div style={{ textAlign: "center", borderTop: "2px solid #0a1564", paddingTop: "16px", marginTop: "32px" }}>
+                    <div style={{ textAlign: "center", borderTop: "2px solid #08111d", paddingTop: "16px", marginTop: "32px" }}>
                       <p
                         style={{
-                          fontFamily: "Barlow, sans-serif",
+                          fontFamily: "Montserrat, sans-serif",
                           fontWeight: 700,
                           letterSpacing: "-0.02em",
-                          color: "#0a1564",
+                          color: "#08111d",
                           fontSize: "18px",
                         }}
                       >
-                        FinTax
+                        AGF FinTax
                       </p>
                     </div>
                   </div>

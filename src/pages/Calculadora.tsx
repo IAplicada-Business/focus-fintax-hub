@@ -49,15 +49,15 @@ interface Resultado {
 // -----------------------------------------------------------------------------
 
 // Palette da LP raiz (public/lp.html) — cinematic dark
-const BG = "#06081f";                  // deep near-black navy
-const SURFACE = "#0e1235";              // card/form surface
-const CARD = "#101434";                 // card interno
-const NAVY = "#010f69";                 // brand navy (badges)
-const RED = "#d04545";                  // brand red da LP
-const TEXT = "#e8ebff";                 // texto principal claro
-const TEXT_MUTED = "rgba(232,235,255,.6)";
+const BG = "#08111d";                  // deep near-black navy
+const SURFACE = "#101c2e";              // card/form surface
+const CARD = "#132238";                 // card interno
+const NAVY = "#1c3150";                 // brand navy (badges)
+const RED = "#c6964f";                  // dourado AGF (acento da LP)
+const TEXT = "#f5f5f5";                 // texto principal claro
+const TEXT_MUTED = "rgba(245,245,245,.65)";
 const BORDER = "rgba(255,255,255,.08)";
-const LOGO_WHITE = "/images/logo-focus-fintax-white.png";
+const LOGO_WHITE = "/images/logo-agf-fintax-white.svg";
 
 // Legado — usados em pontos internos onde não vale reescrever
 const GRANADA = RED;
@@ -124,7 +124,7 @@ export default function Calculadora() {
   const resultRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    document.title = "Calculadora da Reforma Tributária para Supermercados | Focus FinTax";
+    document.title = "Calculadora da Reforma Tributária para Supermercados | AGF FinTax";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute("content", "Descubra em 30 segundos quanto seu supermercado vai pagar de IBS/CBS na Reforma Tributária.");
     // Carrega Inter da Google Fonts pra bater com a LP raiz
@@ -132,7 +132,7 @@ export default function Calculadora() {
       const link = document.createElement("link");
       link.id = "gf-inter";
       link.rel = "stylesheet";
-      link.href = "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap";
+      link.href = "https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap";
       document.head.appendChild(link);
     }
   }, []);
@@ -191,7 +191,7 @@ export default function Calculadora() {
       // Mostra a mensagem real da API pra ajudar debug
       const msg = e?.context?.error ?? e?.message ?? "Erro desconhecido";
       toast.error("Não foi possível calcular agora.", {
-        description: `Detalhes: ${String(msg).slice(0, 200)}. Se persistir, contate a Focus pelo WhatsApp.`,
+        description: `Detalhes: ${String(msg).slice(0, 200)}. Se persistir, contate a AGF pelo WhatsApp.`,
       });
     } finally {
       setSubmitting(false);
@@ -201,7 +201,7 @@ export default function Calculadora() {
   const faturamentoNum = faturamentoFaixa ?? 0;
 
   return (
-    <div style={{ background: BG, minHeight: "100vh", fontFamily: "'Inter', system-ui, sans-serif", color: TEXT }}>
+    <div style={{ background: BG, minHeight: "100vh", fontFamily: "'Montserrat', system-ui, sans-serif", color: TEXT }}>
       {/* Inline keyframes for animations */}
       <style>{`
         @keyframes calcFadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
@@ -220,7 +220,7 @@ export default function Calculadora() {
         .calc-alcir-photo{position:relative;border-radius:20px;overflow:hidden;border:1px solid rgba(255,255,255,.08);box-shadow:0 40px 80px -20px rgba(0,0,0,.6)}
         .calc-alcir-photo img{width:100%;display:block;aspect-ratio:3/4;object-fit:cover;object-position:top center}
         .calc-alcir-photo::after{content:'';position:absolute;bottom:0;left:0;right:0;height:45%;background:linear-gradient(0deg,rgba(5,7,26,.85) 0%,transparent 100%);pointer-events:none}
-        .calc-alcir-photo::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#d04545,#e06b6b,transparent);z-index:2}
+        .calc-alcir-photo::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#c6964f,#d9b06e,transparent);z-index:2}
         .calc-alcir-info{position:absolute;bottom:20px;left:24px;right:24px;z-index:3}
         @media(max-width:1024px){
           .calc-alcir-grid{grid-template-columns:minmax(280px,.85fr) 1fr;gap:48px}
@@ -234,18 +234,18 @@ export default function Calculadora() {
       `}</style>
 
       {/* Header */}
-      <header style={{ borderBottom: `1px solid ${BORDER}`, background: "rgba(6,8,31,.88)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 40 }}>
+      <header style={{ borderBottom: `1px solid ${BORDER}`, background: "rgba(8,17,29,.88)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 40 }}>
         <div style={{ maxWidth: 1160, margin: "0 auto", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Link to="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
             <img
               src={LOGO_WHITE}
-              alt="Focus FinTax"
+              alt="AGF FinTax"
               style={{ height: 96, width: "auto", display: "block", margin: "-14px 0" }}
             />
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <span style={{ fontSize: 11, color: TEXT_MUTED, fontWeight: 500, display: "none" }} className="calc-header-tagline">Calculadora da Reforma Tributária</span>
-            <a href="#form-calc" style={{ fontSize: 12, fontWeight: 700, color: "white", textDecoration: "none", padding: "10px 22px", borderRadius: 999, border: "none", background: RED, boxShadow: "0 4px 16px -4px rgba(208,69,69,.5)", letterSpacing: 0.3 }}>
+            <a href="#form-calc" style={{ fontSize: 12, fontWeight: 700, color: BG, textDecoration: "none", padding: "10px 22px", borderRadius: 999, border: "none", background: RED, boxShadow: "0 4px 16px -4px rgba(198,150,79,.5)", letterSpacing: 0.3 }}>
               Calcular agora
             </a>
           </div>
@@ -253,7 +253,7 @@ export default function Calculadora() {
       </header>
 
       {/* HERO — centered CTA */}
-      <section style={{ padding: "clamp(64px,10vw,120px) 24px clamp(48px,6vw,72px)", background: `radial-gradient(ellipse at 50% 30%, rgba(14,18,53,.9) 0%, ${BG} 60%), radial-gradient(circle at 70% 70%, rgba(208,69,69,.08) 0%, transparent 50%)`, position: "relative", overflow: "hidden" }}>
+      <section style={{ padding: "clamp(64px,10vw,120px) 24px clamp(48px,6vw,72px)", background: `radial-gradient(ellipse at 50% 30%, rgba(16,28,46,.9) 0%, ${BG} 60%), radial-gradient(circle at 70% 70%, rgba(198,150,79,.08) 0%, transparent 50%)`, position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"60\" height=\"60\"><rect fill=\"none\" stroke=\"rgba(255,255,255,.015)\" stroke-width=\".5\" width=\"60\" height=\"60\"/></svg>')", opacity: 0.5, pointerEvents: "none" }} />
         <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 2 }}>
           <p className="calc-fade-up" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: RED, marginBottom: 20, display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -266,9 +266,9 @@ export default function Calculadora() {
             <span style={{ color: RED, fontStyle: "italic" }}>na Reforma?</span>
           </h1>
           <p className="calc-fade-up calc-fade-up-d2" style={{ fontSize: 17, color: TEXT_MUTED, maxWidth: 560, margin: "0 auto 32px", lineHeight: 1.65 }}>
-            Descubra em 30 segundos o impacto do IBS/CBS na sua rede — com base em <strong style={{ color: TEXT }}>12 anos de dados Focus</strong> do segmento supermercadista.
+            Descubra em 30 segundos o impacto do IBS/CBS na sua rede — com base em <strong style={{ color: TEXT }}>12 anos de dados do Grupo AGF</strong> do segmento supermercadista.
           </p>
-          <a href="#form-calc" className="calc-fade-up calc-fade-up-d3" style={{ display: "inline-flex", alignItems: "center", gap: 10, fontSize: 16, fontWeight: 700, color: "white", textDecoration: "none", padding: "18px 44px", borderRadius: 999, background: RED, boxShadow: "0 12px 32px -8px rgba(208,69,69,.5)", letterSpacing: 0.3, transition: "transform .2s ease, box-shadow .2s ease" }}>
+          <a href="#form-calc" className="calc-fade-up calc-fade-up-d3" style={{ display: "inline-flex", alignItems: "center", gap: 10, fontSize: 16, fontWeight: 700, color: BG, textDecoration: "none", padding: "18px 44px", borderRadius: 999, background: RED, boxShadow: "0 12px 32px -8px rgba(198,150,79,.5)", letterSpacing: 0.3, transition: "transform .2s ease, box-shadow .2s ease" }}>
             Calcular agora
           </a>
           <div className="calc-kpi-row calc-fade-up calc-fade-up-d4" style={{ marginTop: 40 }}>
@@ -308,7 +308,7 @@ export default function Calculadora() {
               <select value={segmento} onChange={(e) => setSegmento(e.target.value)} style={inputStyle}>
                 <option value="supermercado">Supermercado</option>
               </select>
-              <p style={{ fontSize: 10, color: "rgba(232,235,255,.4)", marginTop: 4 }}>Outros segmentos em breve (farmácia, atacado).</p>
+              <p style={{ fontSize: 10, color: "rgba(245,245,245,.4)", marginTop: 4 }}>Outros segmentos em breve (farmácia, atacado).</p>
             </Field>
             <Field label="Regime tributário *">
               <select value={regime} onChange={(e) => setRegime(e.target.value as any)} style={inputStyle}>
@@ -339,7 +339,7 @@ export default function Calculadora() {
             <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, color: TEXT_MUTED, marginTop: 4 }}>
               <input type="checkbox" checked={lgpd} onChange={(e) => setLgpd(e.target.checked)} style={{ marginTop: 2 }} />
               <span>
-                Concordo com o uso dos meus dados para receber o diagnóstico e ser contatado pela Focus.{" "}
+                Concordo com o uso dos meus dados para receber o diagnóstico e ser contatado pela AGF.{" "}
                 <Link to="/privacidade" style={{ color: RED, textDecoration: "underline" }}>Política de privacidade</Link>.
               </span>
             </label>
@@ -348,13 +348,13 @@ export default function Calculadora() {
               disabled={submitting}
               style={{
                 marginTop: 8, padding: "16px 20px", borderRadius: 12, border: "none",
-                background: submitting ? "rgba(208,69,69,.5)" : RED, color: "white", fontWeight: 700, fontSize: 15,
+                background: submitting ? "rgba(198,150,79,.5)" : RED, color: BG, fontWeight: 700, fontSize: 15,
                 cursor: submitting ? "wait" : "pointer",
-                boxShadow: "0 8px 24px -6px rgba(208,69,69,.4)",
+                boxShadow: "0 8px 24px -6px rgba(198,150,79,.4)",
                 letterSpacing: 0.3,
               }}
             >
-              {submitting ? "Calculando com 12 anos de dados Focus..." : "Calcular meu diagnóstico"}
+              {submitting ? "Calculando com 12 anos de dados do Grupo AGF..." : "Calcular meu diagnóstico"}
             </button>
           </div>
         </div>
@@ -369,13 +369,13 @@ export default function Calculadora() {
 
       {/* Alcir — quem está por trás */}
       <section style={{ padding: "clamp(60px,8vw,100px) 24px", background: `linear-gradient(180deg, ${SURFACE} 0%, ${BG} 100%)`, borderTop: `1px solid ${BORDER}`, position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: "min(480px,60%)", height: 1, background: `linear-gradient(90deg, transparent, rgba(208,69,69,.2), transparent)` }} />
+        <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: "min(480px,60%)", height: 1, background: `linear-gradient(90deg, transparent, rgba(198,150,79,.2), transparent)` }} />
         <div className="calc-alcir-grid">
           <div className="calc-alcir-photo">
-            <img src="/images/foto-alcir.png" alt="Alcir Guimarães — Fundador do Grupo Focus" loading="lazy" />
+            <img src="/images/foto-alcir.png" alt="Alcir Guimarães — Fundador do Grupo AGF" loading="lazy" />
             <div className="calc-alcir-info">
               <p style={{ fontSize: 22, fontWeight: 800, color: "white", marginBottom: 4 }}>Alcir Guimarães</p>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,.7)", fontWeight: 500 }}>Fundador · Grupo Focus</p>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,.7)", fontWeight: 500 }}>Fundador · Grupo AGF</p>
             </div>
           </div>
           <div>
@@ -390,7 +390,7 @@ export default function Calculadora() {
               Fundador do maior grupo de contabilidade especializado em supermercado do Brasil e América Latina, <strong style={{ color: TEXT }}>Alcir acumula mais de 15 anos</strong> ajudando varejistas a recuperar milhões em impostos pagos indevidamente e a criar processos para que não continuem perdendo.
             </p>
             <p style={{ fontSize: 14, color: TEXT_MUTED, lineHeight: 1.65, paddingTop: 18, borderTop: `1px solid ${BORDER}` }}>
-              Agora, com a Reforma Tributária, a Focus ajuda supermercadistas a entender o impacto real do IBS/CBS e a se preparar desde já — com diagnósticos baseados em <strong style={{ color: TEXT }}>dados reais de 12 anos</strong> no segmento.
+              Agora, com a Reforma Tributária, a AGF ajuda supermercadistas a entender o impacto real do IBS/CBS e a se preparar desde já — com diagnósticos baseados em <strong style={{ color: TEXT }}>dados reais de 12 anos</strong> no segmento.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 24 }}>
               <span style={{ fontSize: 12, fontWeight: 500, color: TEXT, border: `1px solid rgba(255,255,255,.14)`, background: "rgba(255,255,255,.04)", borderRadius: 999, padding: "8px 16px", whiteSpace: "nowrap" }}>Contador CRC</span>
@@ -404,14 +404,14 @@ export default function Calculadora() {
       {/* Footer */}
       <footer style={{ padding: "clamp(40px,6vw,64px) 24px", background: BG, color: TEXT_MUTED, borderTop: `1px solid ${BORDER}` }}>
         <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center", fontSize: 12 }}>
-          <img src={LOGO_WHITE} alt="Focus FinTax" style={{ height: 72, width: "auto", margin: "0 auto 16px", display: "block" }} />
-          <p style={{ fontWeight: 500 }}>Grupo Focus · A Contabilidade do Supermercado</p>
-          <div style={{ display: "flex", justifyContent: "center", gap: 20, marginTop: 16, fontSize: 11, color: "rgba(232,235,255,.4)" }}>
+          <img src={LOGO_WHITE} alt="AGF FinTax" style={{ height: 72, width: "auto", margin: "0 auto 16px", display: "block" }} />
+          <p style={{ fontWeight: 500 }}>Grupo AGF · Auditoria Financeira & Reforma Tributária</p>
+          <div style={{ display: "flex", justifyContent: "center", gap: 20, marginTop: 16, fontSize: 11, color: "rgba(245,245,245,.4)" }}>
             <Link to="/" style={{ color: "inherit", textDecoration: "none" }}>Site principal</Link>
             <span>·</span>
             <Link to="/privacidade" style={{ color: "inherit", textDecoration: "none" }}>Privacidade</Link>
           </div>
-          <p style={{ marginTop: 16, opacity: 0.5 }}>© {new Date().getFullYear()} — Focus FinTax. Todos os direitos reservados.</p>
+          <p style={{ marginTop: 16, opacity: 0.5 }}>© {new Date().getFullYear()} — AGF FinTax. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>
@@ -447,7 +447,7 @@ function RadioBtn({ checked, onClick, label }: { checked: boolean; onClick: () =
       style={{
         flex: 1, padding: "12px 14px", borderRadius: 10,
         border: `1.5px solid ${checked ? RED : BORDER}`,
-        background: checked ? RED : CARD, color: checked ? "white" : TEXT,
+        background: checked ? RED : CARD, color: checked ? BG : TEXT,
         fontWeight: 600, fontSize: 13, cursor: "pointer",
       }}
     >
@@ -484,7 +484,7 @@ function ResultadoView({
     if (interesseSent || interesseLoading || !lead_id) {
       // Sem lead_id, só abre o WhatsApp direto
       window.open(`https://wa.me/5521971655550?text=${encodeURIComponent(
-        `Olá, Focus! Fiz a calculadora da Reforma Tributária e quero saber mais sobre como reduzir o impacto na minha rede. Meu nome: ${nome}, faturamento ~${fmtBRL(fat)}/mês.`
+        `Olá, AGF! Fiz a calculadora da Reforma Tributária e quero saber mais sobre como reduzir o impacto na minha rede. Meu nome: ${nome}, faturamento ~${fmtBRL(fat)}/mês.`
       )}`, "_blank");
       return;
     }
@@ -495,7 +495,7 @@ function ResultadoView({
         body: { lead_id },
       });
       setInteresseSent(true);
-      toast.success("Um especialista Focus vai entrar em contato!", {
+      toast.success("Um especialista AGF vai entrar em contato!", {
         description: "Enquanto isso, você pode continuar a conversa no WhatsApp.",
       });
     } catch (e) {
@@ -505,7 +505,7 @@ function ResultadoView({
     }
     // Sempre abre o WhatsApp também
     window.open(`https://wa.me/5521971655550?text=${encodeURIComponent(
-      `Olá, Focus! Fiz a calculadora (cadastro ${lead_id}) e quero saber mais. Saldo IBS/CBS estimado: ${fmtBRL(impostoReforma)}/mês.`
+      `Olá, AGF! Fiz a calculadora (cadastro ${lead_id}) e quero saber mais. Saldo IBS/CBS estimado: ${fmtBRL(impostoReforma)}/mês.`
     )}`, "_blank");
   };
 
@@ -613,7 +613,7 @@ function ResultadoView({
         pdf.setPage(i);
         pdf.setFontSize(8);
         pdf.setTextColor(120, 120, 120);
-        pdf.text(`Focus FinTax · Diagnóstico da Reforma Tributária · ${nowStr}`, 10, pageHeightMm - 6);
+        pdf.text(`AGF FinTax · Diagnóstico da Reforma Tributária · ${nowStr}`, 10, pageHeightMm - 6);
         pdf.text(`Página ${i} de ${pageCount}`, pageWidthMm - 32, pageHeightMm - 6);
       }
       const nomeSan = sanitizeFileName(nome);
@@ -732,7 +732,7 @@ function ResultadoView({
           </table>
         </div>
 
-        <div style={{ background: "rgba(208,69,69,.10)", border: `1px solid rgba(208,69,69,.25)`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
+        <div style={{ background: "rgba(198,150,79,.10)", border: `1px solid rgba(198,150,79,.25)`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
           <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, color: TEXT_MUTED, marginBottom: 10 }}>
             Rubricas EXCLUÍDAS do crédito ({reforma.exclusao.rubricas.length} itens)
           </p>
@@ -758,9 +758,9 @@ function ResultadoView({
 
       {/* CTA PRINCIPAL — Quer saber mais? (gancho comercial do Alcir) */}
       <div style={{
-        background: `linear-gradient(135deg, ${RED} 0%, #b03535 100%)`,
+        background: `linear-gradient(135deg, ${RED} 0%, #a67a38 100%)`,
         borderRadius: 20, padding: "36px 28px", textAlign: "center",
-        boxShadow: "0 24px 60px -20px rgba(208,69,69,.5)",
+        boxShadow: "0 24px 60px -20px rgba(198,150,79,.5)",
         marginTop: 4,
       }}>
         <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", color: "rgba(255,255,255,.75)", marginBottom: 10 }}>
@@ -770,7 +770,7 @@ function ResultadoView({
           Quer saber mais?
         </h3>
         <p style={{ fontSize: 15, color: "rgba(255,255,255,.85)", marginBottom: 22, maxWidth: 520, marginLeft: "auto", marginRight: "auto", lineHeight: 1.55 }}>
-          Um especialista Focus explica o que a Reforma significa <strong>especificamente</strong> pra sua rede
+          Um especialista AGF explica o que a Reforma significa <strong>especificamente</strong> pra sua rede
           e como reduzir o impacto na prática. Sem custo, sem compromisso.
         </p>
         <button
@@ -789,7 +789,7 @@ function ResultadoView({
             ? "Registrando..."
             : interesseSent
             ? "✓ Solicitação enviada · WhatsApp aberto"
-            : "Falar com um especialista Focus →"}
+            : "Falar com um especialista AGF →"}
         </button>
         <p style={{ fontSize: 11, color: "rgba(255,255,255,.65)", marginTop: 14 }}>
           Um consultor especializado em varejo/supermercado responde em até 24h úteis.
@@ -815,7 +815,7 @@ function ResultadoView({
         </button>
         <a
           href={`https://wa.me/5521971655550?text=${encodeURIComponent(
-            `Olá, Focus! Fiz o diagnóstico da Reforma na calculadora. Meu cadastro: ${lead_id ?? "-"}. Faturamento ${fmtBRL(fat)}/mês, saldo IBS/CBS estimado ${fmtBRL(impostoReforma)}/mês. Quero conversar.`
+            `Olá, AGF! Fiz o diagnóstico da Reforma na calculadora. Meu cadastro: ${lead_id ?? "-"}. Faturamento ${fmtBRL(fat)}/mês, saldo IBS/CBS estimado ${fmtBRL(impostoReforma)}/mês. Quero conversar.`
           )}`}
           target="_blank" rel="noreferrer"
           style={{
@@ -829,7 +829,7 @@ function ResultadoView({
       </div>
 
       <p style={{ fontSize: 11, color: TEXT_MUTED, textAlign: "center", marginTop: 4 }}>
-        Estimativa baseada em 12 anos de dados Focus. Diagnóstico definitivo requer análise da DRE real da empresa.
+        Estimativa baseada em 12 anos de dados do Grupo AGF. Diagnóstico definitivo requer análise da DRE real da empresa.
       </p>
     </div>
   );
@@ -842,7 +842,7 @@ function ResultadoView({
 function EntendaReformaAccordion() {
   const [open, setOpen] = useState(true); // Aberto por padrão — é a razão da nota estar aqui
   return (
-    <div style={{ background: SURFACE, border: `1px solid rgba(208,69,69,.25)`, borderRadius: 16, overflow: "hidden" }}>
+    <div style={{ background: SURFACE, border: `1px solid rgba(198,150,79,.25)`, borderRadius: 16, overflow: "hidden" }}>
       <button
         onClick={() => setOpen(!open)}
         style={{
@@ -945,15 +945,15 @@ function FaqAccordion({ onQuerSaberMais }: { onQuerSaberMais: () => void }) {
     },
     {
       q: "Posso reduzir o impacto na minha rede?",
-      a: "Sim, com 3 movimentos: (1) cadastro tributário limpo — cada SKU precisa estar corretamente classificado pra apurar o crédito certo; (2) revisar contratos com fornecedores pra garantir destaque de crédito; (3) reorganizar despesas de folha/administrativas pra maximizar a base de crédito ampliado. A Focus faz esse trabalho.",
+      a: "Sim, com 3 movimentos: (1) cadastro tributário limpo — cada SKU precisa estar corretamente classificado pra apurar o crédito certo; (2) revisar contratos com fornecedores pra garantir destaque de crédito; (3) reorganizar despesas de folha/administrativas pra maximizar a base de crédito ampliado. A AGF faz esse trabalho.",
     },
     {
-      q: "A Focus faz a implantação?",
+      q: "A AGF faz a implantação?",
       a: "Sim. O time do Alcir (12 anos de tributário no varejo, R$ 26M recuperados) faz o diagnóstico completo, revisa cadastros, ajusta processos e treina a equipe interna. A implantação leva de 60 a 90 dias e o retorno costuma pagar o projeto no 1º trimestre.",
     },
     {
       q: "O cálculo desta calculadora é preciso?",
-      a: "É uma estimativa baseada em 12 anos de dados Focus do segmento supermercadista e nas alíquotas do texto atual da Lei Complementar 214/25. O número final depende do mix real da sua rede, contratos com fornecedores e classificações tributárias. Um diagnóstico completo requer análise da DRE e SPED reais.",
+      a: "É uma estimativa baseada em 12 anos de dados do Grupo AGF do segmento supermercadista e nas alíquotas do texto atual da Lei Complementar 214/25. O número final depende do mix real da sua rede, contratos com fornecedores e classificações tributárias. Um diagnóstico completo requer análise da DRE e SPED reais.",
     },
   ];
   const [openIdx, setOpenIdx] = useState<number | null>(0);
@@ -992,7 +992,7 @@ function FaqAccordion({ onQuerSaberMais }: { onQuerSaberMais: () => void }) {
                       color: RED, fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "underline",
                     }}
                   >
-                    → Falar com um especialista Focus
+                    → Falar com um especialista AGF
                   </button>
                 </div>
               )}
@@ -1103,7 +1103,7 @@ function ImpactoDepartamentos() {
                 <tr key={r.departamento} style={{ borderBottom: `1px solid ${BORDER}` }}>
                   <td style={tdStyle}>
                     {r.departamento}
-                    {r.tem_imposto_seletivo && <span style={{ marginLeft: 6, fontSize: 10, background: GRANADA, color: "white", padding: "2px 6px", borderRadius: 4 }}>IS</span>}
+                    {r.tem_imposto_seletivo && <span style={{ marginLeft: 6, fontSize: 10, background: GRANADA, color: BG, padding: "2px 6px", borderRadius: 4 }}>IS</span>}
                   </td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmtPct(r.pct_mix_faturamento)}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmtPct(r.aliquota_atual)}</td>
