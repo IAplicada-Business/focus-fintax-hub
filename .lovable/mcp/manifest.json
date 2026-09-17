@@ -4,16 +4,16 @@
   "path": "/functions/v1/mcp",
   "auth": {
     "type": "oauth",
-    "issuer": "https://klfpgpymgkfurylwpkrc.supabase.co/auth/v1",
+    "issuer": "https://qzkqrhamqtchboxtwpnz.supabase.co/auth/v1",
     "accepted_audiences": [
       "authenticated"
     ]
   },
   "mcp": {
     "server": {
-      "name": "focus-fintax-mcp",
+      "name": "agf-fintax-mcp",
       "version": "0.1.0",
-      "title": "Focus Fintax MCP"
+      "title": "AGF Fintax MCP"
     },
     "tools": [
       {
