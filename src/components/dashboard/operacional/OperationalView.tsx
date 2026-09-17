@@ -1,152 +1,152 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { Link, type NavigateFunction } from "react-router-dom";
-import { compactCurrency, type MonthBar, type ClientRank, MONTH_ABBR } from "../dashboard-utils";
-import { SkeletonKpi } from "../SkeletonKpi";
-import { SkeletonChart } from "../SkeletonChart";
-import { SkeletonTable } from "../SkeletonTable";
-import { KpiStripOperacional } from "./KpiStripOperacional";
-import { ProjectionBand } from "./ProjectionBand";
-import { ChartEvolucao } from "./ChartEvolucao";
-import { DistribuicaoSaldo } from "./DistribuicaoSaldo";
-import { UrgencyClients } from "./UrgencyClients";
-import { RankingTable } from "./RankingTable";
-import { BottomStripOperacional } from "./BottomStripOperacional";
+import { AlertTriangle, Building2, Clock, Coins, Layers, TrendingUp } from "lucide-react";
+import type { OperacionalDashboardData } from "@/services/operacionalDashboardService";
+import {
+  cargaPorResponsavel,
+  comparativoMensal,
+  filaPrioridade,
+  honorarioDe,
+  projetarMensal,
+  resumoEsteira,
+  serieMensal,
+} from "@/lib/operacional-analytics";
+import { compactCurrency } from "../dashboard-utils";
+import { DarkPanel, DarkStat, KpiCard } from "../ui/primitives";
+import { EvolucaoMensalChart } from "./EvolucaoMensalChart";
+import { EsteiraPorEtapa } from "./EsteiraPorEtapa";
+import { CargaTime } from "./CargaTime";
+import { FilaPrioridade } from "./FilaPrioridade";
 
 interface Props {
-  kpiLoading: boolean;
-  chartLoading: boolean;
-  opClientes: number;
-  opTotalAtivos: number;
-  opCompensado: number;
-  opHonorarios: number;
-  opSaldo: number;
-  opEconomia: number;
-  monthlyBars: MonthBar[];
-  topCompensado: ClientRank[];
-  topSaldo: ClientRank[];
+  data: OperacionalDashboardData;
   navigate: NavigateFunction;
-  intimacoesPendentes: number;
-  intimacoesVencendo: number;
 }
 
-export const OperationalView = memo(function OperationalView({ kpiLoading, chartLoading, opClientes, opTotalAtivos, opCompensado, opHonorarios, opSaldo, opEconomia, monthlyBars, topCompensado, topSaldo, navigate, intimacoesPendentes, intimacoesVencendo }: Props) {
-  // Projections
-  const numMonths = monthlyBars.length || 1;
-  const avgMensal = opCompensado / numMonths;
-  const projAnual = avgMensal * 12;
-  const taxaHon = opCompensado > 0 ? opHonorarios / opCompensado : 0;
-  const projHonAnual = projAnual * taxaHon;
-  const prazoSaldo = avgMensal > 0 ? opSaldo / avgMensal : 0;
-  const honFuturosSaldo = opSaldo * taxaHon;
+/**
+ * Visão Operacional: execução da carteira hoje — compensações, honorários,
+ * saldo, esteira por etapa, carga do time e fila de prioridade — com
+ * projeção dos próximos meses a partir do ritmo real.
+ */
+export const OperationalView = memo(function OperationalView({ data, navigate }: Props) {
+  const m = useMemo(() => {
+    const agora = Date.now();
+    const { comps, totais, statusRows, esteira, slaConfig, intimacoes, clientes } = data;
+    const apurado = totais.reduce((s, t) => s + t.credito_apurado, 0);
+    const compensado = totais.length > 0 ? totais.reduce((s, t) => s + t.total_compensado, 0) : comps.reduce((s, c) => s + Number(c.valor_compensado ?? 0), 0);
+    const saldo = totais.length > 0 ? totais.reduce((s, t) => s + t.saldo_restante, 0) : apurado - compensado;
+    const honorarios = comps.reduce((s, c) => s + honorarioDe(c), 0);
+    const taxaHon = compensado > 0 ? honorarios / compensado : 0;
 
-  const periodLabel = monthlyBars.length >= 2
-    ? `${monthlyBars[0]?.label} — ${monthlyBars[monthlyBars.length - 1]?.label}`
-    : monthlyBars[0]?.label ?? "—";
+    const serie = serieMensal(comps, 12, agora);
+    const projecao = projetarMensal(serie, 3);
+    const cmpComp = comparativoMensal(serie, "compensado");
+    const cmpHon = comparativoMensal(serie, "honorarios");
+    const mediaMensal = cmpComp.mediaFechados;
+    const prazoSaldoMeses = mediaMensal > 0 ? saldo / mediaMensal : null;
+    const projAnual = mediaMensal * 12;
+    const proj3mComp = projecao.reduce((s, p) => s + p.compensado, 0);
+    const proj3mHon = projecao.reduce((s, p) => s + p.honorarios, 0);
 
-  const lastMonth = monthlyBars.length >= 1 ? monthlyBars[monthlyBars.length - 1]?.valor ?? 0 : 0;
-  const prevMonth = monthlyBars.length >= 2 ? monthlyBars[monthlyBars.length - 2]?.valor ?? 0 : 0;
-  const trendPct = prevMonth > 0 ? Math.round(((lastMonth - prevMonth) / prevMonth) * 100) : 0;
+    const compensando = statusRows.filter((r) => r.status_principal === "compensando").length;
+    const slaMap = new Map(slaConfig.map((c) => [c.estagio as string, c.sla_dias]));
+    const etapas = resumoEsteira(esteira, slaConfig);
+    const atrasadosEsteira = etapas.reduce((s, e) => s + e.atrasados, 0);
+    const carga = cargaPorResponsavel(esteira, slaMap, agora);
+    const saldoPorCliente = new Map(totais.map((t) => [t.cliente_id, t.saldo_restante]));
+    const fila = filaPrioridade(esteira, saldoPorCliente, slaConfig, 8, agora);
 
-  const insightVar = monthlyBars.length >= 2 ? `${trendPct > 0 ? "+" : ""}${trendPct}%` : "—";
-  const insightVarLabel = monthlyBars.length >= 2
-    ? `Var. ${monthlyBars[monthlyBars.length - 2]?.label?.split("/")[0]?.toLowerCase()}→${monthlyBars[monthlyBars.length - 1]?.label?.split("/")[0]?.toLowerCase()}`
-    : "Variação";
+    const pendentes = intimacoes.filter((i) => ["pendente", "informado_aline", "em_andamento"].includes(i.status));
+    const em15 = new Date(agora + 15 * 86_400_000).toISOString().slice(0, 10);
+    const vencendo = pendentes.filter((i) => i.prazo_vencimento && i.prazo_vencimento <= em15).length;
 
-  // All rankings merged
-  const allRankings: ClientRank[] = [...topCompensado];
-  topSaldo.forEach((s) => {
-    if (!allRankings.find(r => r.id === s.id)) allRankings.push(s);
-  });
-
-  const saldoAbove1M = allRankings.filter(r => r.saldo >= 1000000);
-  const saldo500kTo1M = allRankings.filter(r => r.saldo >= 500000 && r.saldo < 1000000);
-  const saldoBelow500k = allRankings.filter(r => r.saldo > 0 && r.saldo < 500000);
-  const saldoZero = allRankings.filter(r => r.saldo <= 0);
-
-  const distBands = [
-    { label: "Acima de R$1M", count: saldoAbove1M.length, total: saldoAbove1M.reduce((s, r) => s + r.saldo, 0), color: "var(--dash-red)", fontWeight: 700 },
-    { label: "R$500k – R$1M", count: saldo500kTo1M.length, total: saldo500kTo1M.reduce((s, r) => s + r.saldo, 0), color: "var(--dash-amber)", fontWeight: 500 },
-    { label: "Até R$500k", count: saldoBelow500k.length, total: saldoBelow500k.reduce((s, r) => s + r.saldo, 0), color: "var(--navy)", fontWeight: 500 },
-    { label: "Saldo zerado", count: saldoZero.length, total: 0, color: "var(--ink-35)", fontWeight: 500 },
-  ];
-  const maxDistCount = Math.max(...distBands.map(d => d.count), 1);
-
-  const urgencyClients = [...allRankings].filter(r => r.saldo >= 1000000).sort((a, b) => b.saldo - a.saldo).slice(0, 5);
-  const fullRanking = [...allRankings].sort((a, b) => b.compensado - a.compensado).slice(0, 8);
-
-  const nextMonthLabel = (() => {
-    if (!monthlyBars.length) return "PROJ";
-    const last = monthlyBars[monthlyBars.length - 1].month;
-    const [y, m] = last.split("-").map(Number);
-    const nm = m === 12 ? 1 : m + 1;
-    const ny = m === 12 ? y + 1 : y;
-    const mk = String(nm).padStart(2, "0");
-    return `${(MONTH_ABBR[mk] ?? mk).toUpperCase()}/${String(ny).slice(2)} ≈`;
-  })();
+    return {
+      ativos: clientes.length,
+      compensando,
+      compensado,
+      honorarios,
+      taxaHon,
+      saldo,
+      serie,
+      projecao,
+      cmpComp,
+      cmpHon,
+      mediaMensal,
+      prazoSaldoMeses,
+      projAnual,
+      proj3mComp,
+      proj3mHon,
+      etapas,
+      atrasadosEsteira,
+      carga,
+      fila,
+      intimPendentes: pendentes.length,
+      intimVencendo: vencendo,
+      semDados: comps.length === 0,
+    };
+  }, [data]);
 
   return (
-    <>
-      {kpiLoading ? <SkeletonKpi /> : (
-        <KpiStripOperacional
-          opClientes={opClientes} opTotalAtivos={opTotalAtivos} opCompensado={opCompensado}
-          opHonorarios={opHonorarios} opEconomia={opEconomia} opSaldo={opSaldo}
-          periodLabel={periodLabel} trendPct={trendPct} taxaHon={taxaHon}
-        />
-      )}
-
-      {intimacoesPendentes > 0 && (
-        <div className="flex items-center justify-between px-5 py-3 rounded-xl border border-destructive/15 bg-destructive/[0.04] mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-destructive" />
-            <span className="text-sm font-semibold text-foreground">
-              {intimacoesPendentes} intimações fiscais pendentes
-            </span>
-            {intimacoesVencendo > 0 && (
-              <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">
-                {intimacoesVencendo} vencem em 15 dias
-              </span>
-            )}
-          </div>
-          <Link to="/intimacoes" className="text-xs font-bold text-destructive hover:underline">
-            Ver todas →
-          </Link>
+    <div className="space-y-4">
+      {m.semDados && (
+        <div className="flex items-center gap-3 px-5 py-3 rounded-xl border border-dash-amber/25 bg-dash-amber/[0.05]">
+          <AlertTriangle className="w-4 h-4 text-dash-amber shrink-0" />
+          <p className="text-xs text-ink-60 flex-1">Nenhuma compensação encontrada. Os dados reais precisam ser importados na ficha do cliente.</p>
+          <Link to="/clientes" className="text-[11px] font-bold text-dash-amber hover:underline whitespace-nowrap">Ir para clientes →</Link>
         </div>
       )}
 
-      {chartLoading ? (
-        <>
-          <SkeletonChart />
-          <div className="mt-3.5"><SkeletonTable /></div>
-        </>
-      ) : (
-        <>
-          <ProjectionBand
-            projAnual={projAnual} projHonAnual={projHonAnual} prazoSaldo={prazoSaldo}
-            honFuturosSaldo={honFuturosSaldo} avgMensal={avgMensal} opSaldo={opSaldo} periodLabel={periodLabel}
-          />
+      <div className="animate-slide-up delay-1 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4" role="region" aria-label="KPIs operacionais">
+        <KpiCard label="Clientes ativos" raw={m.ativos} sub={`${m.compensando} compensando agora`} icon={<Building2 />} onClick={() => navigate("/clientes")} size="md" />
+        <KpiCard label="Compensado no mês" raw={m.cmpComp.atual} format={compactCurrency} sub={`mês anterior ${compactCurrency(m.cmpComp.anterior)}`} trend={m.cmpComp.variacaoPct ?? undefined} trendSuffix="%" tom="green" icon={<TrendingUp />} size="md" />
+        <KpiCard label="Honorários no mês" raw={m.cmpHon.atual} format={compactCurrency} sub={`taxa média ${(m.taxaHon * 100).toFixed(1)}% · ${compactCurrency(m.honorarios)} acumulados`} trend={m.cmpHon.variacaoPct ?? undefined} trendSuffix="%" tom="gold" icon={<Coins />} size="md" />
+        <KpiCard label="Saldo a compensar" raw={m.saldo} format={compactCurrency} sub={m.prazoSaldoMeses != null ? `≈ ${m.prazoSaldoMeses.toFixed(1)} meses no ritmo médio` : "sem ritmo médio ainda"} tom="navy" icon={<Layers />} size="md" />
+        <KpiCard label="Atrasados na esteira" raw={m.atrasadosEsteira} sub={`de ${data.esteira.length} clientes na esteira`} tom={m.atrasadosEsteira > 0 ? "red" : "green"} icon={<Clock />} onClick={() => navigate("/esteira?tab=acompanhamento")} size="md" />
+        <KpiCard label="Intimações pendentes" raw={m.intimPendentes} sub={m.intimVencendo > 0 ? `${m.intimVencendo} vencem em 15 dias` : "nenhuma vencendo em 15 dias"} tom={m.intimVencendo > 0 ? "red" : m.intimPendentes > 0 ? "amber" : "muted"} icon={<AlertTriangle />} onClick={() => navigate("/intimacoes")} size="md" />
+      </div>
 
-          <div className="animate-slide-up delay-3 grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4 mb-4">
-            <ChartEvolucao
-              monthlyBars={monthlyBars} avgMensal={avgMensal} nextMonthLabel={nextMonthLabel}
-              periodLabel={periodLabel} trendPct={trendPct} taxaHon={taxaHon}
-              insightVar={insightVar} insightVarLabel={insightVarLabel}
-            />
-            <DistribuicaoSaldo
-              opClientes={opClientes} distBands={distBands} maxDistCount={maxDistCount}
-              prazoSaldo={prazoSaldo} honFuturosSaldo={honFuturosSaldo} opSaldo={opSaldo} taxaHon={taxaHon}
-            />
-          </div>
+      <div className="animate-slide-up delay-2 grid grid-cols-1 xl:grid-cols-12 gap-4">
+        <div className="xl:col-span-8 min-w-0">
+          <EvolucaoMensalChart serie={m.serie} projecao={m.projecao} variacaoPct={m.cmpComp.variacaoPct} mediaMensal={m.mediaMensal} />
+        </div>
+        <div className="xl:col-span-4 min-w-0">
+          <DarkPanel eyebrow="Projeção" title="Próximos meses no ritmo atual" className="h-full">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+              <DarkStat label="Compensado · 3 meses" value={compactCurrency(m.proj3mComp)} sub={m.projecao.map((p) => p.label).join(" · ")} tom="white" />
+              <DarkStat label="Honorários · 3 meses" value={compactCurrency(m.proj3mHon)} sub="tendência dos meses fechados" tom="gold" />
+              <DarkStat label="Projeção anual" value={compactCurrency(m.projAnual)} sub={`média ${compactCurrency(m.mediaMensal)} × 12`} />
+              <DarkStat label="Honorários no saldo" value={compactCurrency(m.saldo * m.taxaHon)} sub={`sobre ${compactCurrency(m.saldo)} a compensar`} tom="gold" />
+            </div>
+            <div className="mt-5 pt-4 border-t border-white/10">
+              <div className="flex items-center justify-between text-[10px] text-white/50 uppercase tracking-[1.4px] font-bold mb-2">
+                <span>Prazo do saldo</span>
+                <span>{m.prazoSaldoMeses != null ? `${m.prazoSaldoMeses.toFixed(1)} meses` : "—"}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div className="h-full rounded-full bg-gold" style={{ width: `${m.prazoSaldoMeses != null ? Math.min(100, (m.prazoSaldoMeses / 24) * 100) : 0}%` }} />
+              </div>
+              <p className="text-[10px] text-white/45 mt-2 leading-snug">
+                {m.prazoSaldoMeses != null && m.prazoSaldoMeses < 9
+                  ? "Saldo se esgota em menos de 9 meses: é hora de levantar novas teses na carteira atual ou onboardar clientes."
+                  : "Barra cheia = 24 meses de saldo no ritmo médio atual."}
+              </p>
+            </div>
+          </DarkPanel>
+        </div>
+      </div>
 
-          <UrgencyClients urgencyClients={urgencyClients} taxaHon={taxaHon} navigate={navigate} />
-          <RankingTable fullRanking={fullRanking} numMonths={numMonths} navigate={navigate} />
+      <div className="animate-slide-up delay-3 grid grid-cols-1 xl:grid-cols-12 gap-4">
+        <div className="xl:col-span-7 min-w-0">
+          <EsteiraPorEtapa etapas={m.etapas} />
+        </div>
+        <div className="xl:col-span-5 min-w-0">
+          <CargaTime carga={m.carga} />
+        </div>
+      </div>
 
-          <BottomStripOperacional
-            opClientes={opClientes} opCompensado={opCompensado} opHonorarios={opHonorarios}
-            opEconomia={opEconomia} opSaldo={opSaldo} numMonths={numMonths}
-            prazoSaldo={prazoSaldo} projHonAnual={projHonAnual}
-          />
-        </>
-      )}
-    </>
+      <div className="animate-slide-up delay-4">
+        <FilaPrioridade fila={m.fila} />
+      </div>
+    </div>
   );
 });

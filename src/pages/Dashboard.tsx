@@ -1,233 +1,25 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link, Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { getScoreLabel, daysSince } from "@/lib/pipeline-constants";
-import { FUNNEL_STAGES_COM, type FunnelRow, type MonthBar, type ClientRank, MONTH_ABBR } from "@/components/dashboard/dashboard-utils";
+import { useOperacionalDashboard } from "@/hooks/data/useOperacionalDashboard";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { CommercialView } from "@/components/dashboard/comercial/CommercialView";
 import { OperationalView } from "@/components/dashboard/operacional/OperationalView";
 import { ExecutivaView } from "@/components/dashboard/executiva/ExecutivaView";
 import { ResumoSemanalTab } from "@/components/dashboard/gestao/ResumoSemanalTab";
-import { CicloSlaTab } from "@/components/dashboard/gestao/CicloSlaTab";
-import { agregarMixRegime } from "@/lib/regime-mix";
-import { agruparPorSegmento } from "@/lib/segmento-lead";
-import { SlaFunilTab } from "@/components/dashboard/comercial/SlaFunilTab";
+import { ErrorCard, LoadingGrid } from "@/components/dashboard/ui/primitives";
+
 type DashboardModo = "comercial" | "operacional";
+type AbaOperacional = "operacional" | "executiva" | "pulso";
+
+const ABA_KEY = "dash_tab";
 
 /**
- * O dashboard comercial e o operacional não compartilham nenhum número. Puxar
- * leads, funil e segmento no ambiente operacional — ou compensações no
- * comercial — era carregar dado que a tela nem chega a renderizar. Cada modo
- * consulta só o seu lado e recebe o outro zerado.
- */
-async function fetchComercial() {
-  const now = new Date();
-  const d7 = new Date(now.getTime() - 7 * 86400000).toISOString();
-  const d14 = new Date(now.getTime() - 14 * 86400000).toISOString();
-  const d3 = new Date(now.getTime() - 3 * 86400000).toISOString();
-
-  const [
-    pipelineRes, newWeekRes, prevWeekRes, contratosRes, clientesAtivosRes, totalEverRes,
-    allLeadsRes, stalledRes, diagRes, tesesRes, motorRegimesRes,
-  ] = await Promise.all([
-    supabase.from("leads").select("id", { count: "exact", head: true }).not("status_funil", "in", "(perdido,nao_vai_fazer)"),
-    supabase.from("leads").select("id", { count: "exact", head: true }).gte("criado_em", d7),
-    supabase.from("leads").select("id", { count: "exact", head: true }).gte("criado_em", d14).lt("criado_em", d7),
-    supabase.from("leads").select("id", { count: "exact", head: true }).eq("status_funil", "contrato_emitido"),
-    supabase.from("clientes").select("id", { count: "exact", head: true }).eq("status", "ativo"),
-    supabase.from("leads").select("id", { count: "exact", head: true }),
-    supabase.from("leads").select("id, status_funil, segmento, score_lead, regime_tributario").not("status_funil", "in", "(perdido,nao_vai_fazer)").limit(5000),
-    supabase.from("leads").select("empresa, status_funil_atualizado_em, id").eq("status_funil", "contrato_emitido").lt("status_funil_atualizado_em", d3),
-    supabase.from("diagnosticos_leads").select("lead_id"),
-    supabase.from("motor_teses_config").select("id", { count: "exact", head: true }).eq("ativo", true),
-    supabase.from("motor_teses_config").select("regimes_elegiveis").eq("ativo", true),
-  ]);
-
-  const comLeads = pipelineRes.count ?? 0;
-  const comNewWeek = newWeekRes.count ?? 0;
-  const comNewPrevWeek = prevWeekRes.count ?? 0;
-  const comContratos = contratosRes.count ?? 0;
-  const comClientesAtivos = clientesAtivosRes.count ?? 0;
-  const totalEver = totalEverRes.count ?? 0;
-  const comTaxaConversao = totalEver > 0 ? Math.min(Math.round((comClientesAtivos / totalEver) * 100), 100) : 0;
-
-  const activeLeads = allLeadsRes.data ?? [];
-  const relIds = activeLeads.map((l) => l.id);
-  const potByLead: Record<string, number> = {};
-  if (relIds.length) {
-    const { data: rels } = await supabase.from("relatorios_leads").select("lead_id, estimativa_total_maxima").in("lead_id", relIds);
-    (rels ?? []).forEach((r) => { potByLead[r.lead_id] = Math.max(potByLead[r.lead_id] ?? 0, Number(r.estimativa_total_maxima)); });
-  }
-  const comPotencial = Object.values(potByLead).reduce((s, v) => s + v, 0);
-
-  const fCounts: Record<string, { count: number; ids: string[] }> = {};
-  FUNNEL_STAGES_COM.forEach(s => { fCounts[s.value] = { count: 0, ids: [] }; });
-  activeLeads.forEach(l => {
-    if (fCounts[l.status_funil]) {
-      fCounts[l.status_funil].count++;
-      fCounts[l.status_funil].ids.push(l.id);
-    }
-  });
-  fCounts["cliente_ativo"] = { count: comClientesAtivos, ids: [] };
-
-  const funnelData: FunnelRow[] = FUNNEL_STAGES_COM.map(s => ({
-    stage: s.value, label: s.label, color: s.color,
-    count: fCounts[s.value]?.count ?? 0,
-    potencial: (fCounts[s.value]?.ids ?? []).reduce((sum, id) => sum + (potByLead[id] ?? 0), 0),
-  }));
-
-  const segmentoData = agruparPorSegmento(activeLeads.map((l) => l.segmento));
-
-  const scoreDistribution: Record<string, number> = { A: 0, B: 0, C: 0, D: 0 };
-  activeLeads.forEach(l => {
-    const letter = getScoreLabel(l.score_lead);
-    scoreDistribution[letter] = (scoreDistribution[letter] ?? 0) + 1;
-  });
-
-  const stalledLeads = (stalledRes.data ?? [])
-    .map((l) => ({ empresa: l.empresa || "Sem empresa", days: daysSince(l.status_funil_atualizado_em!), id: l.id }))
-    .sort((a, b) => b.days - a.days);
-
-  // Mix por regime (card lateral do comercial): leads ativos × cobertura do motor
-  const regimeMix = agregarMixRegime(
-    activeLeads.map((l) => ({ regime_tributario: l.regime_tributario, potencial: potByLead[l.id] ?? 0 })),
-    (motorRegimesRes.data ?? []).map((t) => t.regimes_elegiveis),
-  );
-
-  const uniqueDiagLeads = new Set((diagRes.data ?? []).map((d) => d.lead_id));
-  const motorDiagnosticos = uniqueDiagLeads.size;
-  const motorTesesAtivas = tesesRes.count ?? 0;
-
-  return {
-    comLeads, comNewWeek, comNewPrevWeek, comPotencial, comContratos, comClientesAtivos, comTaxaConversao,
-    funnelData, stalledLeads, segmentoData, scoreDistribution, regimeMix,
-    motorDiagnosticos, motorTesesAtivas,
-  };
-}
-
-const COMERCIAL_ZERADO: Awaited<ReturnType<typeof fetchComercial>> = {
-  comLeads: 0, comNewWeek: 0, comNewPrevWeek: 0, comPotencial: 0, comContratos: 0,
-  comClientesAtivos: 0, comTaxaConversao: 0,
-  funnelData: [], stalledLeads: [], segmentoData: [],
-  scoreDistribution: { A: 0, B: 0, C: 0, D: 0 }, regimeMix: [],
-  motorDiagnosticos: 0, motorTesesAtivas: 0,
-};
-
-async function fetchOperacional() {
-  const now = new Date();
-
-  const [clientesRes, allCompRes, allProcRes, totalAtivosRes, totaisRes, intimRes] = await Promise.all([
-    supabase.from("clientes").select("id, empresa", { count: "exact" }).eq("status", "ativo").limit(5000),
-    supabase.from("compensacoes_mensais").select("valor_compensado, valor_nf_servico, honorario_valor, mes_referencia, cliente_id, tese_origem_id").limit(5000),
-    supabase.from("processos_teses").select("id, cliente_id, valor_credito, percentual_honorario, valor_honorario").limit(5000),
-    supabase.from("clientes").select("id", { count: "exact", head: true }).eq("status", "ativo"),
-    (supabase as any).from("v_cliente_totais_calculo").select("cliente_id, credito_apurado, total_compensado, saldo_restante").limit(5000),
-    supabase.from("intimacoes").select("id, status, prazo_vencimento").in("status", ["pendente", "informado_aline", "em_andamento"]),
-  ]);
-
-  const clientes = clientesRes.data ?? [];
-  const allComp = allCompRes.data ?? [];
-  const allProc = (allProcRes.data ?? []).filter((p: any) => p.categoria !== "reporto");
-  const totaisCalc = (totaisRes.data ?? []) as { cliente_id: string; credito_apurado: number; total_compensado: number; saldo_restante: number }[];
-
-  const clientesComCompensacao = new Set(allComp.filter(c => Number(c.valor_compensado ?? 0) > 0).map(c => c.cliente_id));
-  const opClientes = clientesComCompensacao.size;
-  const opTotalAtivos = totalAtivosRes.count ?? 0;
-
-  const opCompensado = totaisCalc.length > 0
-    ? totaisCalc.reduce((s, t) => s + Number(t.total_compensado ?? 0), 0)
-    : allComp.reduce((s, c) => s + Number(c.valor_compensado ?? 0), 0);
-  const opHonorarios = allComp.reduce((s, c) => s + Number((c as any).honorario_valor ?? c.valor_nf_servico ?? 0), 0);
-  const totalCredito = totaisCalc.length > 0
-    ? totaisCalc.reduce((s, t) => s + Number(t.credito_apurado ?? 0), 0)
-    : allProc.reduce((s, p) => s + Number(p.valor_credito ?? 0), 0);
-  const opSaldo = totaisCalc.length > 0
-    ? totaisCalc.reduce((s, t) => s + Number(t.saldo_restante ?? 0), 0)
-    : totalCredito - opCompensado;
-
-  const monthMapComp: Record<string, number> = {};
-  const monthMapHon: Record<string, number> = {};
-  allComp.forEach(c => {
-    const m = String(c.mes_referencia).slice(0, 7);
-    monthMapComp[m] = (monthMapComp[m] ?? 0) + Number(c.valor_compensado ?? 0);
-    monthMapHon[m] = (monthMapHon[m] ?? 0) + Number((c as any).honorario_valor ?? c.valor_nf_servico ?? 0);
-  });
-  const sortedMonths = Object.keys(monthMapComp).sort().slice(-6);
-  const monthlyBars: MonthBar[] = sortedMonths.map(m => ({
-    month: m,
-    label: `${MONTH_ABBR[m.slice(5, 7)] ?? m.slice(5, 7)}/${m.slice(2, 4)}`,
-    valor: monthMapComp[m],
-    honorarios: monthMapHon[m] ?? 0,
-  }));
-
-  const clienteMap = Object.fromEntries(clientes.map(c => [c.id, c.empresa]));
-  const compByClient: Record<string, number> = {};
-  const honByClient: Record<string, number> = {};
-  allComp.forEach(c => {
-    compByClient[c.cliente_id] = (compByClient[c.cliente_id] ?? 0) + Number(c.valor_compensado ?? 0);
-    honByClient[c.cliente_id] = (honByClient[c.cliente_id] ?? 0) + Number((c as any).honorario_valor ?? c.valor_nf_servico ?? 0);
-  });
-  const creditByClient: Record<string, number> = {};
-  if (totaisCalc.length > 0) {
-    totaisCalc.forEach((t) => { creditByClient[t.cliente_id] = Number(t.credito_apurado ?? 0); });
-  } else {
-    allProc.forEach(p => { creditByClient[p.cliente_id] = (creditByClient[p.cliente_id] ?? 0) + Number(p.valor_credito ?? 0); });
-  }
-  // Prefer view saldo when available
-  const saldoByClient: Record<string, number> = {};
-  totaisCalc.forEach((t) => { saldoByClient[t.cliente_id] = Number(t.saldo_restante ?? 0); });
-  const allClientIds = [...new Set([...Object.keys(compByClient), ...Object.keys(creditByClient)])];
-  const rankings: ClientRank[] = allClientIds.map(id => ({
-    id, empresa: clienteMap[id] ?? "—",
-    compensado: totaisCalc.length > 0
-      ? Number(totaisCalc.find((t) => t.cliente_id === id)?.total_compensado ?? compByClient[id] ?? 0)
-      : (compByClient[id] ?? 0),
-    honorarios: honByClient[id] ?? 0,
-    identificado: creditByClient[id] ?? 0,
-    saldo: saldoByClient[id] ?? ((creditByClient[id] ?? 0) - (compByClient[id] ?? 0)),
-  }));
-  const topCompensado = [...rankings].sort((a, b) => b.compensado - a.compensado).slice(0, 8);
-  const topSaldo = [...rankings].sort((a, b) => b.saldo - a.saldo).filter(r => r.saldo > 0).slice(0, 8);
-
-  const intimData = intimRes.data ?? [];
-  const intimacoesPendentes = intimData.length;
-  const in15 = new Date(now.getTime() + 15 * 86400000).toISOString().slice(0, 10);
-  const intimacoesVencendo = intimData.filter((i) => i.prazo_vencimento && i.prazo_vencimento <= in15).length;
-
-  // ═══ DATA HEALTH ═══
-  const compCount = allComp.length;
-  const procCount = allProc.length;
-
-  return {
-    opClientes, opTotalAtivos, opCompensado, opHonorarios, opSaldo,
-    monthlyBars, topCompensado, topSaldo,
-    intimacoesPendentes, intimacoesVencendo,
-    dataHealth: { compensacoes: compCount, processos: procCount, hasData: compCount > 0 },
-  };
-}
-
-const OPERACIONAL_ZERADO: Awaited<ReturnType<typeof fetchOperacional>> = {
-  opClientes: 0, opTotalAtivos: 0, opCompensado: 0, opHonorarios: 0, opSaldo: 0,
-  monthlyBars: [], topCompensado: [], topSaldo: [],
-  intimacoesPendentes: 0, intimacoesVencendo: 0,
-  dataHealth: { compensacoes: 0, processos: 0, hasData: false },
-};
-
-async function fetchDashboardData(modo: DashboardModo) {
-  const [comercial, operacional] = await Promise.all([
-    modo === "comercial" ? fetchComercial() : Promise.resolve(COMERCIAL_ZERADO),
-    modo === "operacional" ? fetchOperacional() : Promise.resolve(OPERACIONAL_ZERADO),
-  ]);
-  return { ...comercial, ...operacional };
-}
-
-
-/**
- * `modo="comercial"` (/dashboard/comercial, ambiente Comercial): só a Visão
- * Comercial, sem abas. `modo="operacional"` (/dashboard): Operacional e
- * Executiva — a Visão Comercial saiu daqui e mora no ambiente Comercial.
+ * `modo="comercial"` (/dashboard/comercial): a Visão Comercial inteira em uma
+ * página, sem abas. `modo="operacional"` (/dashboard): Operacional,
+ * Executiva e Pulso da semana compartilhando uma única leitura de dados.
  */
 export default function Dashboard({ modo = "operacional" }: { modo?: DashboardModo }) {
   const { profile, userRole, permissions } = useAuth();
@@ -237,73 +29,60 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
 
   const canTab = (tabKey: string) => {
     const perm = permissions.find((p) => p.screen_key === tabKey);
-    if (!perm) return true;
-    return perm.can_access;
+    return perm ? perm.can_access : true;
   };
   const canComercialPerm = canTab("dashboard.comercial");
   const canOperacionalPerm = canTab("dashboard.operacional");
   const canExecutivaPerm = canTab("dashboard.executiva");
-  // Abas visíveis dependem do modo: comercial só tem a Visão Comercial;
-  // operacional nunca mostra a comercial.
-  const canComercial = modo === "comercial" && canComercialPerm;
+  const canGestaoPerm = canTab("dashboard.gestao");
+
   const canOperacional = modo === "operacional" && canOperacionalPerm;
   const canExecutiva = modo === "operacional" && canExecutivaPerm;
-  // As três telas de Gestão eram uma página à parte (/dashboard/gestao) com
-  // submenu próprio; agora são abas daqui, sob a mesma permissão de antes.
-  const canGestao = modo === "operacional" && canTab("dashboard.gestao");
-  // Ciclo & SLA virou aba comercial, então segue a permissão do dashboard
-  // comercial. Sob "dashboard.gestao" (admin/pmo/gestor_tributario) o público
-  // comercial — comercial, sdr, gestor_comercial — não enxergava a aba.
-  const canGestaoComercial = modo === "comercial" && canComercialPerm;
-  const ABAS_GESTAO = ["resumo_semanal", "ciclo_sla"];
+  const canPulso = modo === "operacional" && canGestaoPerm;
 
-  const resolveDefault = () => {
-    if (modo === "comercial") {
-      const stored = localStorage.getItem("dash_comercial_tab");
-      if (stored === "sla_funil" || (stored === "ciclo_sla" && canGestaoComercial)) return stored;
-      return "comercial";
+  const resolveDefault = (): AbaOperacional => {
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(ABA_KEY);
+    } catch {
+      /* storage indisponível */
     }
-    const stored = localStorage.getItem("dash_tab");
-    if (stored && ABAS_GESTAO.includes(stored) && canGestao) return stored;
+    if (stored === "pulso" && canPulso) return "pulso";
     if (stored === "executiva" && canExecutiva) return "executiva";
     if (stored === "operacional" && canOperacional) return "operacional";
-    if (role === "gestor_tributario" && canOperacional) return "operacional";
     if (canOperacional) return "operacional";
     if (canExecutiva) return "executiva";
+    if (canPulso) return "pulso";
     return "operacional";
   };
-  const [activeTab, setActiveTab] = useState(resolveDefault);
+  const [activeTab, setActiveTab] = useState<AbaOperacional>(resolveDefault);
   const switchTab = (t: string) => {
-    setActiveTab(t);
-    localStorage.setItem(modo === "comercial" ? "dash_comercial_tab" : "dash_tab", t);
+    setActiveTab(t as AbaOperacional);
+    try {
+      localStorage.setItem(ABA_KEY, t);
+    } catch {
+      /* storage indisponível */
+    }
   };
 
-  // Quem só tem a Visão Comercial (comercial/sdr/gestor_comercial) cai em
-  // /dashboard por link antigo → vai pro dashboard do ambiente certo.
-  const redirecionarParaComercial =
-    modo === "operacional" && !canOperacionalPerm && !canExecutivaPerm && canComercialPerm;
+  // Quem só tem a Visão Comercial cai em /dashboard por link antigo → vai pro dashboard do ambiente certo.
+  const redirecionarParaComercial = modo === "operacional" && !canOperacionalPerm && !canExecutivaPerm && !canGestaoPerm && canComercialPerm;
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["dashboard", modo],
-    queryFn: () => fetchDashboardData(modo),
-    staleTime: 60_000,
-  });
+  const opQ = useOperacionalDashboard();
+  const habilitarOperacional = modo === "operacional";
 
-  const kpiLoading = isLoading;
-  const chartLoading = isLoading;
-
-  // Realtime subscription
+  // Realtime: qualquer mudança em leads/compensações/clientes invalida os dois dashboards (debounce 2s).
   useEffect(() => {
     let t: ReturnType<typeof setTimeout> | undefined;
     const bump = () => {
       if (t) clearTimeout(t);
-      t = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      }, 2000);
+      t = setTimeout(() => queryClient.invalidateQueries({ queryKey: ["dashboard"] }), 2000);
     };
-    const channel = supabase.channel("dashboard-rt")
+    const channel = supabase
+      .channel("dashboard-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "compensacoes_mensais" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "clientes" }, bump)
       .subscribe();
     return () => {
       if (t) clearTimeout(t);
@@ -311,84 +90,36 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
     };
   }, [queryClient]);
 
-  const d = data;
-  const trendDiff = (d?.comNewWeek ?? 0) - (d?.comNewPrevWeek ?? 0);
-  const maxFunnelCount = Math.max(...(d?.funnelData ?? []).map(f => f.count), 1);
-  const totalFunnelCount = (d?.funnelData ?? []).reduce((s, f) => s + f.count, 0);
-  const totalFunnelPotencial = (d?.funnelData ?? []).reduce((s, f) => s + f.potencial, 0);
-  const maxSegCount = Math.max(...(d?.segmentoData ?? []).map(s => s.count), 1);
-  const opEconomia = (d?.opCompensado ?? 0) - (d?.opHonorarios ?? 0);
-
   if (redirecionarParaComercial) {
     return <Navigate to="/dashboard/comercial" replace />;
   }
 
+  const renderOperacional = () => {
+    if (opQ.isLoading) return <LoadingGrid />;
+    if (opQ.isError || !opQ.data) {
+      return <ErrorCard title="Não foi possível carregar o dashboard" message={(opQ.error as Error)?.message} onRetry={() => opQ.refetch()} />;
+    }
+    if (activeTab === "executiva" && canExecutiva) return <ExecutivaView data={opQ.data} navigate={navigate} />;
+    if (activeTab === "pulso" && canPulso) return <ResumoSemanalTab data={opQ.data} navigate={navigate} />;
+    return <OperationalView data={opQ.data} navigate={navigate} />;
+  };
+
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-[#f2f3f7] font-sans antialiased">
+    <div className="min-h-[calc(100vh-64px)] bg-[var(--dash-page)] font-sans antialiased">
       <DashboardHeader
         profileName={profile?.full_name?.split(" ")[0] || "usuário"}
         role={role}
-        canComercial={canComercial}
+        canComercial={false}
         canOperacional={canOperacional}
         canExecutiva={canExecutiva}
-        activeTab={activeTab}
+        activeTab={modo === "comercial" ? "comercial" : activeTab}
         switchTab={switchTab}
-        comercialLabel={modo === "comercial" ? "Visão geral" : "Visão Comercial"}
-        extraTabs={
-          modo === "comercial"
-            ? [
-                { key: "sla_funil", label: "SLA do funil" },
-                ...(canGestaoComercial ? [{ key: "ciclo_sla", label: "Ciclo & SLA" }] : []),
-              ]
-            : canGestao
-              ? [{ key: "resumo_semanal", label: "Pulso da semana" }]
-              : []
-        }
+        extraTabs={canPulso ? [{ key: "pulso", label: "Pulso da semana" }] : []}
+        titulo={modo === "comercial" ? "Visão Comercial" : undefined}
       />
 
-      {role === "admin" && d?.dataHealth && !d.dataHealth.hasData && (
-        <div className="mx-7 mt-4 p-3 rounded-xl border border-[hsl(var(--destructive)/0.2)] bg-[hsl(var(--destructive)/0.04)] flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-destructive flex-shrink-0" />
-          <p className="text-xs text-muted-foreground flex-1">
-            Nenhuma compensação encontrada. Os dados reais precisam ser importados.
-          </p>
-          <Link to="/clientes" className="text-[10px] font-bold text-destructive hover:underline whitespace-nowrap">
-            Ir para clientes →
-          </Link>
-        </div>
-      )}
-
-      <div className="px-7 pt-[18px] pb-9 w-full">
-        {activeTab === "sla_funil" && modo === "comercial" ? (
-          <SlaFunilTab />
-        ) : activeTab === "ciclo_sla" && (canGestaoComercial || canGestao) ? (
-          <CicloSlaTab />
-        ) : activeTab === "resumo_semanal" && canGestao ? (
-          <ResumoSemanalTab />
-        ) : activeTab === "executiva" ? (
-          <ExecutivaView navigate={navigate} />
-        ) : activeTab === "comercial" ? (
-          <CommercialView
-            kpiLoading={kpiLoading} chartLoading={chartLoading}
-            comLeads={d?.comLeads ?? 0} comNewWeek={d?.comNewWeek ?? 0} trendDiff={trendDiff}
-            comPotencial={d?.comPotencial ?? 0} comContratos={d?.comContratos ?? 0} comTaxaConversao={d?.comTaxaConversao ?? 0}
-            stalledLeads={d?.stalledLeads ?? []} funnelData={d?.funnelData ?? []}
-            maxFunnelCount={maxFunnelCount} totalFunnelCount={totalFunnelCount} totalFunnelPotencial={totalFunnelPotencial}
-            segmentoData={d?.segmentoData ?? []} maxSegCount={maxSegCount}
-            scoreDistribution={d?.scoreDistribution ?? { A: 0, B: 0, C: 0, D: 0 }}
-            motorDiagnosticos={d?.motorDiagnosticos ?? 0} motorTesesAtivas={d?.motorTesesAtivas ?? 0}
-            regimeMix={d?.regimeMix ?? []}
-            navigate={navigate}
-          />
-        ) : (
-          <OperationalView
-            kpiLoading={kpiLoading} chartLoading={chartLoading}
-            opClientes={d?.opClientes ?? 0} opTotalAtivos={d?.opTotalAtivos ?? 0} opCompensado={d?.opCompensado ?? 0} opHonorarios={d?.opHonorarios ?? 0}
-            opSaldo={d?.opSaldo ?? 0} opEconomia={opEconomia} monthlyBars={d?.monthlyBars ?? []}
-            topCompensado={d?.topCompensado ?? []} topSaldo={d?.topSaldo ?? []} navigate={navigate}
-            intimacoesPendentes={d?.intimacoesPendentes ?? 0} intimacoesVencendo={d?.intimacoesVencendo ?? 0}
-          />
-        )}
+      <div className="px-4 sm:px-7 pt-[18px] pb-9 w-full">
+        {modo === "comercial" ? <CommercialView navigate={navigate} /> : habilitarOperacional ? renderOperacional() : null}
       </div>
     </div>
   );
