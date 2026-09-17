@@ -483,7 +483,7 @@ function ResultadoView({
   const handleQuerSaberMais = async () => {
     if (interesseSent || interesseLoading || !lead_id) {
       // Sem lead_id, só abre o WhatsApp direto
-      window.open(`https://wa.me/5521971655550?text=${encodeURIComponent(
+      window.open(`https://wa.me/5521988946055?text=${encodeURIComponent(
         `Olá, AGF! Fiz a calculadora da Reforma Tributária e quero saber mais sobre como reduzir o impacto na minha rede. Meu nome: ${nome}, faturamento ~${fmtBRL(fat)}/mês.`
       )}`, "_blank");
       return;
@@ -504,7 +504,7 @@ function ResultadoView({
       setInteresseLoading(false);
     }
     // Sempre abre o WhatsApp também
-    window.open(`https://wa.me/5521971655550?text=${encodeURIComponent(
+    window.open(`https://wa.me/5521988946055?text=${encodeURIComponent(
       `Olá, AGF! Fiz a calculadora (cadastro ${lead_id}) e quero saber mais. Saldo IBS/CBS estimado: ${fmtBRL(impostoReforma)}/mês.`
     )}`, "_blank");
   };
@@ -814,7 +814,7 @@ function ResultadoView({
           {downloading ? "Gerando PDF..." : "📄 Baixar diagnóstico em PDF"}
         </button>
         <a
-          href={`https://wa.me/5521971655550?text=${encodeURIComponent(
+          href={`https://wa.me/5521988946055?text=${encodeURIComponent(
             `Olá, AGF! Fiz o diagnóstico da Reforma na calculadora. Meu cadastro: ${lead_id ?? "-"}. Faturamento ${fmtBRL(fat)}/mês, saldo IBS/CBS estimado ${fmtBRL(impostoReforma)}/mês. Quero conversar.`
           )}`}
           target="_blank" rel="noreferrer"
