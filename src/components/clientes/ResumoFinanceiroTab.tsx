@@ -112,7 +112,7 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
     <div id="report-content" className="space-y-5">
       {/* PDF HEADER — só aparece durante a exportação (ver handleExportPdf) */}
       <div className={downloadingPdf ? "block mb-6" : "hidden"}>
-        <h1 className="text-lg font-bold text-[var(--navy)]">Resumo Financeiro — Focus FinTax</h1>
+        <h1 className="text-lg font-bold text-[var(--navy)]">Resumo Financeiro — AGF FinTax</h1>
         <p className="text-sm text-ink-60">{cliente?.empresa || "—"} · CNPJ: {cliente?.cnpj || "—"}</p>
         <p className="text-xs text-ink-35 mt-1">
           Gerado em {new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })}
@@ -152,7 +152,7 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
             XLSX.utils.book_append_sheet(wb, ws, 'Compensações');
             XLSX.writeFile(wb, `${cliente?.empresa || 'Cliente'}_Compensacoes_${new Date().toISOString().slice(0, 10)}.xlsx`);
           }}
-          className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg border border-[var(--dash-border)] bg-white hover:bg-[rgba(10,21,100,0.03)] transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg border border-[var(--dash-border)] bg-white hover:bg-[rgba(8,17,29,0.03)] transition-colors"
         >
           <Download className="w-3.5 h-3.5" />
           Exportar Excel
@@ -160,7 +160,7 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
         <button
           onClick={handleExportPdf}
           disabled={downloadingPdf}
-          className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg border border-[var(--dash-border)] bg-white hover:bg-[rgba(10,21,100,0.03)] transition-colors disabled:opacity-60"
+          className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg border border-[var(--dash-border)] bg-white hover:bg-[rgba(8,17,29,0.03)] transition-colors disabled:opacity-60"
         >
           {downloadingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
           {downloadingPdf ? "Gerando PDF..." : "Exportar PDF"}
@@ -189,7 +189,7 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
         {[
           { label: "Total identificado", value: totalIdentificado, color: "var(--navy)", internal: false },
           { label: "Total compensado", value: totalCompensado, color: "var(--dash-green)", internal: false },
-          { label: "Honorários Focus", value: totalHonorarios, color: "var(--navy)", internal: true },
+          { label: "Honorários AGF", value: totalHonorarios, color: "var(--navy)", internal: true },
           { label: "Economia líquida", value: economiaLiquida, color: "var(--dash-green)", internal: true },
           { label: "Saldo restante", value: saldoRestante, color: saldoRestante > 0 ? "var(--dash-red)" : "var(--ink-35)", internal: true },
         ]
@@ -247,7 +247,7 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
           <div className="px-3 py-4">
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={chartData} barGap={2}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,21,100,0.06)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(8,17,29,0.06)" />
                 <XAxis dataKey="mes" tick={{ fontSize: 10, fill: "rgba(15,17,23,0.4)" }} axisLine={false} tickLine={false} />
                 <YAxis
                   tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`}
@@ -324,7 +324,7 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
               })}
             </TableBody>
             <TableFooter>
-              <TableRow className="bg-[rgba(10,21,100,0.03)]">
+              <TableRow className="bg-[rgba(8,17,29,0.03)]">
                 <TableCell className="text-xs font-bold" colSpan={3}>Total</TableCell>
                 <TableCell className="text-xs font-bold">{formatCurrencyBR(totalCompensado)}</TableCell>
                 <TableCell className="text-xs font-bold">{formatCurrencyBR(totalHonorarios)}</TableCell>
@@ -342,7 +342,7 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
 
       {/* PDF FOOTER — só aparece durante a exportação (ver handleExportPdf) */}
       <div className={downloadingPdf ? "block mt-8 pt-4 border-t text-center" : "hidden"}>
-        <p className="text-[10px] text-ink-35">Focus FinTax · Grupo Focus · A Contabilidade do Supermercado</p>
+        <p className="text-[10px] text-ink-35">AGF FinTax · Grupo AGF · Auditoria Financeira & Reforma Tributária</p>
       </div>
     </div>
   );

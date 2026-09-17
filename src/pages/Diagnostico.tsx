@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import logoFocus from "@/assets/logo-focus-fintax.svg";
-import logoFocusWhite from "@/assets/logo-focus-fintax-white.png";
+import logoAgf from "@/assets/logo-agf-fintax.svg";
+import logoAgfWhite from "@/assets/logo-agf-fintax-white.svg";
 import { useParams } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -104,7 +104,7 @@ function useFonts() {
     const link = document.createElement("link");
     link.id = id;
     link.rel = "stylesheet";
-    link.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&display=swap";
+    link.href = "https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,500&family=DM+Mono:wght@400;500&display=swap";
     document.head.appendChild(link);
   }, []);
 }
@@ -117,12 +117,12 @@ function useStyles() {
     style.id = id;
     style.textContent = `
       :root {
-        --dg-navy: #0a1564;
-        --dg-red: #c8001e;
+        --dg-navy: #08111d;
+        --dg-red: #c6964f;
         --dg-ink: #111827;
         --dg-surface: #ffffff;
-        --dg-page: #f7f7f5;
-        --dg-gold: #b8860b;
+        --dg-page: #f5f5f5;
+        --dg-gold: #a67a38;
         --dg-green: #00c853;
         --dg-border: rgba(17,24,39,0.09);
         --dg-ink-60: rgba(17,24,39,0.6);
@@ -208,7 +208,7 @@ export default function Diagnostico() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f7f7f5", fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f5f5f5", fontFamily: "'Montserrat', sans-serif" }}>
         <div style={{ color: "var(--dg-ink-60)", fontSize: 14 }}>Carregando diagnóstico...</div>
       </div>
     );
@@ -216,7 +216,7 @@ export default function Diagnostico() {
 
   if (error || !data) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f7f7f5", fontFamily: "'DM Sans', sans-serif", flexDirection: "column", gap: 16 }}>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f5f5f5", fontFamily: "'Montserrat', sans-serif", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 48, opacity: 0.3 }}>📄</div>
         <h1 style={{ color: "var(--dg-ink)", fontSize: 20, fontWeight: 600 }}>Diagnóstico não encontrado</h1>
         <p style={{ color: "var(--dg-ink-60)", fontSize: 13 }}>O link pode estar incorreto ou o diagnóstico ainda não foi gerado.</p>
@@ -280,7 +280,7 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        backgroundColor: '#f7f7f5',
+        backgroundColor: '#f5f5f5',
         logging: false,
         allowTaint: false,
       });
@@ -322,7 +322,7 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
   }, [downloading, lead.empresa]);
 
   const whatsappMsg = encodeURIComponent(
-    `Olá! Acabei de receber o diagnóstico tributário da Focus FinTax para ${lead.empresa}. O potencial estimado de recuperação é de ${formatValue(minTotal)} a ${formatValue(maxTotal)}. Gostaria de agendar a análise completa.`
+    `Olá! Acabei de receber o diagnóstico tributário da AGF FinTax para ${lead.empresa}. O potencial estimado de recuperação é de ${formatValue(minTotal)} a ${formatValue(maxTotal)}. Gostaria de agendar a análise completa.`
   );
   const whatsappUrl = `https://wa.me/5521999999999?text=${whatsappMsg}`;
   const segLabel = SEGMENTO_LABELS[lead.segmento] || lead.segmento;
@@ -332,20 +332,20 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
   return (
     <div className="dg-page" style={{
       minHeight: "100vh",
-      background: "#f7f7f5",
+      background: "#f5f5f5",
       color: "var(--dg-ink)",
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Montserrat', sans-serif",
       overflowX: "hidden",
     }}>
       {/* Header */}
       <header className="dg-header dg-fade-up dg-d1" style={{
-        background: "#0a1564",
+        background: "#08111d",
         padding: "12px 48px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        <img src={logoFocusWhite} alt="Focus FinTax" style={{ height: 80, width: "auto" }} />
+        <img src={logoAgfWhite} alt="AGF FinTax" style={{ height: 80, width: "auto" }} />
         <div style={{
           display: "flex", alignItems: "center", gap: 8,
           background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)",
@@ -373,7 +373,7 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
         />
         <div style={{
           position: "absolute", inset: 0,
-          background: "linear-gradient(to bottom, rgba(10,21,100,0.5) 0%, rgba(10,21,100,0.85) 100%)",
+          background: "linear-gradient(to bottom, rgba(8,17,29,0.5) 0%, rgba(8,17,29,0.85) 100%)",
         }} />
         <div className="dg-hero-text" style={{
           position: "absolute", bottom: 0, left: 0, right: 0,
@@ -387,16 +387,16 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
             Diagnóstico Tributário · Estimativa Preliminar
           </div>
           <h1 style={{
-            fontFamily: "'DM Serif Display', serif", fontSize: 36,
-            fontWeight: 400, lineHeight: 1.15, color: "#fff", marginBottom: 4,
+            fontFamily: "'Montserrat', sans-serif", fontSize: 34,
+            fontWeight: 700, lineHeight: 1.15, color: "#fff", marginBottom: 4,
           }}>
             {lead.empresa}
           </h1>
           <p style={{
-            fontFamily: "'DM Serif Display', serif", fontStyle: "italic",
+            fontFamily: "'Montserrat', sans-serif", fontStyle: "italic", fontWeight: 500,
             fontSize: 18, color: "rgba(255,255,255,0.8)", marginBottom: 8,
           }}>
-            identificamos <span style={{ color: "#f5c842" }}>oportunidades reais</span>
+            identificamos <span style={{ color: "#d9b06e" }}>oportunidades reais</span>
           </p>
           <p style={{
             fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: 1,
@@ -413,7 +413,7 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
         {/* Total card */}
         {maxTotal > 0 && (
           <div className="dg-total-card dg-fade-up dg-d3" style={{
-            background: "#0a1564", borderRadius: 16, padding: "36px 40px",
+            background: "#08111d", borderRadius: 16, padding: "36px 40px",
             marginBottom: 32, color: "#fff",
           }}>
             <div className="dg-total-inner" style={{
@@ -428,13 +428,13 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
                   Potencial total de recuperação tributária estimado
                 </div>
                 <div style={{
-                  fontFamily: "'DM Serif Display', serif", fontSize: 44,
+                  fontFamily: "'Montserrat', sans-serif", fontWeight: 800, fontSize: 44,
                   lineHeight: 1, marginBottom: 8,
                 }}>
-                  <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 20, fontFamily: "'DM Sans', sans-serif", fontWeight: 600, verticalAlign: "top", marginRight: 4 }}>R$</span>
+                  <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 20, fontFamily: "'Montserrat', sans-serif", fontWeight: 600, verticalAlign: "top", marginRight: 4 }}>R$</span>
                   <span style={{ color: "rgba(255,255,255,0.7)" }}>{formatHeroNumber(animMin)}{heroSuffix(minTotal)}</span>
                   <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 24, margin: "0 12px" }}>→</span>
-                  <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 20, fontFamily: "'DM Sans', sans-serif", fontWeight: 600, verticalAlign: "top", marginRight: 4 }}>R$</span>
+                  <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 20, fontFamily: "'Montserrat', sans-serif", fontWeight: 600, verticalAlign: "top", marginRight: 4 }}>R$</span>
                   <span>{formatHeroNumber(animMax)}{heroSuffix(maxTotal)}</span>
                 </div>
                 <div style={{
@@ -449,8 +449,8 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
                 flexShrink: 0,
               }}>
                 <div style={{
-                  fontFamily: "'DM Serif Display', serif", fontSize: 36,
-                  color: "#f5c842", lineHeight: 1,
+                  fontFamily: "'Montserrat', sans-serif", fontWeight: 800, fontSize: 36,
+                  color: "#d9b06e", lineHeight: 1,
                 }}>
                   {multiplier}×
                 </div>
@@ -493,7 +493,7 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
           {teses.map((t, i) => {
             const barWidth = Math.round((t.estimativa_maxima / maxTese) * 100);
             const desc = t.descricao_comercial || TESE_DESCRICOES_FALLBACK[t.tese_nome] || "Tese tributária com potencial de recuperação de créditos para o seu segmento.";
-            const stripeColor = i === 0 ? "#c8001e" : i === 1 ? "#0a1564" : "var(--dg-ink-10)";
+            const stripeColor = i === 0 ? "#c6964f" : i === 1 ? "#08111d" : "var(--dg-ink-10)";
 
             return (
               <div key={i} className={`dg-tese-card dg-fade-up`} style={{
@@ -511,11 +511,11 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
                 <div className="dg-tese-grid" style={{ minWidth: 0 }}>
                   <div style={{
                     fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 500,
-                    letterSpacing: 2, color: "#c8001e", marginBottom: 4,
+                    letterSpacing: 2, color: "#c6964f", marginBottom: 4,
                     display: "flex", alignItems: "center", gap: 8,
                   }}>
                     TESE {String(i + 1).padStart(2, "0")}
-                    <span style={{ display: "block", width: 20, height: 1, background: "rgba(200,0,30,0.3)" }} />
+                    <span style={{ display: "block", width: 20, height: 1, background: "rgba(198,150,79,0.3)" }} />
                   </div>
                   <div style={{
                     fontSize: 15, fontWeight: 600, lineHeight: 1.3,
@@ -535,7 +535,7 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
                   }}>
                     <div style={{
                       height: "100%",
-                      background: "linear-gradient(90deg, #c8001e 0%, #e8001e 100%)",
+                      background: "linear-gradient(90deg, #c6964f 0%, #d9b06e 100%)",
                       borderRadius: 2,
                       width: barsVisible ? `${barWidth}%` : "0%",
                       transition: "width 1.4s cubic-bezier(0.16,1,0.3,1)",
@@ -588,7 +588,7 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
         {/* CTA Section */}
         <div className="dg-cta-section dg-fade-up dg-d7" style={{ textAlign: "center", marginBottom: 40 }}>
           <p style={{
-            fontFamily: "'DM Serif Display', serif", fontSize: 26,
+            fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: 26,
             color: "var(--dg-ink)", marginBottom: 6, lineHeight: 1.3,
           }}>
             Transforme esse potencial em caixa real.
@@ -600,9 +600,9 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
             <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{
               display: "inline-flex", alignItems: "center", gap: 10,
               padding: "14px 28px", borderRadius: 10,
-              fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 14,
-              background: "#c8001e", color: "#fff",
-              boxShadow: "0 4px 20px rgba(200,0,30,0.3)",
+              fontFamily: "'Montserrat', sans-serif", fontWeight: 600, fontSize: 14,
+              background: "#c6964f", color: "#fff",
+              boxShadow: "0 4px 20px rgba(198,150,79,0.3)",
               textDecoration: "none", border: "none", cursor: "pointer",
               transition: "transform 0.2s, box-shadow 0.2s",
             }}
@@ -615,7 +615,7 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
             <button onClick={handleDownloadPDF} disabled={downloading} style={{
               display: "inline-flex", alignItems: "center", gap: 10,
               padding: "14px 28px", borderRadius: 10,
-              fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 14,
+              fontFamily: "'Montserrat', sans-serif", fontWeight: 600, fontSize: 14,
               background: "transparent", color: "var(--dg-ink-60)",
               border: "1px solid var(--dg-ink-10)", cursor: "pointer",
               transition: "transform 0.2s, background 0.2s",
@@ -649,7 +649,7 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
 
       {/* Footer */}
       <footer className="dg-footer" style={{
-        background: "#0a1564",
+        background: "#08111d",
         padding: "20px 48px",
         display: "flex",
         justifyContent: "space-between",
@@ -659,8 +659,8 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
         letterSpacing: 0.5,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src={logoFocus} alt="Focus FinTax" style={{ height: 36, width: "auto", opacity: 0.85 }} />
-          <span>Focus FinTax LTDA · Grupo Focus · A Contabilidade do Supermercado</span>
+          <img src={logoAgf} alt="AGF FinTax" style={{ height: 36, width: "auto", opacity: 0.85 }} />
+          <span>AGF FinTax · Grupo AGF · Auditoria Financeira & Reforma Tributária</span>
         </div>
         <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{reportDate}</span>
       </footer>

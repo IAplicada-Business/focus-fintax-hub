@@ -22,7 +22,7 @@ interface Props {
 export function DistribuicaoSaldo({ opClientes, distBands, maxDistCount, prazoSaldo, honFuturosSaldo, opSaldo, taxaHon }: Props) {
   return (
     <div className="card-base overflow-hidden flex flex-col">
-      <div className="px-[18px] pt-3 pb-2.5 border-b border-[rgba(10,21,100,0.10)]">
+      <div className="px-[18px] pt-3 pb-2.5 border-b border-[rgba(8,17,29,0.10)]">
         <div className="text-[11px] font-bold tracking-[0.8px] uppercase text-navy">Distribuição do saldo</div>
         <div className="text-[11px] text-ink-35 mt-0.5">{opClientes} clientes · por faixa de saldo restante</div>
       </div>
@@ -50,7 +50,7 @@ export function DistribuicaoSaldo({ opClientes, distBands, maxDistCount, prazoSa
       )}
 
       {/* Honorários futuros */}
-      <div className="border-t border-[rgba(10,21,100,0.10)] px-3.5 py-2.5 flex justify-between items-center bg-[rgba(15,123,78,0.10)] mt-auto">
+      <div className="border-t border-[rgba(8,17,29,0.10)] px-3.5 py-2.5 flex justify-between items-center bg-[rgba(15,123,78,0.10)] mt-auto">
         <div>
           <div className="text-[9px] font-bold tracking-[1.2px] uppercase text-dash-green">Honorários futuros estimados</div>
           <div className="text-[10px] text-ink-60 mt-0.5">sobre o saldo restante · taxa {(taxaHon * 100).toFixed(1)}%</div>

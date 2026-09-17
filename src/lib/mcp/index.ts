@@ -6,11 +6,11 @@ import listIntimacoesTool from "./tools/list-intimacoes";
 const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unset";
 
 export default defineMcp({
-  name: "focus-fintax-mcp",
-  title: "Focus Fintax MCP",
+  name: "agf-fintax-mcp",
+  title: "AGF Fintax MCP",
   version: "0.1.0",
   instructions:
-    "Tools for the Focus Fintax CRM: list leads in the sales pipeline, list clientes (accounts), and list tax intimações. All queries run as the signed-in user under Row-Level Security.",
+    "Tools for the AGF Fintax CRM: list leads in the sales pipeline, list clientes (accounts), and list tax intimações. All queries run as the signed-in user under Row-Level Security.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",

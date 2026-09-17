@@ -101,7 +101,7 @@ export default function OAuthConsent() {
             Conectar {clientName} à sua conta
           </h1>
           <p className="text-sm text-muted-foreground">
-            Isso permitirá que {clientName} acesse a Focus Fintax como você, usando as ferramentas
+            Isso permitirá que {clientName} acesse a AGF Fintax como você, usando as ferramentas
             expostas pelo servidor MCP.
           </p>
         </div>

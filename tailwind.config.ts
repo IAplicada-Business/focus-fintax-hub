@@ -14,12 +14,17 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Barlow', 'sans-serif'],
-        display: ['"Barlow Condensed"', 'sans-serif'],
+        sans: ['Montserrat', 'sans-serif'],
+        display: ['Montserrat', 'sans-serif'],
         'mono-dm': ['"DM Mono"', 'monospace'],
       },
       colors: {
-        navy: '#0a1564',
+        navy: '#08111d',
+        gold: {
+          DEFAULT: '#c6964f',
+          soft: '#d9b06e',
+          deep: '#a67a38',
+        },
         'dash-red': '#c8001e',
         'dash-green': '#0f7b4e',
         'dash-amber': '#b45309',
@@ -101,10 +106,10 @@ export default {
         "section-lg": "clamp(60px, 7.8vw, 120px)",
       },
       boxShadow: {
-        soft: "0 0 0 1px rgba(10,21,100,0.04), 0 1px 2px rgba(10,21,100,0.04), 0 8px 24px -12px rgba(10,21,100,0.10)",
-        "soft-hover": "0 0 0 1px rgba(10,21,100,0.06), 0 4px 12px rgba(10,21,100,0.08), 0 18px 40px -16px rgba(10,21,100,0.14)",
+        soft: "0 0 0 1px rgba(8,17,29,0.04), 0 1px 2px rgba(8,17,29,0.04), 0 8px 24px -12px rgba(8,17,29,0.10)",
+        "soft-hover": "0 0 0 1px rgba(8,17,29,0.06), 0 4px 12px rgba(8,17,29,0.08), 0 18px 40px -16px rgba(8,17,29,0.14)",
         "soft-inset": "inset 0 0 0 1px hsl(var(--card-border))",
-        ring: "0 0 0 3px rgba(200,0,30,0.18)",
+        ring: "0 0 0 3px rgba(198,150,79,0.28)",
       },
       transitionTimingFunction: {
         "out-modern": "cubic-bezier(0.4, 0, 0.2, 1)",

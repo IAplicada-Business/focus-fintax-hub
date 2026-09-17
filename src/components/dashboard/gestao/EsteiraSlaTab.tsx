@@ -115,7 +115,7 @@ export function EsteiraSlaTab() {
             className={`text-[11px] font-semibold px-3 py-1.5 rounded-md border transition-colors ${
               filtro === "atrasados"
                 ? "bg-[rgba(200,0,30,0.08)] border-[rgba(200,0,30,0.25)] text-dash-red"
-                : "bg-white border-[rgba(10,21,100,0.10)] text-ink-60 hover:text-navy"
+                : "bg-white border-[rgba(8,17,29,0.10)] text-ink-60 hover:text-navy"
             }`}
           >
             Ver só atrasados
@@ -135,8 +135,8 @@ export function EsteiraSlaTab() {
                 onClick={() => setFiltro(e.estagio)}
                 className={`rounded-xl px-3 py-3 text-left transition-all border ${
                   active
-                    ? "border-navy/30 bg-[rgba(10,21,100,0.06)] shadow-sm"
-                    : "border-[rgba(10,21,100,0.08)] bg-white hover:border-navy/20"
+                    ? "border-navy/30 bg-[rgba(8,17,29,0.06)] shadow-sm"
+                    : "border-[rgba(8,17,29,0.08)] bg-white hover:border-navy/20"
                 }`}
               >
                 <p className="text-[10px] font-semibold text-ink-35 leading-tight min-h-[28px]">
@@ -185,7 +185,7 @@ export function EsteiraSlaTab() {
             .map((p) => (
               <div key={p.estagio} className="grid grid-cols-[140px_1fr_64px] gap-3 items-center">
                 <p className="text-xs font-medium text-ink truncate">{p.label}</p>
-                <div className="h-2.5 rounded-full bg-[rgba(10,21,100,0.06)] overflow-hidden">
+                <div className="h-2.5 rounded-full bg-[rgba(8,17,29,0.06)] overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${
                       p.atrasoAcumuladoDias > 0 ? "bg-dash-red/80" : "bg-dash-green/70"

@@ -145,8 +145,8 @@ export default function ResetPassword() {
           </button>
         }
       >
-        <div className="flex items-start gap-3 rounded-xl border border-[#d04545]/35 bg-[rgba(208,69,69,0.10)] p-4">
-          <AlertTriangle size={18} className="text-[#e06b6b] shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 rounded-xl border border-[#c6964f]/35 bg-[rgba(198,150,79,0.10)] p-4">
+          <AlertTriangle size={18} className="text-[#d9b06e] shrink-0 mt-0.5" />
           <p className="text-sm text-white/75 leading-relaxed">
             {linkError ?? "O link pode ter expirado, já ter sido usado ou estar incompleto."}
           </p>
@@ -163,7 +163,7 @@ export default function ResetPassword() {
           <div className="relative group">
             <Lock
               size={18}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/55 transition-colors group-focus-within:text-[#e06b6b]"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/55 transition-colors group-focus-within:text-[#d9b06e]"
             />
             <input
               id="new-password"
@@ -193,7 +193,7 @@ export default function ResetPassword() {
           <div className="relative group">
             <Lock
               size={18}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/55 transition-colors group-focus-within:text-[#e06b6b]"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/55 transition-colors group-focus-within:text-[#d9b06e]"
             />
             <input
               id="confirm-password"

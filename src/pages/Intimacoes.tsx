@@ -102,7 +102,7 @@ export default function Intimacoes() {
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Intimações");
-    XLSX.writeFile(wb, `FocusFinTax_Intimacoes_${format(new Date(), "yyyyMMdd")}.xlsx`);
+    XLSX.writeFile(wb, `AGFFinTax_Intimacoes_${format(new Date(), "yyyyMMdd")}.xlsx`);
     toast.success("Excel exportado");
   };
 

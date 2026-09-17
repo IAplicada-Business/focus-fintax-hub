@@ -45,19 +45,19 @@ export default function AmbienteSelect() {
   return (
     <div
       className="min-h-screen w-full flex items-center justify-center relative overflow-hidden p-4"
-      style={{ background: "#06081f" }}
+      style={{ background: "#08111d" }}
     >
       <div
         aria-hidden
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 80% 50% at 50% 100%, rgba(1,15,105,0.55) 0%, transparent 70%), radial-gradient(ellipse 100% 60% at 50% 0%, rgba(14,18,53,1) 0%, transparent 60%)",
+            "radial-gradient(ellipse 80% 50% at 50% 100%, rgba(28,49,80,0.55) 0%, transparent 70%), radial-gradient(ellipse 100% 60% at 50% 0%, rgba(16,28,46,1) 0%, transparent 60%)",
         }}
       />
       <div className="relative z-10 w-full max-w-2xl text-center">
         <p className="text-[10px] uppercase tracking-[0.18em] text-white/40 font-semibold mb-3">
-          Focus FinTax · Grupo Focus
+          AGF FinTax · Grupo AGF
         </p>
         <h1 className="text-2xl sm:text-[1.7rem] font-bold tracking-[-0.022em] text-white mb-2">
           Escolha o ambiente
@@ -71,7 +71,7 @@ export default function AmbienteSelect() {
             <div className="h-8 w-8 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : disponiveis.length === 0 ? (
-          <div className="rounded-2xl border border-white/12 bg-[rgba(6,8,31,0.62)] px-6 py-10 backdrop-blur-md">
+          <div className="rounded-2xl border border-white/12 bg-[rgba(8,17,29,0.62)] px-6 py-10 backdrop-blur-md">
             <p className="text-sm text-white/70">
               Sua conta não tem permissão para nenhum ambiente. Fale com um administrador.
             </p>
@@ -91,17 +91,17 @@ export default function AmbienteSelect() {
                   onClick={() => choose(card.ambiente)}
                   className={cn(
                     "group text-left rounded-2xl border border-white/12 p-6 backdrop-blur-md transition-all duration-200",
-                    "hover:-translate-y-0.5 hover:border-[#d04545]/45 focus:outline-none focus:ring-2 focus:ring-[#d04545]/55",
+                    "hover:-translate-y-0.5 hover:border-[#c6964f]/45 focus:outline-none focus:ring-2 focus:ring-[#c6964f]/55",
                   )}
                   style={{
-                    background: "linear-gradient(180deg, rgba(6,8,31,0.55) 0%, rgba(6,8,31,0.72) 100%)",
+                    background: "linear-gradient(180deg, rgba(8,17,29,0.55) 0%, rgba(8,17,29,0.72) 100%)",
                   }}
                 >
                   <div
                     className="h-11 w-11 rounded-xl flex items-center justify-center mb-4"
                     style={{
-                      background: "rgba(208,69,69,0.16)",
-                      border: "1px solid rgba(208,69,69,0.32)",
+                      background: "rgba(198,150,79,0.16)",
+                      border: "1px solid rgba(198,150,79,0.32)",
                     }}
                   >
                     <Icon className="h-5 w-5 text-white" />
@@ -110,7 +110,7 @@ export default function AmbienteSelect() {
                     {AMBIENTE_LABEL[card.ambiente]}
                   </p>
                   <p className="text-sm text-white/60 mt-1.5 mb-5">{card.description}</p>
-                  <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#e06b6b] group-hover:text-[#f08a8a]">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#d9b06e] group-hover:text-[#e6c48a]">
                     Entrar
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                   </span>

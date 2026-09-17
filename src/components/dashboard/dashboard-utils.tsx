@@ -85,8 +85,8 @@ export interface ClientRank { id: string; empresa: string; compensado: number; s
 
 /* ─── Shared font style objects (kept for Recharts tick props that need style objects) ─── */
 export const fontMono: React.CSSProperties = { fontFamily: "'DM Mono', monospace", fontVariantNumeric: "tabular-nums" };
-export const fontCondensed: React.CSSProperties = { fontFamily: "'Barlow Condensed', sans-serif" };
-export const fontBarlow: React.CSSProperties = { fontFamily: "'Barlow', sans-serif" };
+export const fontCondensed: React.CSSProperties = { fontFamily: "'Montserrat', sans-serif" };
+export const fontBarlow: React.CSSProperties = { fontFamily: "'Montserrat', sans-serif" };
 
 /* ─── KpiBox ─── */
 export function KpiBox({ label, value, sub, colorClass, trend, last, rawValue }: { label: string; value: string; sub: string; colorClass?: string; trend?: number; last?: boolean; rawValue?: number }) {
@@ -95,7 +95,7 @@ export function KpiBox({ label, value, sub, colorClass, trend, last, rawValue }:
   const animatedNum = useCountUp(rawValue ?? 0);
   const displayValue = rawValue !== undefined ? String(animatedNum) : value;
   return (
-    <div className={`px-5 py-4 ${last ? "" : "border-r border-[rgba(10,21,100,0.10)]"}`}>
+    <div className={`px-5 py-4 ${last ? "" : "border-r border-[rgba(8,17,29,0.10)]"}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 mb-[7px]">
         <div className="text-[10px] font-semibold tracking-[1.4px] uppercase text-ink-35">{label}</div>
         {trend !== undefined && trend !== 0 && (

@@ -122,10 +122,10 @@ var list_intimacoes_default = defineTool3({
 // src/lib/mcp/index.ts
 var projectRef = "qzkqrhamqtchboxtwpnz";
 var mcp_default = defineMcp({
-  name: "focus-fintax-mcp",
-  title: "Focus Fintax MCP",
+  name: "agf-fintax-mcp",
+  title: "AGF Fintax MCP",
   version: "0.1.0",
-  instructions: "Tools for the Focus Fintax CRM: list leads in the sales pipeline, list clientes (accounts), and list tax intima\xE7\xF5es. All queries run as the signed-in user under Row-Level Security.",
+  instructions: "Tools for the AGF Fintax CRM: list leads in the sales pipeline, list clientes (accounts), and list tax intima\xE7\xF5es. All queries run as the signed-in user under Row-Level Security.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"

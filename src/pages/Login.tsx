@@ -53,7 +53,7 @@ export default function Login() {
 
   return (
     <AuthShell
-      title={isForgot ? "Recuperar acesso" : "Entrar na Focus"}
+      title={isForgot ? "Recuperar acesso" : "Entrar na AGF"}
       subtitle={
         isForgot
           ? "Enviaremos um link para redefinir sua senha."
@@ -77,7 +77,7 @@ export default function Login() {
           <div className="relative group">
             <Mail
               size={18}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/55 transition-colors group-focus-within:text-[#e06b6b]"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/55 transition-colors group-focus-within:text-[#d9b06e]"
             />
             <input
               id="email"
@@ -98,7 +98,7 @@ export default function Login() {
             <div className="relative group">
               <Lock
                 size={18}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/55 transition-colors group-focus-within:text-[#e06b6b]"
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/55 transition-colors group-focus-within:text-[#d9b06e]"
               />
               <input
                 id="password"

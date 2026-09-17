@@ -81,7 +81,7 @@ export default function MapaPublico() {
       <div className="p-6 max-w-md mx-auto text-center space-y-2">
         <h1 className="font-display text-lg font-bold text-navy">Link indisponível</h1>
         <p className="text-sm text-muted-foreground">
-          Este link não está mais válido. Fale com a equipe Focus FinTax para receber um novo.
+          Este link não está mais válido. Fale com a equipe AGF FinTax para receber um novo.
         </p>
       </div>
     );

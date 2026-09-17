@@ -61,7 +61,7 @@ export default function MarketingOverview() {
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data.daily} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(10,21,100,0.08)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(8,17,29,0.08)" />
                   <XAxis dataKey="date" tick={{ fontSize: 11, fill: "rgba(15,17,23,0.6)" }} />
                   <YAxis yAxisId="left"  tick={{ fontSize: 11, fill: "rgba(15,17,23,0.6)" }} />
                   <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "rgba(15,17,23,0.6)" }} />
@@ -71,7 +71,7 @@ export default function MarketingOverview() {
                     }
                   />
                   <Line yAxisId="left"  type="monotone" dataKey="spend" stroke="#c8001e" strokeWidth={2} dot={false} name="Gasto" />
-                  <Line yAxisId="right" type="monotone" dataKey="leads" stroke="#0a1564" strokeWidth={2} dot={false} name="Leads" />
+                  <Line yAxisId="right" type="monotone" dataKey="leads" stroke="#08111d" strokeWidth={2} dot={false} name="Leads" />
                 </LineChart>
               </ResponsiveContainer>
             </div>

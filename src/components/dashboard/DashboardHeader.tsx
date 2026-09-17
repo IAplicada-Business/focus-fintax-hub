@@ -33,13 +33,13 @@ export function DashboardHeader({ profileName, role, canComercial, canOperaciona
         </div>
         <div className="flex items-center">
           <AmbienteSwitcher className="mr-3" />
-          <span className="bg-[rgba(10,21,100,0.08)] border border-[rgba(10,21,100,0.10)] rounded-md px-2.5 py-[3px] font-mono-dm text-[10px] tracking-[1.5px] uppercase text-navy">{ROLE_LABELS[role] ?? role}</span>
+          <span className="bg-[rgba(8,17,29,0.08)] border border-[rgba(8,17,29,0.10)] rounded-md px-2.5 py-[3px] font-mono-dm text-[10px] tracking-[1.5px] uppercase text-navy">{ROLE_LABELS[role] ?? role}</span>
           <span className="font-mono-dm text-xs text-ink-60 ml-2.5">{format(new Date(), "HH:mm")}</span>
         </div>
       </div>
       {tabs.length > 1 && (
         <div className="flex justify-center pb-3">
-          <div className="bg-white/80 border border-[rgba(10,21,100,0.08)] rounded-lg px-1 py-1 flex gap-1">
+          <div className="bg-white/80 border border-[rgba(8,17,29,0.08)] rounded-lg px-1 py-1 flex gap-1">
             {tabs.map(t => (
               <button key={t.key} onClick={() => switchTab(t.key)} className={`px-6 py-1.5 text-[13px] cursor-pointer bg-transparent border-none rounded-md font-sans transition-colors ${activeTab === t.key ? "font-semibold text-navy" : "font-medium text-ink-60"}`}>
                 {t.label}

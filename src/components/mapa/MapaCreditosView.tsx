@@ -60,7 +60,7 @@ export default function MapaCreditosView({
       {/* Letterhead */}
       <div
         style={{
-          background: "#0a1564",
+          background: "#08111d",
           color: "white",
           padding: "28px 32px",
           display: "flex",
@@ -71,7 +71,7 @@ export default function MapaCreditosView({
       >
         <p
           style={{
-            fontFamily: "Barlow, sans-serif",
+            fontFamily: "Montserrat, sans-serif",
             fontSize: "38px",
             fontWeight: 700,
             letterSpacing: "-0.02em",
@@ -79,7 +79,7 @@ export default function MapaCreditosView({
             margin: 0,
           }}
         >
-          FinTax
+          AGF FinTax
         </p>
         <div style={{ textAlign: "right" }}>
           <p style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "1px", margin: 0 }}>
@@ -101,15 +101,15 @@ export default function MapaCreditosView({
       >
         <div>
           <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Razão Social</p>
-          <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>{cliente.empresa || "—"}</p>
+          <p style={{ fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>{cliente.empresa || "—"}</p>
         </div>
         <div>
           <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>CNPJ</p>
-          <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>{cliente.cnpj || "—"}</p>
+          <p style={{ fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>{cliente.cnpj || "—"}</p>
         </div>
         <div>
           <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Data Apuração</p>
-          <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>
+          <p style={{ fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>
             {cliente.data_apuracao
               ? new Date(cliente.data_apuracao).toLocaleDateString("pt-BR")
               : "—"}
@@ -117,7 +117,7 @@ export default function MapaCreditosView({
         </div>
         <div>
           <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Gerado em</p>
-          <p style={{ fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>
+          <p style={{ fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>
             {new Date().toLocaleDateString("pt-BR")}
           </p>
         </div>
@@ -132,7 +132,7 @@ export default function MapaCreditosView({
         ) : (
           <Table>
             <TableHeader>
-              <TableRow style={{ background: "#0a1564" }}>
+              <TableRow style={{ background: "#08111d" }}>
                 {onToggleIncluir && (
                   <TableHead style={{ color: "white", fontSize: "11px" }}>No cálculo</TableHead>
                 )}
@@ -172,7 +172,7 @@ export default function MapaCreditosView({
                       </TableCell>
                     )}
                     <TableCell style={{ fontSize: "12px", padding: "8px 10px" }}>
-                      <div style={{ fontWeight: 600, color: "#0a1564" }}>{l.tese_label}</div>
+                      <div style={{ fontWeight: 600, color: "#08111d" }}>{l.tese_label}</div>
                       <div style={{ fontSize: "10px", color: "#6b7280" }}>
                         {l.tese_codigo}
                         {l.tese_codigo === "REPORTO" && (
@@ -214,7 +214,7 @@ export default function MapaCreditosView({
                         textAlign: "right",
                         padding: "8px 10px",
                         fontWeight: 700,
-                        color: Number(l.tese_codigo === "REPORTO" ? l.valor_apurado_inicial : l.saldo_final) > 0 ? "#0a1564" : "#6b7280",
+                        color: Number(l.tese_codigo === "REPORTO" ? l.valor_apurado_inicial : l.saldo_final) > 0 ? "#08111d" : "#6b7280",
                       }}
                     >
                       {formatCurrencyBR(
@@ -227,16 +227,16 @@ export default function MapaCreditosView({
             </TableBody>
             <TableFooter>
               <TableRow style={{ background: "#e0e7ff", fontWeight: 700 }}>
-                <TableCell colSpan={3} style={{ fontSize: "13px", padding: "10px", color: "#0a1564" }}>
+                <TableCell colSpan={3} style={{ fontSize: "13px", padding: "10px", color: "#08111d" }}>
                   TOTAL NO CÁLCULO
                 </TableCell>
-                <TableCell style={{ fontSize: "13px", textAlign: "right", padding: "10px", color: "#0a1564" }}>
+                <TableCell style={{ fontSize: "13px", textAlign: "right", padding: "10px", color: "#08111d" }}>
                   {formatCurrencyBR(totais.apurado)}
                 </TableCell>
-                <TableCell style={{ fontSize: "13px", textAlign: "right", padding: "10px", color: "#0a1564" }}>
+                <TableCell style={{ fontSize: "13px", textAlign: "right", padding: "10px", color: "#08111d" }}>
                   {formatCurrencyBR(totais.compensado)}
                 </TableCell>
-                <TableCell style={{ fontSize: "13px", textAlign: "right", padding: "10px", color: "#0a1564" }}>
+                <TableCell style={{ fontSize: "13px", textAlign: "right", padding: "10px", color: "#08111d" }}>
                   {formatCurrencyBR(totais.saldo)}
                 </TableCell>
               </TableRow>
@@ -260,17 +260,17 @@ export default function MapaCreditosView({
         >
           <div>
             <p style={{ textTransform: "uppercase", letterSpacing: "1.5px", margin: 0, fontSize: "9px" }}>Teses ativas</p>
-            <p style={{ fontSize: "16px", fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>{linhas.length}</p>
+            <p style={{ fontSize: "16px", fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>{linhas.length}</p>
           </div>
           <div>
             <p style={{ textTransform: "uppercase", letterSpacing: "1.5px", margin: 0, fontSize: "9px" }}>% utilizado</p>
-            <p style={{ fontSize: "16px", fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>
+            <p style={{ fontSize: "16px", fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>
               {totais.apurado > 0 ? ((totais.compensado / totais.apurado) * 100).toFixed(1) : "0"}%
             </p>
           </div>
           <div>
             <p style={{ textTransform: "uppercase", letterSpacing: "1.5px", margin: 0, fontSize: "9px" }}>Saldo a compensar</p>
-            <p style={{ fontSize: "16px", fontWeight: 700, color: "#0a1564", margin: "2px 0 0" }}>
+            <p style={{ fontSize: "16px", fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>
               {formatCurrencyBR(totais.saldo)}
             </p>
           </div>

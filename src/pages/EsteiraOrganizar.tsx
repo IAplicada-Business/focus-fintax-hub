@@ -364,7 +364,7 @@ export default function EsteiraOrganizar() {
       ) : visiveis.length === 0 ? (
         <div className="rounded-lg border bg-card">
           <EmptyState
-            icon={<ListChecks className="h-5 w-5 text-[rgba(10,21,100,0.3)]" />}
+            icon={<ListChecks className="h-5 w-5 text-[rgba(8,17,29,0.3)]" />}
             title="Nenhum cliente neste filtro"
             subtitle="Troque o filtro ou limpe a busca."
           />

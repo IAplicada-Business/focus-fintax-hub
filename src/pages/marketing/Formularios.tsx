@@ -13,7 +13,7 @@ export default function Formularios() {
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
-        Formulários de Lead Generation publicados na Page da Focus FinTax (vindos do sync diário).
+        Formulários de Lead Generation publicados na Page da AGF FinTax (vindos do sync diário).
       </p>
 
       {isLoading ? (

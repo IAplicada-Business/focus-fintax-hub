@@ -171,7 +171,7 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
                   <div className="flex-1 min-h-[60px] max-h-[552px] flex flex-col gap-2 overflow-y-auto">
                     {stageClientes.length === 0 && (
                       <EmptyState
-                        icon={<Building2 className="w-5 h-5 text-[rgba(10,21,100,0.3)]" />}
+                        icon={<Building2 className="w-5 h-5 text-[rgba(8,17,29,0.3)]" />}
                         title="Nenhum cliente nesta etapa"
                         subtitle="Arraste clientes para cá"
                       />
