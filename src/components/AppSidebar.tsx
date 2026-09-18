@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { LogOut, Lock, ChevronDown, Menu } from "lucide-react";
+import { LogOut, Lock, ChevronDown, Menu, Briefcase, LayoutDashboard, type LucideIcon } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEnvironment } from "@/hooks/useEnvironment";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { menuDoAmbiente, pathToAmbiente, type MenuItem } from "@/lib/environments";
+import { AMBIENTE_LABEL, menuDoAmbiente, pathToAmbiente, type Ambiente, type MenuItem } from "@/lib/environments";
 import logoWhite from "@/assets/logo-agf-fintax-white.svg";
 import lionMark from "@/assets/agf-lion.svg";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,77 @@ function useSidebarPermissions() {
   return { profile, permissions, signOut, canAccess, isReadOnly, visibleItems };
 }
 
+const AMBIENTE_ICON: Record<Ambiente, LucideIcon> = {
+  comercial: Briefcase,
+  operacional: LayoutDashboard,
+};
+
+const AMBIENTE_HINT: Record<Ambiente, string> = {
+  comercial: "Leads, marketing e atendimento",
+  operacional: "Dashboard, esteira e clientes",
+};
+
+/**
+ * Troca de ambiente no topo do menu (antes ficava no header de cada tela).
+ * Expandido: seletor segmentado com os dois ambientes. Recolhido: só os
+ * ícones, com o ativo em destaque — clicar troca e leva pra home do ambiente.
+ */
+function SidebarAmbiente({ expanded, onSwitch }: { expanded: boolean; onSwitch?: () => void }) {
+  const { ambiente, disponiveis, canSwitch, switchAmbiente } = useEnvironment();
+  if (!canSwitch || !ambiente) return null;
+
+  const trocar = (next: Ambiente) => {
+    if (next === ambiente) return;
+    switchAmbiente(next);
+    onSwitch?.();
+  };
+
+  return (
+    <div className={cn("shrink-0 border-b border-white/[0.06]", expanded ? "px-3 py-3" : "px-2 py-3")}>
+      {expanded && (
+        <p className="px-1 mb-2 text-[9px] font-bold uppercase tracking-[0.18em] text-white/35">Ambiente</p>
+      )}
+      <div
+        role="radiogroup"
+        aria-label="Ambiente"
+        className={cn(
+          "flex gap-1 rounded-full bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] p-1",
+          expanded ? "flex-row" : "flex-col rounded-2xl",
+        )}
+      >
+        {disponiveis.map((item) => {
+          const Icon = AMBIENTE_ICON[item];
+          const active = ambiente === item;
+          return (
+            <button
+              key={item}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              title={`${AMBIENTE_LABEL[item]} — ${AMBIENTE_HINT[item]}`}
+              onClick={() => trocar(item)}
+              className={cn(
+                "flex items-center justify-center gap-1.5 rounded-full transition-all duration-150 ease-out-modern",
+                expanded ? "flex-1 h-8 px-2" : "h-8 w-8",
+                active
+                  ? "bg-[rgba(198,150,79,0.18)] text-white ring-1 ring-inset ring-[rgba(198,150,79,0.45)] shadow-[0_0_0_1px_rgba(198,150,79,0.12)]"
+                  : "text-sidebar-foreground/70 hover:text-white hover:bg-white/[0.06]",
+              )}
+            >
+              <Icon className={cn("h-4 w-4 shrink-0", active ? "text-[#d9b06e]" : "")} />
+              {expanded && (
+                <span className={cn("text-[11px] tracking-[0.02em] whitespace-nowrap", active ? "font-semibold" : "font-medium")}>
+                  {AMBIENTE_LABEL[item]}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface SidebarNavProps {
   visibleItems: MenuItem[];
   canAccess: (key?: string) => boolean;
@@ -57,7 +128,7 @@ function SidebarNav({ visibleItems, canAccess, isReadOnly, expanded, onNavigate 
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
 
   return (
-    <nav className="flex-1 flex flex-col gap-1 px-2 mt-4 overflow-y-auto overflow-x-hidden">
+    <nav className="flex-1 flex flex-col gap-1 px-2 mt-3 overflow-y-auto overflow-x-hidden">
       {visibleItems.map((item) => {
         const visibleChildren = item.children?.filter((c) => canAccess(c.screenKey)) ?? [];
         const hasChildren = visibleChildren.length > 0;
@@ -225,6 +296,7 @@ export function AppSidebar() {
             <div className="flex items-center h-20 px-3 shrink-0 border-b border-white/[0.06]">
               <img src={logoWhite} alt="AGF FinTax" className="h-14 w-auto object-contain ml-1 select-none" draggable={false} />
             </div>
+            <SidebarAmbiente expanded onSwitch={() => setMobileOpen(false)} />
             <SidebarNav
               visibleItems={visibleItems}
               canAccess={canAccess}
@@ -267,6 +339,7 @@ export function AppSidebar() {
           </div>
         )}
       </div>
+      <SidebarAmbiente expanded={open} />
       <SidebarNav
         visibleItems={visibleItems}
         canAccess={canAccess}

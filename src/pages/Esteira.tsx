@@ -10,7 +10,6 @@ import { EsteiraAcompanhamento } from "@/components/esteira/EsteiraAcompanhament
 import { EsteiraCobranca } from "@/components/esteira/EsteiraCobranca";
 import { SkeletonTable } from "@/components/dashboard/SkeletonTable";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { visibleEsteiraStages } from "@/lib/esteira-constants";
 import { RAMO_FILTROS, pertenceAoRamo, ramosDoCliente, type RamoFiltro } from "@/lib/esteira-acompanhamento";
 import { cn } from "@/lib/utils";
@@ -21,7 +20,7 @@ const TAB_KEY = "esteira.tab";
 const RAMO_KEY = "esteira.ramo";
 
 const TABS: { value: EsteiraTab; label: string; icon: typeof ListChecks; hint: string }[] = [
-  { value: "acompanhamento", label: "Acompanhamento", icon: TableProperties, hint: "Tabela — quem monitora" },
+  { value: "acompanhamento", label: "Tabela", icon: TableProperties, hint: "Tabela — quem monitora" },
   { value: "kanban", label: "Kanban", icon: KanbanSquare, hint: "Arrastar — quem opera" },
   { value: "cobranca", label: "Cobrança", icon: BellRing, hint: "Fim de dia — quem cobrar" },
 ];
@@ -85,10 +84,11 @@ export default function Esteira() {
 
   const stages = useMemo(() => {
     if (!slaConfig) return undefined;
+    const slaPorEtapa = new Map(slaConfig.map((c) => [c.estagio as string, c.sla_dias]));
     return visibleEsteiraStages(
       slaConfig,
       (clientes ?? []).map((c) => c.estagio_esteira || "triagem"),
-    );
+    ).map((s) => ({ ...s, sla_dias: slaPorEtapa.get(s.value) ?? null }));
   }, [slaConfig, clientes]);
 
   const contagemRamo = useMemo(() => {
@@ -171,16 +171,29 @@ export default function Esteira() {
           })}
         </div>
 
-        <Tabs value={tab} onValueChange={(v) => { if (isTab(v)) setTab(v); }}>
-          <TabsList className="h-9">
-            {TABS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="gap-1.5 px-3 text-xs">
+        {/* Alternador de visão: tabela (Acompanhamento), quadro (Kanban) e Cobrança. */}
+        <div role="tablist" aria-label="Formato da esteira" className="flex rounded-full border border-ink-06 bg-white p-1 shadow-soft">
+          {TABS.map((t) => {
+            const ativo = tab === t.value;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                role="tab"
+                aria-selected={ativo}
+                title={t.hint}
+                onClick={() => setTab(t.value)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs whitespace-nowrap transition-colors",
+                  ativo ? "bg-navy text-white font-semibold shadow-sm" : "font-medium text-ink-60 hover:text-navy",
+                )}
+              >
                 <t.icon className="h-3.5 w-3.5" />
                 {t.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {isLoading || !slaConfig ? (

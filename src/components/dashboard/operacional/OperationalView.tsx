@@ -137,7 +137,7 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
 
       <div className="animate-slide-up delay-3 grid grid-cols-1 xl:grid-cols-12 gap-4">
         <div className="xl:col-span-7 min-w-0">
-          <EsteiraPorEtapa etapas={m.etapas} />
+          <EsteiraPorEtapa etapas={m.etapas} clientes={data.esteira} />
         </div>
         <div className="xl:col-span-5 min-w-0">
           <CargaTime carga={m.carga} />
