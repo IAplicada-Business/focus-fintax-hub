@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -32,11 +33,29 @@ const EDIT_ROLES = new Set(["admin", "comercial", "sdr", "gestor_comercial"]);
 
 export default function LeadQueue() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { userRole } = useAuth();
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [editLead, setEditLead] = useState<LeadFormFields | null>(null);
-  const [editOpen, setEditOpen] = useState(false);
+  // Mesmo modal do Pipeline: sem lead = criar. `?novo=1` (link antigo /leads/novo) abre direto.
+  const [editOpen, setEditOpen] = useState(() => searchParams.get("novo") === "1");
+
+  useEffect(() => {
+    if (searchParams.get("novo") === "1") {
+      setEditLead(null);
+      setEditOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("novo");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  const abrirNovoLead = () => {
+    setEditLead(null);
+    setEditOpen(true);
+  };
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; nome: string } | null>(null);
 
   const { data: leads = [], isLoading: loading } = useLeadsBasic(statusFilter === "all" ? undefined : statusFilter);
@@ -99,7 +118,7 @@ export default function LeadQueue() {
           <h1 className="text-2xl font-bold text-foreground">Leads</h1>
           <p className="text-sm text-muted-foreground">Fila de processamento e análise de teses</p>
         </div>
-        <Button onClick={() => navigate("/leads/novo")} className="font-semibold">
+        <Button onClick={abrirNovoLead} className="font-semibold">
           <Plus className="h-4 w-4 mr-2" />
           Novo Lead
         </Button>
@@ -270,6 +289,7 @@ export default function LeadQueue() {
           setEditLead(null);
         }}
         onSaved={() => {
+          queryClient.invalidateQueries({ queryKey: ["leads"] });
           setEditOpen(false);
           setEditLead(null);
         }}
