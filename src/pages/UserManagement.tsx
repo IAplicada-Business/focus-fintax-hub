@@ -31,6 +31,25 @@ const ROLE_LABELS: Record<string, string> = {
   cliente: "Cliente",
 };
 
+/**
+ * `supabase.functions.invoke` devolve `data = null` quando a função responde
+ * com status != 2xx; a mensagem real ({ error }) fica no corpo em `error.context`.
+ * Sem isto a tela mostrava só "Edge Function returned a non-2xx status code".
+ */
+async function mensagemDaFuncao(error: unknown, data: { error?: string } | null): Promise<string> {
+  if (data?.error) return data.error;
+  const ctx = (error as { context?: unknown } | null)?.context;
+  if (ctx instanceof Response) {
+    try {
+      const body = await ctx.clone().json();
+      if (body?.error) return String(body.error);
+    } catch {
+      /* corpo não é JSON */
+    }
+  }
+  return (error as { message?: string } | null)?.message ?? "Erro desconhecido";
+}
+
 const ROLE_COLORS: Record<string, string> = {
   admin: "bg-secondary/10 text-secondary border-secondary/20",
   pmo: "bg-primary/10 text-primary border-primary/20",
@@ -150,6 +169,12 @@ export default function UserManagement() {
     setSaving(true);
 
     if (editUser) {
+      if (formPassword && formPassword.length < 6) {
+        toast.error("A nova senha precisa ter pelo menos 6 caracteres");
+        setSaving(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke("manage-users", {
         body: {
           action: "update",
@@ -159,16 +184,18 @@ export default function UserManagement() {
           role: formRole,
           current_role: editUser.role,
           permissions: formPermissions,
+          // Só vai quando o admin digitou uma senha nova.
+          ...(formPassword ? { password: formPassword } : {}),
         },
       });
 
       if (error || data?.error) {
-        toast.error("Erro ao atualizar usuário", { description: data?.error || error?.message });
+        toast.error("Erro ao atualizar usuário", { description: await mensagemDaFuncao(error, data) });
         setSaving(false);
         return;
       }
 
-      toast.success("Usuário atualizado!");
+      toast.success(formPassword ? "Usuário atualizado e senha redefinida!" : "Usuário atualizado!");
     } else {
       if (!formEmail || !formPassword || formPassword.length < 6) {
         toast.error("E-mail e senha (mín. 6 caracteres) são obrigatórios");
@@ -189,7 +216,16 @@ export default function UserManagement() {
       });
 
       if (error || data?.error) {
-        toast.error("Erro ao criar usuário", { description: data?.error || error?.message });
+        const msg = await mensagemDaFuncao(error, data);
+        const jaExiste = /já existe/i.test(msg);
+        toast.error(jaExiste ? "Este e-mail já tem usuário" : "Erro ao criar usuário", {
+          description: jaExiste ? "Ele já está na lista. Use o lápis para editar ou redefinir a senha." : msg,
+        });
+        if (jaExiste) {
+          // Leva o admin direto pro usuário existente em vez de deixar o modal preso.
+          setSearch(formEmail.trim());
+          setDialogOpen(false);
+        }
         setSaving(false);
         return;
       }
@@ -256,7 +292,7 @@ export default function UserManagement() {
                 <Label className="font-semibold">Nome completo</Label>
                 <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Nome do usuário" />
               </div>
-              {!editUser && (
+              {!editUser ? (
                 <>
                   <div className="space-y-2">
                     <Label className="font-semibold">E-mail</Label>
@@ -267,6 +303,12 @@ export default function UserManagement() {
                     <Input type="password" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} placeholder="Mínimo 6 caracteres" minLength={6} required />
                   </div>
                 </>
+              ) : (
+                <div className="space-y-2">
+                  <Label className="font-semibold">Redefinir senha <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+                  <Input type="password" autoComplete="new-password" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} placeholder="Deixe em branco para manter a atual" minLength={6} />
+                  <p className="text-xs text-muted-foreground">Use quando o usuário não consegue entrar: a senha nova vale na hora, sem e-mail de confirmação.</p>
+                </div>
               )}
               <div className="space-y-2">
                 <Label className="font-semibold">Cargo</Label>
