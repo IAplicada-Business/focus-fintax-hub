@@ -10,8 +10,8 @@ import { cn } from "@/lib/utils";
 const ORDEM: Ambiente[] = ["comercial", "operacional"];
 
 const META: Record<Ambiente, { icon: LucideIcon; description: string }> = {
-  comercial: { icon: Briefcase, description: "Leads, atendimento e marketing" },
-  operacional: { icon: LayoutDashboard, description: "Esteira, clientes e compensações" },
+  comercial: { icon: Briefcase, description: "Leads e atendimento" },
+  operacional: { icon: LayoutDashboard, description: "Esteira e clientes" },
 };
 
 /**
@@ -73,7 +73,7 @@ export default function AmbienteSelect() {
         }}
       />
 
-      <div className="relative z-10 w-full max-w-md flex flex-col items-center">
+      <div className="relative z-10 w-full max-w-2xl flex flex-col items-center">
         <img src={logoWhite} alt="AGF FinTax" className="h-16 w-auto object-contain select-none mb-8" draggable={false} />
 
         {carregando ? (
@@ -115,7 +115,7 @@ export default function AmbienteSelect() {
               aria-activedescendant={selecionado ? `ambiente-${selecionado}` : undefined}
               tabIndex={0}
               onKeyDown={onKeyDown}
-              className="w-full flex flex-col gap-2.5 outline-none focus-visible:ring-2 focus-visible:ring-[#c6964f]/50 rounded-2xl"
+              className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 outline-none focus-visible:ring-2 focus-visible:ring-[#c6964f]/50 rounded-2xl"
             >
               {opcoes.map((a) => {
                 const meta = META[a];
@@ -132,11 +132,11 @@ export default function AmbienteSelect() {
                     onFocus={() => setFoco(a)}
                     onClick={() => choose(a)}
                     className={cn(
-                      "group relative w-full text-left rounded-2xl border flex items-center gap-4 px-4 py-3.5 transition-all duration-200 overflow-hidden focus:outline-none",
+                      "group relative w-full text-left rounded-2xl border flex items-center gap-3.5 px-4 py-4 transition-all duration-200 overflow-hidden focus:outline-none",
                       ativo ? "border-[#c6964f]/55 bg-[rgba(198,150,79,0.07)]" : "border-white/10 bg-[rgba(8,17,29,0.55)] hover:border-white/20",
                     )}
                   >
-                    <span aria-hidden className={cn("absolute inset-y-0 left-0 w-[3px] transition-colors", ativo ? "bg-[#c6964f]" : "bg-transparent")} />
+                    <span aria-hidden className={cn("absolute inset-x-0 top-0 h-[2px] transition-colors", ativo ? "bg-[#c6964f]" : "bg-transparent")} />
                     <div
                       className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0", ativo ? "bg-[rgba(198,150,79,0.2)]" : "bg-[rgba(198,150,79,0.1)]")}
                       style={{ border: "1px solid rgba(198,150,79,0.32)" }}
