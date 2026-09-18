@@ -1,43 +1,59 @@
-import { useMemo, useState } from "react";
-import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { AlertTriangle, ChevronRight, ChevronDown, Building2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
+import { AlertTriangle, Building2, ChevronsLeft, ChevronsRight, Clock, UserX } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
-import {
-  ESTEIRA_STAGES,
-  ORIGEM_LABELS,
-  isEstagioEsteira,
-  isClienteAtrasadoSla,
-  slaDiasDaEtapa,
-} from "@/lib/esteira-constants";
+import { ESTEIRA_STAGES, ORIGEM_LABELS, isEstagioEsteira } from "@/lib/esteira-constants";
 import { TIPO_RECUPERACAO_BADGE, TIPO_RECUPERACAO_LABEL } from "@/lib/tipo-recuperacao";
-import { ramosDoCliente } from "@/lib/esteira-acompanhamento";
+import { ramosDoCliente, type SlaInfo } from "@/lib/esteira-acompanhamento";
+import {
+  ESTEIRA_COLAPSO_KEY,
+  agruparEsteiraPorEtapa,
+  ordenarCardsEsteira,
+  resumoEtapaEsteira,
+  slaDoClienteEsteira,
+} from "@/lib/esteira-board";
+import { lerColapsadas, salvarColapsadas } from "@/lib/pipeline-board";
 import { ResponsavelAvatar } from "@/components/esteira/ResponsavelAvatar";
 import { useUpdateEstagioEsteira } from "@/hooks/data/useEsteira";
 import type { EsteiraCliente } from "@/services/esteiraService";
+import { cn } from "@/lib/utils";
 
 export interface EsteiraKanbanStage {
   value: string;
   label: string;
+  /** Meta da etapa em dias (config); usada quando o cliente não traz `sla_dias`. */
+  sla_dias?: number | null;
 }
 
 interface Props {
   clientes: EsteiraCliente[];
   onClienteClick?: (id: string) => void;
   /**
-   * Colunas a renderizar, na ordem desejada. Default = ESTEIRA_STAGES (7
-   * etapas fixas) — usado só como fallback/teste; a tela real (Esteira.tsx)
-   * passa a lista derivada de `esteira_sla_config` (ordem/ativo editáveis).
+   * Colunas a renderizar, na ordem desejada. Default = ESTEIRA_STAGES (etapas
+   * fixas) — usado só como fallback/teste; a tela real passa a lista derivada
+   * de `esteira_sla_config` (ordem/ativo editáveis).
    */
   stages?: readonly EsteiraKanbanStage[];
+  /** Altura do quadro; a tela cheia usa flex-1 e o dashboard passa uma fixa. */
+  className?: string;
 }
 
-export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGES }: Props) {
-  const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
+/**
+ * Quadro da Esteira Administrativa no mesmo padrão do Pipeline: as colunas
+ * dividem a largura disponível, qualquer etapa pode ser recolhida (escolha
+ * salva) e os cards trazem SLA, ramos, responsável e teses.
+ */
+export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGES, className }: Props) {
+  const [colapsadas, setColapsadas] = useState<Set<string>>(() => lerColapsadas(typeof localStorage !== "undefined" ? localStorage : null, ESTEIRA_COLAPSO_KEY));
   const [optimisticMoves, setOptimisticMoves] = useState<Record<string, string>>({});
   const updateEstagio = useUpdateEstagioEsteira();
 
+  useEffect(() => {
+    salvarColapsadas(colapsadas, typeof localStorage !== "undefined" ? localStorage : null, ESTEIRA_COLAPSO_KEY);
+  }, [colapsadas]);
+
   const toggleCollapse = (stage: string) => {
-    setCollapsedStages((prev) => {
+    setColapsadas((prev) => {
       const next = new Set(prev);
       if (next.has(stage)) next.delete(stage);
       else next.add(stage);
@@ -47,21 +63,10 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
 
   const effectiveClientes = useMemo(() => {
     if (Object.keys(optimisticMoves).length === 0) return clientes;
-    return clientes.map((c) =>
-      optimisticMoves[c.id] ? { ...c, estagio_esteira: optimisticMoves[c.id] } : c,
-    );
+    return clientes.map((c) => (optimisticMoves[c.id] ? { ...c, estagio_esteira: optimisticMoves[c.id] } : c));
   }, [clientes, optimisticMoves]);
 
-  const grouped = useMemo(() => {
-    const map: Record<string, EsteiraCliente[]> = {};
-    stages.forEach((s) => (map[s.value] = []));
-    effectiveClientes.forEach((c) => {
-      const stage = c.estagio_esteira || "triagem";
-      if (map[stage]) map[stage].push(c);
-      else if (map["triagem"]) map["triagem"].push(c);
-    });
-    return map;
-  }, [effectiveClientes, stages]);
+  const grouped = useMemo(() => agruparEsteiraPorEtapa(effectiveClientes, stages), [effectiveClientes, stages]);
 
   const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
@@ -85,38 +90,27 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div
-        role="region"
-        aria-label="Esteira administrativa"
-        className="flex-1 min-h-0 flex gap-3 overflow-x-auto pb-4"
-      >
+      <div role="region" aria-label="Esteira administrativa" className={cn("flex-1 min-h-0 flex gap-3 overflow-x-auto pb-3 -mx-1 px-1", className)}>
         {stages.map((stage) => {
-          const stageClientes = grouped[stage.value] || [];
-          const isCollapsed = collapsedStages.has(stage.value);
-          const atrasadosNaEtapa = stageClientes.filter((c) =>
-            typeof c.atrasado === "boolean"
-              ? c.atrasado
-              : isClienteAtrasadoSla(c.estagio_esteira, c.dias_na_etapa ?? 0),
-          ).length;
+          const stageClientes = ordenarCardsEsteira(grouped[stage.value] || [], stage.sla_dias);
+          const resumo = resumoEtapaEsteira(stageClientes, stage.sla_dias);
+          const isCollapsed = colapsadas.has(stage.value);
+          const terminal = stage.value === "concluido" || stage.value === "devolutiva_cliente";
 
           if (isCollapsed) {
             return (
-              <div
+              <button
                 key={stage.value}
+                type="button"
                 onClick={() => toggleCollapse(stage.value)}
-                className="flex-shrink-0 w-[44px] rounded-lg border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors flex flex-col items-center py-3 gap-2"
+                title={`Expandir ${stage.label}`}
+                className="flex-shrink-0 w-[52px] rounded-2xl border border-ink-06 bg-white/70 hover:bg-white transition-colors flex flex-col items-center py-3 gap-2 text-left"
               >
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs font-bold text-foreground uppercase tracking-wide [writing-mode:vertical-lr] rotate-180">
-                  {stage.label}
-                </span>
-                <span className="text-xs text-muted-foreground font-medium">
-                  {stageClientes.length}
-                </span>
-                {atrasadosNaEtapa > 0 && (
-                  <span className="text-[10px] font-bold text-destructive">{atrasadosNaEtapa}</span>
-                )}
-              </div>
+                <ChevronsRight className="h-4 w-4 text-ink-35" />
+                <span className="font-display text-lg font-extrabold text-navy tabular-nums leading-none">{resumo.total}</span>
+                {resumo.atrasados > 0 && <span className="text-[10px] font-bold text-dash-red tabular-nums">{resumo.atrasados}!</span>}
+                <span className="text-[10px] font-bold text-ink-60 uppercase tracking-[1px] [writing-mode:vertical-lr] rotate-180 mt-1 whitespace-nowrap">{stage.label}</span>
+              </button>
             );
           }
 
@@ -127,60 +121,48 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                   role="list"
-                  aria-label={`${stage.label} — ${stageClientes.length} clientes`}
-                  // w-[240px] fixo espelha PipelineKanban — antes as colunas esticavam
-                  // e a Esteira ficava com largura diferente do funil de leads.
-                  // min-h-0: sem isto a coluna cresce até caber todos os cards e o
-                  // overflow-y-auto da lista abaixo nunca ativa (a página é que rola).
-                  className={`flex-shrink-0 w-[240px] min-h-0 rounded-lg border p-2 flex flex-col gap-2 transition-colors ${
-                    snapshot.isDraggingOver ? "bg-primary/5 border-primary/30" : "bg-muted/30"
-                  }`}
+                  aria-label={`${stage.label} — ${resumo.total} clientes`}
+                  className={cn(
+                    "flex-1 min-w-[250px] max-w-[420px] rounded-2xl border flex flex-col transition-colors",
+                    snapshot.isDraggingOver ? "bg-gold/[0.06] border-gold/50" : terminal ? "bg-ink-03 border-ink-06" : "bg-white/60 border-ink-06",
+                  )}
                 >
-                  <div
-                    className="px-1 py-1 cursor-pointer select-none flex items-center gap-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleCollapse(stage.value);
-                    }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                  >
-                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                    <div className="flex-1 flex items-center justify-between gap-1">
-                      <h3 className="text-xs font-bold text-foreground uppercase tracking-wide">
-                        {stage.label}
-                      </h3>
-                      <div className="flex items-center gap-1.5">
-                        {atrasadosNaEtapa > 0 && (
-                          <span
-                            className="text-[10px] font-bold text-destructive"
-                            title={`${atrasadosNaEtapa} acima do SLA`}
-                          >
-                            {atrasadosNaEtapa} SLA
-                          </span>
-                        )}
-                        <span className="text-xs text-muted-foreground font-medium">
-                          {stageClientes.length}
+                  <div className="px-3 pt-3 pb-2 border-b border-ink-06">
+                    <div className="flex items-center gap-2">
+                      <h3 className="flex-1 text-[11px] font-bold text-navy uppercase tracking-[1px] truncate">{stage.label}</h3>
+                      <span className="font-display text-sm font-extrabold text-navy tabular-nums">{resumo.total}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleCollapse(stage.value)}
+                        className="h-6 w-6 rounded-md flex items-center justify-center text-ink-35 hover:text-navy hover:bg-ink-06 transition-colors"
+                        title={`Recolher ${stage.label}`}
+                        aria-label={`Recolher ${stage.label}`}
+                      >
+                        <ChevronsLeft className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="mt-1 flex items-center gap-2 text-[10px] tabular-nums">
+                      <span className="text-ink-35">{stage.sla_dias != null ? `meta ${stage.sla_dias}d` : "sem meta"}</span>
+                      {resumo.semResponsavel > 0 && (
+                        <span className="inline-flex items-center gap-1 text-dash-amber font-semibold" title="Clientes sem responsável">
+                          <UserX className="h-3 w-3" /> {resumo.semResponsavel}
                         </span>
-                      </div>
+                      )}
+                      {resumo.atrasados > 0 && <span className="ml-auto inline-flex items-center gap-1 font-bold text-dash-red"><Clock className="h-3 w-3" /> {resumo.atrasados} atrasado{resumo.atrasados > 1 ? "s" : ""}</span>}
+                      {resumo.atrasados === 0 && resumo.vencendo > 0 && <span className="ml-auto inline-flex items-center gap-1 font-bold text-dash-amber"><Clock className="h-3 w-3" /> {resumo.vencendo} vencendo</span>}
                     </div>
                   </div>
 
-                  {/* max-h = 7 cards: card ~72px + gap 8px -> 7*72 + 6*8 = 552.
-                      Vale o menor entre isto e a altura da tela; nos dois casos o
-                      scroll é interno à etapa. */}
-                  <div className="flex-1 min-h-[60px] max-h-[552px] flex flex-col gap-2 overflow-y-auto">
+                  <div className="flex-1 flex flex-col gap-2 p-2 min-h-[60px] overflow-y-auto">
                     {stageClientes.length === 0 && (
-                      <EmptyState
-                        icon={<Building2 className="w-5 h-5 text-[rgba(8,17,29,0.3)]" />}
-                        title="Nenhum cliente nesta etapa"
-                        subtitle="Arraste clientes para cá"
-                      />
+                      <EmptyState icon={<Building2 className="w-5 h-5 text-ink-35" />} title="Nenhum cliente nesta etapa" subtitle="Arraste clientes para cá" />
                     )}
                     {stageClientes.map((cliente, index) => (
                       <ClienteCard
                         key={cliente.id}
                         cliente={cliente}
                         index={index}
+                        sla={slaDoClienteEsteira(cliente, stage.sla_dias)}
                         onClick={() => onClienteClick?.(cliente.id)}
                       />
                     ))}
@@ -196,29 +178,16 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
   );
 }
 
-function ClienteCard({
-  cliente,
-  index,
-  onClick,
-}: {
-  cliente: EsteiraCliente;
-  index: number;
-  onClick: () => void;
-}) {
-  const dias = cliente.dias_na_etapa ?? 0;
-  const sla = cliente.sla_dias ?? slaDiasDaEtapa(cliente.estagio_esteira);
-  const atrasado =
-    typeof cliente.atrasado === "boolean"
-      ? cliente.atrasado
-      : isClienteAtrasadoSla(cliente.estagio_esteira, dias);
-  // Selo colorido de cada ramo (Compensação azul, Ressarcimento verde, Judicial roxo).
-  const ramos = ramosDoCliente(cliente);
+const SLA_BADGE: Record<SlaInfo["status"], string> = {
+  estourado: "bg-dash-red/10 text-dash-red border-dash-red/25",
+  atencao: "bg-dash-amber/10 text-dash-amber border-dash-amber/25",
+  no_prazo: "bg-dash-green/10 text-dash-green border-dash-green/20",
+  sem_sla: "bg-ink-06 text-ink-35 border-transparent",
+};
 
-  let borderClass = "";
-  if (atrasado) borderClass = "border-l-4 border-l-destructive";
-  else if (sla != null && dias > Math.max(0, sla - 1) && sla > 1) {
-    borderClass = "border-l-4 border-l-orange-400";
-  }
+function ClienteCard({ cliente, index, sla, onClick }: { cliente: EsteiraCliente; index: number; sla: SlaInfo; onClick: () => void }) {
+  const ramos = ramosDoCliente(cliente);
+  const atrasado = sla.status === "estourado";
 
   return (
     <Draggable draggableId={cliente.id} index={index}>
@@ -228,60 +197,42 @@ function ClienteCard({
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           role="listitem"
-          aria-label={`${cliente.empresa} — ${dias} dias na etapa${atrasado ? ", atrasado no SLA" : ""}`}
+          aria-label={`${cliente.empresa} — ${sla.dias} dias na etapa${atrasado ? ", atrasado no SLA" : ""}`}
           aria-roledescription="card arrastável"
           onClick={onClick}
-          className={`bg-card rounded-md border p-2 cursor-pointer hover:shadow-md transition-shadow ${borderClass} ${
-            snapshot.isDragging ? "shadow-lg rotate-1" : ""
-          }`}
+          className={cn(
+            "group relative bg-white rounded-xl border p-3 cursor-pointer transition-all hover:shadow-soft-hover hover:-translate-y-px",
+            atrasado ? "border-dash-red/30" : sla.status === "atencao" ? "border-dash-amber/30" : "border-ink-06",
+            snapshot.isDragging && "shadow-lg rotate-1 border-gold",
+          )}
         >
-          <div className="flex items-center justify-between gap-1">
-            <p className="text-xs font-bold text-foreground leading-tight truncate flex-1">
-              {cliente.empresa}
-            </p>
-            {atrasado && (
-              <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" aria-hidden />
-            )}
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-[13px] font-bold text-navy leading-tight truncate flex-1">{cliente.empresa}</p>
+            {atrasado && <AlertTriangle className="h-3.5 w-3.5 text-dash-red shrink-0" aria-hidden />}
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-              {ORIGEM_LABELS[cliente.origem] || cliente.origem}
-            </span>
+
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-06 text-ink-60">{ORIGEM_LABELS[cliente.origem] || cliente.origem}</span>
             {ramos.map((ramo) => (
-              <span
-                key={ramo}
-                className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${TIPO_RECUPERACAO_BADGE[ramo]}`}
-              >
+              <span key={ramo} className={cn("text-[10px] px-1.5 py-0.5 rounded-full border font-medium", TIPO_RECUPERACAO_BADGE[ramo])}>
                 {TIPO_RECUPERACAO_LABEL[ramo]}
               </span>
             ))}
-            {atrasado && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 font-semibold">
-                SLA
-              </span>
-            )}
             {(cliente.teses_assinadas ?? 0) > 1 && (
-              <span
-                className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium"
-                title={`${cliente.teses_assinadas} teses assinadas`}
-              >
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gold/10 text-gold-deep font-semibold" title={`${cliente.teses_assinadas} teses assinadas`}>
                 {cliente.teses_assinadas} teses
               </span>
             )}
             {cliente.estagio_esteira === "nova_abordagem" && (cliente.tentativas_abordagem ?? 0) > 0 && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-700 font-semibold">
-                {cliente.tentativas_abordagem}ª tentativa
-              </span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-700 font-semibold">{cliente.tentativas_abordagem}ª tentativa</span>
             )}
           </div>
-          <div className="mt-1.5 flex items-center justify-between gap-1">
+
+          <div className="mt-2.5 pt-2 border-t border-ink-06 flex items-center justify-between gap-2">
             <ResponsavelAvatar nome={cliente.responsavel_nome} size="xs" comNome className="min-w-0 [&>span]:text-[10px]" />
-            <span
-              className={`text-[10px] shrink-0 ${
-                atrasado ? "text-destructive font-semibold" : "text-muted-foreground"
-              }`}
-            >
-              · {dias}d{sla != null ? `/${sla}d` : ""}
+            <span className={cn("inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-[2px] rounded-full border tabular-nums shrink-0", SLA_BADGE[sla.status])} title={sla.sla != null ? `Meta da etapa: ${sla.sla} dias` : "Etapa sem meta"}>
+              <Clock className="h-3 w-3" />
+              {sla.dias}d{atrasado && sla.restante != null ? ` · +${Math.abs(sla.restante)}` : ""}
             </span>
           </div>
         </div>
