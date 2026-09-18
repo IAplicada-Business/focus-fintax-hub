@@ -76,7 +76,8 @@ export function EsteiraCobranca({ clientes, slaConfig }: Props) {
         <span className={cn("rounded-full border px-2.5 py-1 font-semibold", URGENCIA_STYLE.amanha)}>{totais.amanha} vence{totais.amanha !== 1 ? "m" : ""} amanhã</span>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* Um responsável só (ex.: tudo "Sem responsável") ocupa a largura toda; dois ou mais dividem em colunas. */}
+      <div className={cn("grid grid-cols-1 gap-4", grupos.length > 1 && "lg:grid-cols-2")}>
         {grupos.map((g) => {
           const semResp = g.responsavel_id === null;
           return (

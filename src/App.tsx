@@ -21,7 +21,6 @@ const Esteira = lazy(() => import("@/pages/Esteira"));
 const EsteiraOrganizar = lazy(() => import("@/pages/EsteiraOrganizar"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
 const LeadQueue = lazy(() => import("@/pages/LeadQueue"));
-const LeadForm = lazy(() => import("@/pages/LeadForm"));
 const LeadReport = lazy(() => import("@/pages/LeadReport"));
 const Pipeline = lazy(() => import("@/pages/Pipeline"));
 const Atendimento = lazy(() => import("@/pages/Atendimento"));
@@ -98,7 +97,8 @@ const App = () => (
                         <Route path="/pipeline" element={<Pipeline />} />
                         <Route path="/atendimento" element={<Atendimento />} />
                         <Route path="/leads" element={<LeadQueue />} />
-                        <Route path="/leads/novo" element={<LeadForm />} />
+                        {/* Cadastro manual virou o modal da fila (mesmo do Pipeline); o link antigo abre o modal. */}
+                        <Route path="/leads/novo" element={<Navigate to="/leads?novo=1" replace />} />
                         <Route path="/leads/:id/relatorio" element={<LeadReport />} />
                         <Route path="/clientes" element={<ClientesList />} />
                         <Route path="/clientes/:id" element={<ClienteDetail />} />
