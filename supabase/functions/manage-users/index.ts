@@ -126,9 +126,15 @@ Deno.serve(async (req) => {
           .from("user_roles")
           .delete()
           .eq("user_id", userId);
-        await serviceClient
+        const { error: roleErr } = await serviceClient
           .from("user_roles")
           .insert({ user_id: userId, role });
+        if (roleErr) {
+          return new Response(
+            JSON.stringify({ error: `Usuário criado, mas falhou ao gravar o perfil de acesso: ${roleErr.message}`, user_id: userId }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
       // Upsert permissions
@@ -141,13 +147,33 @@ Deno.serve(async (req) => {
     }
 
     if (action === "update") {
-      const { user_id, full_name, cargo, role, current_role } = body;
+      const { user_id, full_name, cargo, role, current_role, password } = body;
 
       if (!user_id) {
         return new Response(
           JSON.stringify({ error: "user_id é obrigatório" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Redefinição de senha pelo admin (quem foi criado e "não entra").
+      if (password !== undefined && password !== "") {
+        if (typeof password !== "string" || password.length < 6) {
+          return new Response(
+            JSON.stringify({ error: "A nova senha precisa ter pelo menos 6 caracteres" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const { error: pwErr } = await serviceClient.auth.admin.updateUserById(user_id, {
+          password,
+          email_confirm: true,
+        });
+        if (pwErr) {
+          return new Response(
+            JSON.stringify({ error: `Falha ao redefinir a senha: ${pwErr.message}` }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
       await serviceClient
@@ -160,9 +186,15 @@ Deno.serve(async (req) => {
           .from("user_roles")
           .delete()
           .eq("user_id", user_id);
-        await serviceClient
+        const { error: roleErr } = await serviceClient
           .from("user_roles")
           .insert({ user_id, role });
+        if (roleErr) {
+          return new Response(
+            JSON.stringify({ error: `Falha ao gravar o perfil de acesso: ${roleErr.message}` }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
       // Upsert permissions
