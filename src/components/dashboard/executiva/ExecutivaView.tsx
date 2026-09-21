@@ -95,13 +95,19 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       data.teses,
     );
     const clientes = data.clientes.filter((cliente) => ids.has(cliente.id));
-    const totais = resumirFinanceiroPorCliente(
+    const totaisCalculados = resumirFinanceiroPorCliente(
       ids,
       data.comps,
       data.creditos,
       data.teses,
       data.processos,
       tipoTeseFiltro,
+    );
+    const totaisBase = new Map(data.totais.map((total) => [total.cliente_id, total]));
+    const totais = totaisCalculados.map((total) =>
+      !tipoTeseFiltro && total.sem_base_financeira
+        ? { ...total, ...(totaisBase.get(total.cliente_id) ?? {}) }
+        : total,
     );
     const processosDoCliente = data.processos.filter((row) => ids.has(row.cliente_id));
     const processos = filtrarProcessosPorTipoTese(processosDoCliente, tipoTeseFiltro);

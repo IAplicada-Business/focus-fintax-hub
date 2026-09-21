@@ -84,13 +84,19 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       processosRecorte,
       tipoTeseFiltro,
     );
-    const totaisRecorte = resumirFinanceiroPorCliente(
+    const totaisCalculados = resumirFinanceiroPorCliente(
       idsRecorte,
       data.comps,
       data.creditos,
       data.teses,
       data.processos,
       tipoTeseFiltro,
+    );
+    const totaisBase = new Map(data.totais.map((total) => [total.cliente_id, total]));
+    const totaisRecorte = totaisCalculados.map((total) =>
+      !tipoTeseFiltro && total.sem_base_financeira
+        ? { ...total, ...(totaisBase.get(total.cliente_id) ?? {}) }
+        : total,
     );
     const apurado = totaisRecorte.reduce((s, t) => s + t.credito_apurado, 0);
     const compensado = totaisRecorte.reduce((s, t) => s + t.total_compensado, 0);
