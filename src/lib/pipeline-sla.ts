@@ -8,9 +8,10 @@ import { slaInfo, type SlaInfo, type SlaStatus } from "@/lib/esteira-acompanhame
 export const PIPELINE_SLA_STAGES = [
   { value: "novo", label: "Novo" },
   { value: "qualificado", label: "Qualificado" },
-  { value: "em_negociacao", label: "Negociação / Teses" },
-  { value: "em_apresentacao", label: "Em Apresentação" },
+  { value: "apresentacao", label: "Apresentação" },
+  { value: "triagem", label: "Triagem" },
   { value: "contrato_emitido", label: "Contrato Emitido" },
+  { value: "contrato_assinado", label: "Contrato Assinado" },
 ] as const;
 
 export type EtapaFunil = (typeof PIPELINE_SLA_STAGES)[number]["value"];
@@ -19,18 +20,20 @@ export type EtapaFunil = (typeof PIPELINE_SLA_STAGES)[number]["value"];
 export const PIPELINE_SLA_LABEL_CURTO: Record<EtapaFunil, string> = {
   novo: "Novo",
   qualificado: "Qualificado",
-  em_negociacao: "Negociação",
-  em_apresentacao: "Apresentação",
-  contrato_emitido: "Contrato",
+  apresentacao: "Apresentação",
+  triagem: "Triagem",
+  contrato_emitido: "Contrato emitido",
+  contrato_assinado: "Contrato assinado",
 };
 
 /** Defaults (seed da tabela). Contrato Emitido = 3d bate com o banner de leads parados. */
 export const PIPELINE_SLA_DIAS_DEFAULT: Record<EtapaFunil, number | null> = {
   novo: 3,
   qualificado: 5,
-  em_negociacao: 10,
-  em_apresentacao: 7,
+  apresentacao: 7,
+  triagem: 3,
   contrato_emitido: 3,
+  contrato_assinado: 2,
 };
 
 export interface PipelineSlaConfigRow {
@@ -57,7 +60,7 @@ export function defaultPipelineSlaConfig(): PipelineSlaConfigRow[] {
 
 /**
  * status_funil → etapa medida. Valores legados (levantamento_teses) caem na
- * coluna unificada; vazio = novo; perdido/cliente_ativo/desconhecido = null
+ * coluna unificada; vazio = novo; ganho/perdido/desconhecido = null
  * (fora do funil em andamento).
  */
 export function normalizarEtapaFunil(status: string | null | undefined): EtapaFunil | null {

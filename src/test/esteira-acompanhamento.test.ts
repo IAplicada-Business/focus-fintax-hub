@@ -16,13 +16,11 @@ import {
 
 const CONFIG = [
   { estagio: "triagem", label: "Triagem", ordem: 1, ativo: true },
-  { estagio: "levantamento", label: "Levantamento", ordem: 2, ativo: false },
-  { estagio: "emitir_contrato", label: "Emitir Contrato", ordem: 3, ativo: true },
-  { estagio: "receber_assinado", label: "Receber Assinado", ordem: 4, ativo: true },
-  { estagio: "em_compensacao", label: "Em Compensação", ordem: 5, ativo: true },
-  { estagio: "encaminhar_financeiro", label: "Encaminhar Financeiro", ordem: 6, ativo: true },
-  { estagio: "concluido", label: "Concluído", ordem: 7, ativo: true },
-  { estagio: "devolutiva_cliente", label: "Devolutiva ao cliente", ordem: 8, ativo: true },
+  { estagio: "contrato_emitido", label: "Contrato Emitido", ordem: 2, ativo: true },
+  { estagio: "contrato_assinado", label: "Contrato Assinado", ordem: 3, ativo: true },
+  { estagio: "em_compensacao", label: "Em Compensação", ordem: 4, ativo: true },
+  { estagio: "compensado", label: "Compensado", ordem: 5, ativo: true },
+  { estagio: "concluido", label: "Concluído", ordem: 6, ativo: true },
 ];
 
 const hoje = new Date();
@@ -71,11 +69,10 @@ describe("slaInfo (semáforo)", () => {
 
   it("sem meta para etapas terminais", () => {
     expect(slaInfo({ estagio_esteira: "concluido", dias_na_etapa: 99, sla_dias: null }).status).toBe("sem_sla");
-    expect(slaInfo({ estagio_esteira: "devolutiva_cliente", dias_na_etapa: 99 }).status).toBe("sem_sla");
   });
 
   it("calcula o vencimento a partir da entrada", () => {
-    const s = slaInfo({ estagio_esteira: "levantamento", dias_na_etapa: 1, sla_dias: 3, data_entrada_estagio: diasAtras(1) });
+    const s = slaInfo({ estagio_esteira: "contrato_emitido", dias_na_etapa: 1, sla_dias: 3, data_entrada_estagio: diasAtras(1) });
     expect(s.vencimento).not.toBeNull();
     const diff = Math.round((s.vencimento!.getTime() - hoje.getTime()) / 86_400_000);
     expect(diff).toBe(2);
@@ -84,20 +81,19 @@ describe("slaInfo (semáforo)", () => {
 
 describe("proximaEtapa / proximaAcao", () => {
   it("pula etapa inativa e a devolutiva", () => {
-    expect(proximaEtapa("triagem", CONFIG)?.estagio).toBe("emitir_contrato");
-    expect(proximaEtapa("encaminhar_financeiro", CONFIG)?.estagio).toBe("concluido");
+    expect(proximaEtapa("triagem", CONFIG)?.estagio).toBe("contrato_emitido");
+    expect(proximaEtapa("compensado", CONFIG)?.estagio).toBe("concluido");
   });
 
   it("etapa terminal não tem próxima", () => {
     expect(proximaEtapa("concluido", CONFIG)).toBeNull();
-    expect(proximaEtapa("devolutiva_cliente", CONFIG)).toBeNull();
     expect(proximaAcao({ estagio_esteira: "concluido", dias_na_etapa: 3, sla_dias: null }, CONFIG)).toMatch(/final/);
   });
 
   it("texto muda conforme o semáforo", () => {
-    expect(proximaAcao({ estagio_esteira: "triagem", dias_na_etapa: 6, sla_dias: 1 }, CONFIG)).toBe("Mover para Emitir Contrato — venceu há 5d");
-    expect(proximaAcao({ estagio_esteira: "triagem", dias_na_etapa: 1, sla_dias: 1, data_entrada_estagio: diasAtras(1) }, CONFIG)).toBe("Mover para Emitir Contrato — vence hoje");
-    expect(proximaAcao({ estagio_esteira: "em_compensacao", dias_na_etapa: 2, sla_dias: 30, data_entrada_estagio: diasAtras(2) }, CONFIG)).toMatch(/^Mover para Encaminhar Financeiro até \d{2}\/\d{2}$/);
+    expect(proximaAcao({ estagio_esteira: "triagem", dias_na_etapa: 6, sla_dias: 1 }, CONFIG)).toBe("Mover para Contrato Emitido — venceu há 5d");
+    expect(proximaAcao({ estagio_esteira: "triagem", dias_na_etapa: 1, sla_dias: 1, data_entrada_estagio: diasAtras(1) }, CONFIG)).toBe("Mover para Contrato Emitido — vence hoje");
+    expect(proximaAcao({ estagio_esteira: "em_compensacao", dias_na_etapa: 2, sla_dias: 30, data_entrada_estagio: diasAtras(2) }, CONFIG)).toMatch(/^Mover para Compensado até \d{2}\/\d{2}$/);
   });
 });
 

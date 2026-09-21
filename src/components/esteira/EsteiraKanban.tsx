@@ -129,7 +129,7 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
           const stageClientes = ordenarCardsEsteira(grouped[stage.value] || [], stage.sla_dias);
           const resumo = resumoEtapaEsteira(stageClientes, stage.sla_dias);
           const isCollapsed = colapsadas.has(stage.value);
-          const terminal = stage.value === "concluido" || stage.value === "devolutiva_cliente";
+          const terminal = stage.value === "concluido";
           const emFoco = focusStage === stage.value;
 
           if (isCollapsed) {

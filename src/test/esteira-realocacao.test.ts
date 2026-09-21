@@ -14,7 +14,14 @@ describe("separação entre funil comercial e esteira operacional", () => {
   it("não oferece nova_abordagem como destino operacional", () => {
     const values = ESTEIRA_STAGES.map((s) => s.value);
     expect(values[0]).toBe("triagem");
-    expect(values[values.length - 1]).toBe("devolutiva_cliente");
+    expect(values).toEqual([
+      "triagem",
+      "contrato_emitido",
+      "contrato_assinado",
+      "em_compensacao",
+      "compensado",
+      "concluido",
+    ]);
     expect(values).not.toContain("nova_abordagem");
   });
 
@@ -23,8 +30,8 @@ describe("separação entre funil comercial e esteira operacional", () => {
     expect(isEstagioEsteira("nova_abordagem")).toBe(true);
     expect(esteiraStageLabel("nova_abordagem")).toContain("legado comercial");
     expect(ESTEIRA_SLA_DIAS.nova_abordagem).toBe(5);
-    expect(isClienteAtrasadoSla("devolutiva_cliente", 999)).toBe(false);
-    expect(ESTEIRA_STAGES_TERMINAIS).toEqual(["concluido", "devolutiva_cliente"]);
+    expect(isClienteAtrasadoSla("concluido", 999)).toBe(false);
+    expect(ESTEIRA_STAGES_TERMINAIS).toEqual(["concluido"]);
   });
 });
 

@@ -56,7 +56,7 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const [convertLead, setConvertLead] = useState<PipelineLead | null>(null);
-  const [convertParaEtapa, setConvertParaEtapa] = useState("cliente_ativo");
+  const [convertParaEtapa, setConvertParaEtapa] = useState("triagem");
   const [optimisticMoves, setOptimisticMoves] = useState<Record<string, string>>({});
   const dragEnabled = canDragInPipeline(userRole);
   const colunaRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -276,8 +276,8 @@ function LeadCard({ lead, index, onClick, onConversa, isException, userRole, isD
   const scoreConf = SCORE_CONFIG[scoreLabel];
   const potMin = lead.relatorios_leads?.[0]?.estimativa_total_minima || 0;
   const potMax = lead.relatorios_leads?.[0]?.estimativa_total_maxima || 0;
-  const isClienteAtivo = lead.status_funil === "cliente_ativo";
-  const showTooltip = isClienteAtivo && userRole === "comercial";
+  const isGanho = lead.status_funil === "ganho" || lead.status_funil === "cliente_ativo";
+  const showTooltip = isGanho && userRole === "comercial";
   const conv = CONVERSA_STYLE[estado];
   const origem = lead.origem ? ORIGEM_LEAD_LABEL[lead.origem] ?? lead.origem : null;
 

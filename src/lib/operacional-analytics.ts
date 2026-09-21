@@ -702,7 +702,7 @@ export function filaPrioridade(
 ): ClientePrioridade[] {
   const labels = new Map(config.map((c) => [c.estagio, c.label]));
   const slas = new Map(config.map((c) => [c.estagio, c.sla_dias]));
-  const terminal = new Set(["concluido", "devolutiva_cliente"]);
+  const terminal = new Set(["concluido"]);
   const rows: (ClientePrioridade & { peso: number })[] = [];
   for (const c of clientes) {
     if (terminal.has(c.estagio_esteira ?? "")) continue;
