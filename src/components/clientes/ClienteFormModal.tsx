@@ -92,6 +92,18 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
   }, [open, cliente]);
 
   const update = (field: string, value: string | boolean) => setForm((p) => ({ ...p, [field]: value }));
+  const responsaveis = useMemo(() => responsaveisQ.data ?? [], [responsaveisQ.data]);
+  // O responsável já gravado continua na lista mesmo se perdeu o acesso ou foi
+  // desativado; sem isso o campo mostra "Sem responsável" e a gravação seguinte
+  // apagaria silenciosamente quem está atendendo a empresa.
+  const opcoesResponsavel = useMemo(() => {
+    const atual = cliente?.responsavel_id;
+    if (!atual || responsaveis.some((item) => item.user_id === atual)) return responsaveis;
+    return [
+      { user_id: atual, full_name: "Responsável atual", cargo: "sem acesso de edição hoje" },
+      ...responsaveis,
+    ];
+  }, [responsaveis, cliente?.responsavel_id]);
   const etapas = useMemo(
     () =>
       [...(slaConfigQ.data ?? [])]
@@ -271,23 +283,49 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
                   <Select
                     value={form.responsavel_id}
                     onValueChange={(value) => update("responsavel_id", value)}
-                    disabled={responsaveisQ.isPending}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sem responsável" />
+                    <SelectTrigger aria-label="Responsável da empresa">
+                      <SelectValue
+                        placeholder={responsaveisQ.isPending ? "Carregando..." : "Sem responsável"}
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {(responsaveisQ.data ?? []).map((responsavel) => (
-                        <SelectItem
-                          key={responsavel.user_id}
-                          value={responsavel.user_id}
-                        >
-                          {responsavel.full_name}
-                          {responsavel.cargo ? ` · ${responsavel.cargo}` : ""}
-                        </SelectItem>
-                      ))}
+                      {opcoesResponsavel.length === 0 ? (
+                        <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                          {responsaveisQ.isPending
+                            ? "Carregando..."
+                            : responsaveisQ.isError
+                              ? "Não foi possível carregar."
+                              : "Nenhum usuário com acesso."}
+                        </p>
+                      ) : (
+                        opcoesResponsavel.map((responsavel) => (
+                          <SelectItem key={responsavel.user_id} value={responsavel.user_id}>
+                            {responsavel.full_name}
+                            {responsavel.cargo ? ` · ${responsavel.cargo}` : ""}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
+                  {responsaveisQ.isError && (
+                    <p className="text-[11px] text-destructive">
+                      Não foi possível carregar a lista.{" "}
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => void responsaveisQ.refetch()}
+                      >
+                        Tentar de novo
+                      </button>
+                    </p>
+                  )}
+                  {!responsaveisQ.isPending && !responsaveisQ.isError && responsaveis.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Ninguém tem acesso de edição de clientes hoje. Ajuste papéis e permissões
+                      em Configurações.
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="space-y-1.5">
