@@ -176,15 +176,16 @@ describe("reconciliação financeira da Visão Operacional", () => {
       { cliente_id: "a", tese_id: "t-reporto", valor_apurado_inicial: 5_000, incluir_no_calculo: true },
       { cliente_id: "b", tese_id: "t-subvencao", valor_apurado_inicial: 500, incluir_no_calculo: true },
     ];
+    const filtroReporto = ["REPORTO"];
     const idsReporto = filtrarIdsPorTipoTese(
       ["a", "b"],
-      "REPORTO",
+      filtroReporto,
       PROCESSOS,
       creditos,
       TESES,
     );
-    const dashboard = resumirFinanceiroPorCliente(idsReporto, COMPS, creditos, TESES, PROCESSOS, "REPORTO");
-    const carteira = resumirFinanceiroPorCliente(idsReporto, COMPS, creditos, TESES, PROCESSOS, "REPORTO");
+    const dashboard = resumirFinanceiroPorCliente(idsReporto, COMPS, creditos, TESES, PROCESSOS, filtroReporto);
+    const carteira = resumirFinanceiroPorCliente(idsReporto, COMPS, creditos, TESES, PROCESSOS, filtroReporto);
 
     expect([...idsReporto]).toEqual(["a"]);
     expect(dashboard).toEqual(carteira);
