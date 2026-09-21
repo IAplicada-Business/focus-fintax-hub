@@ -33,6 +33,17 @@ import {
   listarTiposTese,
   type TipoTeseFiltro,
 } from "@/lib/tese-filter";
+import { DashboardPeriodFilter } from "@/components/DashboardPeriodFilter";
+import {
+  dashboardPeriodEndMonth,
+  dashboardPeriodLabel,
+  dashboardPeriodOptions,
+  defaultDashboardPeriod,
+  filterClientIdsByDashboardPeriod,
+  filterCompsByDashboardPeriod,
+  timestampMatchesDashboardPeriod,
+  type DashboardPeriod,
+} from "@/lib/dashboard-period";
 import { compactCurrency } from "../dashboard-utils";
 import { DarkPanel, DarkStat, KpiCard } from "../ui/primitives";
 import { EvolucaoMensalChart } from "./EvolucaoMensalChart";
@@ -56,6 +67,9 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
   );
   const [ramoFiltro, setRamoFiltro] = useState<RamoGerencialFiltro>("todas");
   const [tipoTeseFiltro, setTipoTeseFiltro] = useState<TipoTeseFiltro>(null);
+  const [periodo, setPeriodo] = useState<DashboardPeriod>(() =>
+    defaultDashboardPeriod(data.compsRaw),
+  );
   const m = useMemo(() => {
     const agora = Date.now();
     const { statusRows, esteira, slaConfig, intimacoes, clientes } = data;
@@ -70,20 +84,27 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       statusMap,
       ramosMap,
     );
-    const idsRecorte = filtrarIdsPorTipoTese(
+    const idsTese = filtrarIdsPorTipoTese(
       idsGerenciais,
       tipoTeseFiltro,
       data.processos,
       data.creditos,
       data.teses,
     );
+    const idsRecorte = filterClientIdsByDashboardPeriod(
+      idsTese,
+      periodo,
+      data.compsRaw,
+      data.processos,
+    );
     const processosRecorte = data.processos.filter((row) => idsRecorte.has(row.cliente_id));
-    const comps = compensacoesCanonicas(
+    const compsDoRecorte = compensacoesCanonicas(
       data.compsRaw.filter((row) => idsRecorte.has(row.cliente_id)),
       data.teses,
       processosRecorte,
       tipoTeseFiltro,
     );
+    const comps = filterCompsByDashboardPeriod(compsDoRecorte, periodo);
     const totaisCalculados = resumirFinanceiroPorCliente(
       idsRecorte,
       data.compsRaw,
@@ -105,7 +126,10 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
     const compensadoLancado = comps.reduce((s, c) => s + Number(c.valor_compensado ?? 0), 0);
     const taxaHon = compensadoLancado > 0 ? honorarios / compensadoLancado : 0;
 
-    const serie = serieMensal(comps, 12, agora);
+    const periodoOptions = dashboardPeriodOptions(data.compsRaw);
+    const fimMes = dashboardPeriodEndMonth(periodo, periodoOptions);
+    const compsSerie = periodo.mode === "year" ? comps : compsDoRecorte;
+    const serie = fimMes ? serieMensal(compsSerie, 12, agora, fimMes) : [];
     const projecao = projetarMensal(serie, 3);
     const cmpComp = comparativoMensal(serie, "compensado");
     const cmpHon = comparativoMensal(serie, "honorarios");
@@ -131,7 +155,11 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
     const saldoPorCliente = new Map(totaisRecorte.map((t) => [t.cliente_id, t.saldo_restante]));
     const fila = filaPrioridade(esteiraRecorte, saldoPorCliente, slaConfig, 8, agora);
 
-    const pendentes = intimacoes.filter((i) => ["pendente", "informado_aline", "em_andamento"].includes(i.status));
+    const pendentes = intimacoes.filter(
+      (i) =>
+        ["pendente", "informado_aline", "em_andamento"].includes(i.status) &&
+        timestampMatchesDashboardPeriod(i.created_at, periodo),
+    );
     const em15 = new Date(agora + 15 * 86_400_000).toISOString().slice(0, 10);
     const vencendo = pendentes.filter((i) => i.prazo_vencimento && i.prazo_vencimento <= em15).length;
 
@@ -165,8 +193,11 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       statusCounts: countByStatus(clientes.map((cliente) => cliente.id), statusMap),
       ramoCounts: countByRamo(clientes.map((cliente) => cliente.id), ramosMap),
       tiposTese: listarTiposTese(data.processos, data.creditos, data.teses),
+      periodoOptions,
+      periodoLabel: dashboardPeriodLabel(periodo),
+      compensadoPeriodo: compensadoLancado,
     };
-  }, [data, ramoFiltro, statusFiltro, tipoTeseFiltro]);
+  }, [data, periodo, ramoFiltro, statusFiltro, tipoTeseFiltro]);
 
   return (
     <div className="space-y-4">
@@ -186,8 +217,13 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
           onChange={setTipoTeseFiltro}
           options={m.tiposTese}
         />
+        <DashboardPeriodFilter
+          value={periodo}
+          onChange={setPeriodo}
+          options={m.periodoOptions}
+        />
         <span className="text-[11px] text-ink-35">
-          {m.recorte} cliente{m.recorte === 1 ? "" : "s"} no recorte · tese: {tipoTeseFiltro ?? "elegíveis (REPORTO fora do saldo)"} · {m.foraRecorte} ativo{m.foraRecorte === 1 ? "" : "s"} fora
+          {m.recorte} cliente{m.recorte === 1 ? "" : "s"} no recorte · período: {m.periodoLabel} · tese: {tipoTeseFiltro ?? "elegíveis (REPORTO fora do saldo)"} · {m.foraRecorte} ativo{m.foraRecorte === 1 ? "" : "s"} fora
         </span>
       </div>
       {(data.qualidade.clientesSemBaseFinanceira > 0 ||
@@ -223,8 +259,8 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
 
       <div className="animate-slide-up delay-1 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4" role="region" aria-label="KPIs operacionais">
         <KpiCard label="Clientes ativos" raw={m.ativos} sub={`${m.compensando} compensando no recorte`} icon={<Building2 />} onClick={() => navigate("/clientes")} size="md" />
-        <KpiCard label="Compensado no mês" raw={m.cmpComp.atual} format={compactCurrency} sub={`mês anterior ${compactCurrency(m.cmpComp.anterior)}`} trend={m.cmpComp.variacaoPct ?? undefined} trendSuffix="%" tom="green" icon={<TrendingUp />} size="md" />
-        <KpiCard label="Honorários no mês" raw={m.cmpHon.atual} format={compactCurrency} sub={`taxa média ${(m.taxaHon * 100).toFixed(1)}% · ${compactCurrency(m.honorarios)} acumulados`} trend={m.cmpHon.variacaoPct ?? undefined} trendSuffix="%" tom="gold" icon={<Coins />} size="md" />
+        <KpiCard label="Compensado no período" raw={m.compensadoPeriodo} format={compactCurrency} sub={periodo.mode === "month" ? `mês anterior ${compactCurrency(m.cmpComp.anterior)}` : m.periodoLabel} trend={periodo.mode === "month" ? m.cmpComp.variacaoPct ?? undefined : undefined} trendSuffix="%" tom="green" icon={<TrendingUp />} size="md" />
+        <KpiCard label="Honorários no período" raw={m.honorarios} format={compactCurrency} sub={`taxa média ${(m.taxaHon * 100).toFixed(1)}% · ${m.periodoLabel}`} trend={periodo.mode === "month" ? m.cmpHon.variacaoPct ?? undefined : undefined} trendSuffix="%" tom="gold" icon={<Coins />} size="md" />
         <KpiCard label="Saldo a compensar" raw={m.saldo} format={compactCurrency} sub={m.prazoSaldoMeses != null ? `${m.recorte} clientes · ≈ ${m.prazoSaldoMeses.toFixed(1)} meses` : `${m.recorte} clientes · sem ritmo médio ainda`} tom="navy" icon={<Layers />} size="md" />
         <KpiCard
           label={m.esteiraLegadaConcentrada ? "Qualidade da esteira" : "Atrasados na esteira"}

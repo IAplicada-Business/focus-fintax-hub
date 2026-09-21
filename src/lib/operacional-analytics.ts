@@ -203,12 +203,16 @@ export function compensacoesCanonicas(
 }
 
 /** Últimos `meses` meses (até o corrente), sem buracos. */
-export function serieMensal(comps: CompLike[], meses = 12, agora: number = Date.now()): PontoMensal[] {
-  const mesCorrente = currentMonthKey(agora);
+export function serieMensal(
+  comps: CompLike[],
+  meses = 12,
+  agora: number = Date.now(),
+  fimMes = currentMonthKey(agora),
+): PontoMensal[] {
   const pontos: PontoMensal[] = [];
   const idx = new Map<string, number>();
   for (let i = meses - 1; i >= 0; i--) {
-    const k = shiftMonthKey(mesCorrente, -i);
+    const k = shiftMonthKey(fimMes, -i);
     idx.set(k, pontos.length);
     pontos.push({ mes: k, label: labelMes(k), compensado: 0, honorarios: 0 });
   }
@@ -330,7 +334,16 @@ export interface TeseCarteiraRow {
  * processos (código da tese) numa linha por tese. Só teses com algum dado
  * entram; ordena por apurado. Compensação sem tese vira "Sem tese vinculada".
  */
-export function carteiraPorTese(teses: TeseLike[], creditos: CreditoLike[], comps: CompLike[], processos: ProcessoLike[] = []): TeseCarteiraRow[] {
+export function carteiraPorTese(
+  teses: TeseLike[],
+  creditos: CreditoLike[],
+  comps: CompLike[],
+  processos: ProcessoLike[] = [],
+  options: {
+    incluirForaDoCalculo?: boolean;
+    processosParaVinculo?: ProcessoLike[];
+  } = {},
+): TeseCarteiraRow[] {
   const porId = new Map<string, TeseCarteiraRow>();
   const clientesPorTese = new Map<string, Set<string>>();
   const linha = (id: string): TeseCarteiraRow => {
@@ -354,19 +367,32 @@ export function carteiraPorTese(teses: TeseLike[], creditos: CreditoLike[], comp
     }
     return row;
   };
+  const porCodigo = new Map(
+    teses
+      .filter((t) => t.codigo)
+      .map((t) => [String(t.codigo).toUpperCase(), t.id]),
+  );
+  const teseIdPorProcesso = new Map(
+    (options.processosParaVinculo ?? processos).map((processo) => {
+      const codigo = processoTeseCatalogCodigo(processo);
+      return [processo.id, codigo ? porCodigo.get(String(codigo).toUpperCase()) : undefined];
+    }),
+  );
   for (const c of creditos) {
-    if (c.incluir_no_calculo === false) continue;
+    if (!options.incluirForaDoCalculo && c.incluir_no_calculo === false) continue;
     const r = linha(c.tese_id);
     r.apurado += Number(c.valor_apurado_inicial ?? 0);
     clientesPorTese.get(c.tese_id)!.add(c.cliente_id);
   }
   for (const c of comps) {
-    const id = c.tese_origem_id || "__sem_tese__";
+    const id =
+      c.tese_origem_id ||
+      (c.processo_tese_id ? teseIdPorProcesso.get(c.processo_tese_id) : undefined) ||
+      "__sem_tese__";
     const r = linha(id);
     r.compensado += Number(c.valor_compensado ?? 0);
     clientesPorTese.get(id)!.add(c.cliente_id);
   }
-  const porCodigo = new Map(teses.filter((t) => t.codigo).map((t) => [String(t.codigo).toUpperCase(), t.id]));
   for (const p of processos) {
     const codigo = processoTeseCatalogCodigo(p);
     const id = codigo ? porCodigo.get(String(codigo).toUpperCase()) : undefined;
@@ -396,13 +422,17 @@ export interface PontoGeracao {
 }
 
 /** Processos (teses assinadas/cadastradas) criados por mês nos últimos `meses`. */
-export function geracaoTesesPorMes(processos: Pick<ProcessoLike, "cliente_id" | "criado_em">[], meses = 6, agora: number = Date.now()): PontoGeracao[] {
-  const mesCorrente = currentMonthKey(agora);
+export function geracaoTesesPorMes(
+  processos: Pick<ProcessoLike, "cliente_id" | "criado_em">[],
+  meses = 6,
+  agora: number = Date.now(),
+  fimMes = currentMonthKey(agora),
+): PontoGeracao[] {
   const pontos: PontoGeracao[] = [];
   const idx = new Map<string, number>();
   const clientes: Set<string>[] = [];
   for (let i = meses - 1; i >= 0; i--) {
-    const k = shiftMonthKey(mesCorrente, -i);
+    const k = shiftMonthKey(fimMes, -i);
     idx.set(k, pontos.length);
     pontos.push({ mes: k, label: labelMes(k), novos: 0, clientes: 0 });
     clientes.push(new Set());
