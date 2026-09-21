@@ -7,7 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Upload, CheckCircle2, AlertTriangle, Loader2, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { parseAbaControle, type ImportControleResultado, type TeseCodigoEnum } from "@/lib/import-controle-parser";
+import {
+  normalizarRazao,
+  parseAbaControle,
+  type ImportControleResultado,
+  type TeseCodigoEnum,
+} from "@/lib/import-controle-parser";
 
 interface Props {
   open: boolean;
@@ -24,15 +29,6 @@ interface DBCliente {
   id: string;
   cnpj: string | null;
   empresa: string | null;
-}
-
-function normalizarChave(s: string | null | undefined): string {
-  return String(s ?? "")
-    .toUpperCase()
-    .replace(/[\n\t]+/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/[.,;]+$/g, "")
-    .trim();
 }
 
 function soDigitos(s: string | null | undefined): string {
@@ -86,7 +82,7 @@ export function ImportControleModal({ open, onOpenChange, onImported }: Props) {
   const matches = (() => {
     if (!resultado) return [];
     const cnpjIdx = new Map(clientesDb.filter((c) => c.cnpj).map((c) => [soDigitos(c.cnpj), c.id]));
-    const razaoIdx = new Map(clientesDb.map((c) => [normalizarChave(c.empresa), c.id]));
+    const razaoIdx = new Map(clientesDb.map((c) => [normalizarRazao(c.empresa ?? ""), c.id]));
     return resultado.linhas.map((l) => {
       const byCnpj = l.cnpj_norm ? cnpjIdx.get(l.cnpj_norm) : undefined;
       const byRazao = razaoIdx.get(l.razao_social_norm);

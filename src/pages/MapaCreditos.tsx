@@ -49,10 +49,13 @@ export default function MapaCreditos() {
         supabase
           .from("compensacoes_mensais")
           .select(
-            "valor_compensado, tese_origem_id, processo_tese_id, mes_referencia, tributo, tributo_enum, processos_teses:processo_tese_id(tese, nome_exibicao)",
+            "valor_compensado, tese_origem_id, processo_tese_id, mes_referencia, tributo, tributo_enum, processos_teses:processo_tese_id(tese, nome_exibicao, categoria)",
           )
           .eq("cliente_id", clienteId),
-        supabase.from("processos_teses").select("id, tese").eq("cliente_id", clienteId),
+        supabase
+          .from("processos_teses")
+          .select("id, tese, nome_exibicao, categoria")
+          .eq("cliente_id", clienteId),
         (supabase as any)
           .from("creditos_apurados")
           .select("tese_id, valor_compensado_manual")
@@ -88,7 +91,12 @@ export default function MapaCreditos() {
       const rows = buildLinhasMapa({
         mapa: (v || []) as LinhaMapa[],
         compensacoes: (comps || []) as CompensacaoSumRow[],
-        processos: (procs || []) as { id: string; tese: string | null }[],
+        processos: (procs || []) as {
+          id: string;
+          tese: string | null;
+          nome_exibicao: string | null;
+          categoria: string | null;
+        }[],
         creditos: (creditos || []) as { tese_id: string; valor_compensado_manual: number | null }[],
       });
 

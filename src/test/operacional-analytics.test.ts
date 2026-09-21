@@ -70,7 +70,7 @@ describe("carteiraPorTese", () => {
         { cliente_id: "a", mes_referencia: "2026-08-01", valor_compensado: 400, tese_origem_id: "t1" },
         { cliente_id: "c", mes_referencia: "2026-08-01", valor_compensado: 100, tese_origem_id: null },
       ],
-      [{ id: "p1", cliente_id: "a", tese: "insumos", criado_em: "2026-08-01" }],
+      [{ id: "p1", cliente_id: "a", tese: "pis_cofins_insumos", criado_em: "2026-08-01" }],
     );
     expect(rows[0]).toMatchObject({ codigo: "INSUMOS", clientes: 2, processos: 1, apurado: 2000, compensado: 400, saldo: 1600, pctUtilizado: 20, share: 100 });
     const semTese = rows.find((r) => r.tese_id === "__sem_tese__")!;
@@ -187,9 +187,11 @@ describe("movimentosEsteira", () => {
   it("conta entradas desde a data, por etapa", () => {
     const r = movimentosEsteira(
       [
-        { cliente_id: "1", estagio: "triagem", entrou_em: diasAtras(1), saiu_em: null },
-        { cliente_id: "1", estagio: "concluido", entrou_em: diasAtras(0), saiu_em: null },
-        { cliente_id: "2", estagio: "triagem", entrou_em: diasAtras(30), saiu_em: null },
+        { cliente_id: "1", estagio: "triagem", entrou_em: diasAtras(1), saiu_em: null, origem: "sistema" },
+        { cliente_id: "1", estagio: "concluido", entrou_em: diasAtras(0), saiu_em: null, origem: "sistema" },
+        { cliente_id: "2", estagio: "triagem", entrou_em: diasAtras(30), saiu_em: null, origem: "sistema" },
+        { cliente_id: "3", estagio: "triagem", entrou_em: diasAtras(1), saiu_em: null, origem: "importacao" },
+        { cliente_id: "4", estagio: "triagem", entrou_em: diasAtras(1), saiu_em: null, origem: "reset_sla" },
       ],
       diasAtras(7),
     );

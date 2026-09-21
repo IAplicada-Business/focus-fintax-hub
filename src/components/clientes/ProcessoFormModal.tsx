@@ -9,7 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { STATUS_CONTRATO, STATUS_PROCESSO, normalizeTeseCatalogCodigo } from "@/lib/clientes-constants";
+import {
+  STATUS_CONTRATO,
+  STATUS_PROCESSO,
+  isReportoProcesso,
+  normalizeTeseCatalogCodigo,
+} from "@/lib/clientes-constants";
 import { resolveCatalogTeseId, syncCreditoApuradoFromProcesso } from "@/lib/sync-credito-apurado";
 import { useMotorTesesAtivas } from "@/hooks/data/useClienteOperacional";
 import { logClienteHistorico } from "@/lib/cliente-historico";
@@ -92,7 +97,7 @@ export function ProcessoFormModal({
     if (!open || processo || !presetTese || teses.length === 0) return;
     const t = teses.find((x) => x.tese === presetTese);
     const nome = t?.nome_exibicao || presetTese;
-    const isReporto = /reporto/i.test(nome) || /reporto/i.test(presetTese);
+    const isReporto = isReportoProcesso({ tese: presetTese, nome_exibicao: nome });
     setForm({
       ...EMPTY_FORM,
       tese: presetTese,
@@ -122,7 +127,7 @@ export function ProcessoFormModal({
   const handleTesePick = (value: string) => {
     const t = teses.find((x) => x.tese === value);
     const nome = t?.nome_exibicao || value;
-    const isReporto = /reporto/i.test(nome) || /reporto/i.test(value);
+    const isReporto = isReportoProcesso({ tese: value, nome_exibicao: nome });
     setForm((p) => ({
       ...p,
       tese: value,

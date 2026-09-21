@@ -159,25 +159,9 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
   const processos = processosTodos.filter((row) => idsAtivos.has(row.cliente_id));
   const teses = (tesesRes.error ? [] : tesesRes.data ?? []) as TeseLike[];
   const comps = compensacoesCanonicas(compsAtivos, teses, processos);
-  const mesAtual = new Date().toISOString().slice(0, 7);
-  const clientesComCompensacaoMes = new Set(
-    comps
-      .filter(
-        (row) =>
-          Number(row.valor_compensado ?? 0) > 0 &&
-          String(row.mes_referencia).slice(0, 7) === mesAtual,
-      )
-      .map((row) => row.cliente_id),
-  );
   const statusRows = statusTodos
     .filter((row) => idsAtivos.has(row.cliente_id))
-    .map((row) => {
-      const reconciliada = {
-        ...row,
-        tem_compensacao_mes_corrente: clientesComCompensacaoMes.has(row.cliente_id),
-      };
-      return { ...reconciliada, status_principal: normalizarStatusCompensacao(reconciliada) };
-    });
+    .map((row) => ({ ...row, status_principal: normalizarStatusCompensacao(row) }));
   const totaisCanonicos = resumirFinanceiroPorCliente(idsAtivos, comps, creditos, teses, processos);
   const configStages = new Set(slaConfig.map((row) => row.estagio as string));
 

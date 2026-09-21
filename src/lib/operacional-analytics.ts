@@ -11,10 +11,12 @@ import {
 } from "@/lib/esteira-constants";
 import {
   filterCompensadoCanonical,
+  isReportoProcesso,
   mergeCreditosComProcessosFallback,
-  normalizeTeseCatalogCodigo,
+  processoTeseCatalogCodigo,
 } from "@/lib/clientes-constants";
 import { buildLinhasMapa, calcularTotais } from "@/lib/mapa-creditos";
+import { currentMonthKey, monthKeyBrt, shiftMonthKey } from "@/lib/month-key";
 
 const MS_DIA = 86_400_000;
 
@@ -44,7 +46,7 @@ export interface PontoMensal {
 }
 
 export function chaveMes(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return monthKeyBrt(d);
 }
 
 export function labelMes(chave: string): string {
@@ -96,7 +98,7 @@ export function resumirFinanceiroPorCliente(
     const creditosCliente = creditosAtivos.filter((row) => row.cliente_id === clienteId);
     const reportoProcessoIds = new Set(
       processosCliente
-        .filter((p) => normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao) === "REPORTO")
+        .filter(isReportoProcesso)
         .map((p) => p.id),
     );
     const creditosComFallback = mergeCreditosComProcessosFallback({
@@ -123,7 +125,9 @@ export function resumirFinanceiroPorCliente(
       compensacoes: compsCliente,
       processos: processosCliente.map((p) => ({
         id: p.id,
-        tese: normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao),
+        tese: p.tese,
+        nome_exibicao: p.nome_exibicao,
+        categoria: p.categoria,
       })),
       creditos: creditosCliente.map((credito) => ({
         tese_id: credito.tese_id,
@@ -163,7 +167,7 @@ export function compensacoesCanonicas(
   );
   const reportoProcessoIds = new Set(
     processos
-      .filter((p) => normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao) === "REPORTO")
+      .filter(isReportoProcesso)
       .map((p) => p.id),
   );
   const porCliente = new Map<string, CompLike[]>();
@@ -179,12 +183,11 @@ export function compensacoesCanonicas(
 
 /** Últimos `meses` meses (até o corrente), sem buracos. */
 export function serieMensal(comps: CompLike[], meses = 12, agora: number = Date.now()): PontoMensal[] {
-  const hoje = new Date(agora);
+  const mesCorrente = currentMonthKey(agora);
   const pontos: PontoMensal[] = [];
   const idx = new Map<string, number>();
   for (let i = meses - 1; i >= 0; i--) {
-    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-    const k = chaveMes(d);
+    const k = shiftMonthKey(mesCorrente, -i);
     idx.set(k, pontos.length);
     pontos.push({ mes: k, label: labelMes(k), compensado: 0, honorarios: 0 });
   }
@@ -345,7 +348,8 @@ export function carteiraPorTese(teses: TeseLike[], creditos: CreditoLike[], comp
   }
   const porCodigo = new Map(teses.filter((t) => t.codigo).map((t) => [String(t.codigo).toUpperCase(), t.id]));
   for (const p of processos) {
-    const id = porCodigo.get(String(p.tese).toUpperCase());
+    const codigo = processoTeseCatalogCodigo(p);
+    const id = codigo ? porCodigo.get(String(codigo).toUpperCase()) : undefined;
     if (!id) continue;
     const r = linha(id);
     r.processos += 1;
@@ -373,13 +377,12 @@ export interface PontoGeracao {
 
 /** Processos (teses assinadas/cadastradas) criados por mês nos últimos `meses`. */
 export function geracaoTesesPorMes(processos: Pick<ProcessoLike, "cliente_id" | "criado_em">[], meses = 6, agora: number = Date.now()): PontoGeracao[] {
-  const hoje = new Date(agora);
+  const mesCorrente = currentMonthKey(agora);
   const pontos: PontoGeracao[] = [];
   const idx = new Map<string, number>();
   const clientes: Set<string>[] = [];
   for (let i = meses - 1; i >= 0; i--) {
-    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-    const k = chaveMes(d);
+    const k = shiftMonthKey(mesCorrente, -i);
     idx.set(k, pontos.length);
     pontos.push({ mes: k, label: labelMes(k), novos: 0, clientes: 0 });
     clientes.push(new Set());
@@ -548,6 +551,7 @@ export function movimentosEsteira(historico: HistoricoEsteiraLike[], desdeIso: s
   let concluidos = 0;
   let total = 0;
   for (const h of historico) {
+    if (h.origem !== "sistema") continue;
     const t = new Date(h.entrou_em).getTime();
     if (!Number.isFinite(t) || t < desde) continue;
     total += 1;
