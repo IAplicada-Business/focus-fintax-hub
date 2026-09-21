@@ -21,12 +21,17 @@ import { agruparPorEtapa, etapasVazias, filtrarLeadsBusca } from "@/lib/pipeline
 import { leadAtivo, resumoAtendimento } from "@/lib/comercial-analytics";
 import {
   StatusCompensacaoFilter,
+  TipoRecuperacaoFilter,
   useStatusCompensacao,
   countByStatus,
+  countByRamo,
+  makeRamoFilterPredicate,
   STATUS_COMPENSACAO_VALUES,
   type StatusCompensacao,
+  type RamoGerencialFiltro,
 } from "@/components/StatusCompensacaoFilter";
 import { cn } from "@/lib/utils";
+import type { ClienteRamoFlags } from "@/lib/esteira-acompanhamento";
 
 export interface PipelineLead {
   id: string;
@@ -131,7 +136,8 @@ export default function Pipeline() {
   }, [etapaDestaque]);
 
   const [filterStatusComp, setFilterStatusComp] = useState<Set<StatusCompensacao>>(new Set(STATUS_COMPENSACAO_VALUES));
-  const { statusMap: statusCompMap } = useStatusCompensacao();
+  const [filterRamo, setFilterRamo] = useState<RamoGerencialFiltro>("todas");
+  const { statusMap: statusCompMap, ramosMap } = useStatusCompensacao();
   const [leadToCliente, setLeadToCliente] = useState<Map<string, string>>(new Map());
   useEffect(() => {
     supabase
@@ -154,13 +160,24 @@ export default function Pipeline() {
     return m;
   }, [leadToCliente, statusCompMap]);
 
+  const leadRamosMap = useMemo(() => {
+    const m = new Map<string, ClienteRamoFlags>();
+    for (const [leadId, cId] of leadToCliente.entries()) {
+      const flags = ramosMap.get(cId);
+      if (flags) m.set(leadId, flags);
+    }
+    return m;
+  }, [leadToCliente, ramosMap]);
+
   const filteredLeads = useMemo(() => {
     const allOrNone = filterStatusComp.size === 0 || filterStatusComp.size === STATUS_COMPENSACAO_VALUES.length;
     const porStatus = allOrNone ? leads : leads.filter((l) => filterStatusComp.has(leadStatusMap.get(l.id) ?? "sem_operacao"));
-    return filtrarLeadsBusca(porStatus, busca);
-  }, [leads, leadStatusMap, filterStatusComp, busca]);
+    const porRamo = makeRamoFilterPredicate(filterRamo, leadRamosMap);
+    return filtrarLeadsBusca(porStatus.filter((lead) => porRamo(lead.id)), busca);
+  }, [leads, leadStatusMap, leadRamosMap, filterStatusComp, filterRamo, busca]);
 
   const statusCompCounts = useMemo(() => countByStatus(leads.map((l) => l.id), leadStatusMap), [leads, leadStatusMap]);
+  const ramoCounts = useMemo(() => countByRamo(leads.map((l) => l.id), leadRamosMap), [leads, leadRamosMap]);
 
   const fetchLeads = () => queryClient.invalidateQueries({ queryKey: ["leads"] });
 
@@ -224,6 +241,7 @@ export default function Pipeline() {
             </button>
           </div>
           <StatusCompensacaoFilter selectedStatuses={filterStatusComp} onChange={setFilterStatusComp} counts={statusCompCounts} />
+          <TipoRecuperacaoFilter ramo={filterRamo} onChange={setFilterRamo} counts={ramoCounts} />
           {view === "kanban" &&
             (colapsadas.size > 0 ? (
               <Button variant="outline" size="sm" onClick={expandirTodas} title="Expandir todas as etapas">

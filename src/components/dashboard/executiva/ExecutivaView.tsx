@@ -4,9 +4,24 @@ import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Too
 import { ChevronDown, ChevronUp, Coins, Layers, PieChart, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrencyBR } from "@/lib/clientes-constants";
-import { STATUS_COMPENSACAO_COLORS, STATUS_COMPENSACAO_LABELS, STATUS_COMPENSACAO_VALUES, type StatusCompensacao } from "@/components/StatusCompensacaoFilter";
+import {
+  STATUS_COMPENSACAO_COLORS,
+  STATUS_COMPENSACAO_LABELS,
+  STATUS_COMPENSACAO_VALUES,
+  StatusCompensacaoFilter,
+  TipoRecuperacaoFilter,
+  buildRamoFlagsPorCliente,
+  countByRamo,
+  countByStatus,
+  type RamoGerencialFiltro,
+  type StatusCompensacao,
+} from "@/components/StatusCompensacaoFilter";
 import type { OperacionalDashboardData } from "@/services/operacionalDashboardService";
 import { carteiraPorTese, geracaoTesesPorMes, honorarioDe } from "@/lib/operacional-analytics";
+import {
+  filtrarIdsRecorteGerencial,
+  normalizarStatusCompensacao,
+} from "@/lib/gerencial-filters";
 import { compactCurrency } from "../dashboard-utils";
 import { BarList, KpiCard, LinkMore, Panel, InlineEmpty, CountChip } from "../ui/primitives";
 import { cn } from "@/lib/utils";
@@ -20,8 +35,6 @@ const STATUS_BAR_COLORS: Record<StatusCompensacao, string> = {
   compensando: "#0f7b4e",
   prevista: "#1c3150",
   reporto: "#8a8f98",
-  ressarcimento: "#c6964f",
-  judicial: "#c8001e",
   encerrado: "#8a8f98",
   sem_operacao: "#c9c9c9",
 };
@@ -47,9 +60,30 @@ const MAX_SEM_TESE = 5;
  */
 export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Props) {
   const [verTodosSemTese, setVerTodosSemTese] = useState(false);
+  const [statusFiltro, setStatusFiltro] = useState<Set<StatusCompensacao>>(
+    new Set(STATUS_COMPENSACAO_VALUES),
+  );
+  const [ramoFiltro, setRamoFiltro] = useState<RamoGerencialFiltro>("todas");
 
   const m = useMemo(() => {
-    const { totais, comps, creditos, teses, processos, clientes, statusRows } = data;
+    const statusMapCompleto = new Map(
+      data.statusRows.map((row) => [row.cliente_id, normalizarStatusCompensacao(row)]),
+    );
+    const ramosMap = buildRamoFlagsPorCliente(data.processos);
+    const ids = filtrarIdsRecorteGerencial(
+      data.clientes.map((cliente) => cliente.id),
+      statusFiltro,
+      ramoFiltro,
+      statusMapCompleto,
+      ramosMap,
+    );
+    const clientes = data.clientes.filter((cliente) => ids.has(cliente.id));
+    const totais = data.totais.filter((row) => ids.has(row.cliente_id));
+    const comps = data.comps.filter((row) => ids.has(row.cliente_id));
+    const creditos = data.creditos.filter((row) => ids.has(row.cliente_id));
+    const processos = data.processos.filter((row) => ids.has(row.cliente_id));
+    const statusRows = data.statusRows.filter((row) => ids.has(row.cliente_id));
+    const { teses } = data;
     const apurado = totais.reduce((s, t) => s + t.credito_apurado, 0);
     const compensado = totais.reduce((s, t) => s + t.total_compensado, 0);
     const saldo = totais.reduce((s, t) => s + t.saldo_restante, 0);
@@ -63,8 +97,9 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
 
     const contagem = new Map<string, number>();
     for (const r of statusRows) {
-      if (r.status_principal === "reporto") continue;
-      contagem.set(r.status_principal, (contagem.get(r.status_principal) ?? 0) + 1);
+      const status = normalizarStatusCompensacao(r);
+      if (status === "reporto") continue;
+      contagem.set(status, (contagem.get(status) ?? 0) + 1);
     }
     const statusRowsOrd = STATUS_COMPENSACAO_VALUES.filter((s) => s !== "reporto")
       .map((s) => ({ status: s, count: contagem.get(s) ?? 0 }))
@@ -84,10 +119,9 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       .filter((r) => r.compensado > 0)
       .sort((a, b) => b.compensado - a.compensado);
 
-    const statusMap = new Map(statusRows.map((s) => [s.cliente_id, s.status_principal]));
     const semTese = clientes
       .filter((c) => !c.tese_ativa_id)
-      .map((c) => ({ id: c.id, empresa: c.empresa, status: (statusMap.get(c.id) ?? "sem_operacao") as StatusCompensacao }))
+      .map((c) => ({ id: c.id, empresa: c.empresa, status: statusMapCompleto.get(c.id) ?? "sem_operacao" }))
       .sort((a, b) => a.empresa.localeCompare(b.empresa, "pt-BR"));
 
     const nome = new Map(clientes.map((c) => [c.id, c.empresa]));
@@ -98,14 +132,47 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       .map((t) => ({ ...t, empresa: nome.get(t.cliente_id) ?? "—", share: apurado > 0 ? (t.credito_apurado / apurado) * 100 : 0 }));
     const topShare = top.reduce((s, t) => s + t.share, 0);
 
-    return { apurado, compensado, saldo, honorarios, pctUtilizado, porTese, geracao, teses30d, statusRowsOrd, totalStatus, porTributo, semTese, top, topShare, clientes: clientes.length };
-  }, [data]);
+    return {
+      apurado,
+      compensado,
+      saldo,
+      honorarios,
+      pctUtilizado,
+      porTese,
+      geracao,
+      teses30d,
+      statusRowsOrd,
+      totalStatus,
+      porTributo,
+      semTese,
+      top,
+      topShare,
+      clientes: clientes.length,
+      statusCounts: countByStatus(data.clientes.map((c) => c.id), statusMapCompleto),
+      ramoCounts: countByRamo(data.clientes.map((c) => c.id), ramosMap),
+    };
+  }, [data, ramoFiltro, statusFiltro]);
 
   const semTeseVisiveis = verTodosSemTese ? m.semTese : m.semTese.slice(0, MAX_SEM_TESE);
   const maxTeseApurado = Math.max(...m.porTese.map((t) => t.apurado), 1);
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2" aria-label="Filtros da visão executiva">
+        <StatusCompensacaoFilter
+          selectedStatuses={statusFiltro}
+          onChange={setStatusFiltro}
+          counts={m.statusCounts}
+        />
+        <TipoRecuperacaoFilter
+          ramo={ramoFiltro}
+          onChange={setRamoFiltro}
+          counts={m.ramoCounts}
+        />
+        <span className="text-[11px] text-ink-35">
+          {m.clientes} cliente{m.clientes === 1 ? "" : "s"} no recorte
+        </span>
+      </div>
       <div className="animate-slide-up delay-1 grid grid-cols-2 xl:grid-cols-4 gap-4" role="region" aria-label="KPIs da carteira">
         <KpiCard label="Crédito apurado" raw={m.apurado} format={compactCurrency} sub={`${m.clientes} clientes ativos · ${m.porTese.filter((t) => t.apurado > 0).length} teses com crédito`} icon={<Layers />} />
         <KpiCard label="Total compensado" raw={m.compensado} format={compactCurrency} sub={`${m.pctUtilizado.toFixed(1)}% do apurado utilizado`} tom="green" icon={<TrendingUp />} />
@@ -290,7 +357,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
         </div>
       </div>
       <p className="text-[10px] text-ink-35 px-1">
-        Totais seguem a régua da carteira (<Link to="/configuracoes/motor" className="underline">teses no cálculo</Link>); Reporto fica fora dos status principais.
+        Totais seguem o recorte de status e o mesmo ramo da esteira; Administrativo agrupa Compensação + Ressarcimento. Régua de <Link to="/configuracoes/motor" className="underline">teses no cálculo</Link>.
       </p>
     </div>
   );

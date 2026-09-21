@@ -13,6 +13,12 @@ import {
   resumoEsteira,
   serieMensal,
 } from "@/lib/operacional-analytics";
+import {
+  STATUS_COMPENSACAO_VALUES,
+  buildRamoFlagsPorCliente,
+  filtrarIdsRecorteGerencial,
+  normalizarStatusCompensacao,
+} from "@/lib/gerencial-filters";
 
 const AGORA = new Date(2026, 8, 16, 12).getTime(); // set/2026
 const diasAtras = (n: number) => new Date(AGORA - n * 86_400_000).toISOString();
@@ -70,6 +76,61 @@ describe("carteiraPorTese", () => {
     const semTese = rows.find((r) => r.tese_id === "__sem_tese__")!;
     expect(semTese).toMatchObject({ label: "Sem tese vinculada", compensado: 100, clientes: 1 });
     expect(rows.find((r) => r.tese_id === "t2")).toBeUndefined();
+  });
+});
+
+describe("reconciliação do recorte Executivo × Clientes", () => {
+  const clientes = ["administrativo", "ressarcimento", "judicial", "encerrado"];
+  const statusRows = [
+    { cliente_id: "administrativo", status_principal: "compensando" },
+    // Formato legado: ramo misturado no status, normalizado pelas flags.
+    { cliente_id: "ressarcimento", status_principal: "ressarcimento", tem_tese_ativa: true },
+    { cliente_id: "judicial", status_principal: "judicial", tem_tese_ativa: true },
+    { cliente_id: "encerrado", status_principal: "encerrado", todos_encerrados: true },
+  ];
+  const statusMap = new Map(
+    statusRows.map((row) => [row.cliente_id, normalizarStatusCompensacao(row)]),
+  );
+  const ramosMap = buildRamoFlagsPorCliente([
+    { cliente_id: "administrativo", tipo_recuperacao: "compensacao", status_contrato: "assinado" },
+    { cliente_id: "ressarcimento", tipo_recuperacao: "ressarcimento", status_contrato: "assinado" },
+    { cliente_id: "judicial", tipo_recuperacao: "recuperacao_judicial", status_contrato: "assinado" },
+    { cliente_id: "encerrado", tipo_recuperacao: "compensacao", status_contrato: "assinado", status_processo: "compensado" },
+  ]);
+  const totais = [
+    { cliente_id: "administrativo", credito_apurado: 1_000, total_compensado: 300, saldo_restante: 700 },
+    { cliente_id: "ressarcimento", credito_apurado: 2_000, total_compensado: 500, saldo_restante: 1_500 },
+    { cliente_id: "judicial", credito_apurado: 4_000, total_compensado: 1_000, saldo_restante: 3_000 },
+    { cliente_id: "encerrado", credito_apurado: 800, total_compensado: 800, saldo_restante: 0 },
+  ];
+
+  it("administrativo usa compensação + ressarcimento, igual à semântica da esteira", () => {
+    const idsClientes = filtrarIdsRecorteGerencial(
+      clientes,
+      new Set(STATUS_COMPENSACAO_VALUES),
+      "administrativo",
+      statusMap,
+      ramosMap,
+    );
+    expect([...idsClientes]).toEqual(["administrativo", "ressarcimento", "encerrado"]);
+
+    const executivo = totais.filter((row) => idsClientes.has(row.cliente_id));
+    expect(executivo.reduce((sum, row) => sum + row.credito_apurado, 0)).toBe(3_800);
+    expect(executivo.reduce((sum, row) => sum + row.total_compensado, 0)).toBe(1_600);
+    expect(executivo.reduce((sum, row) => sum + row.saldo_restante, 0)).toBe(2_200);
+  });
+
+  it("status e ramo se combinam sem judicial/ressarcimento virarem status", () => {
+    const idsClientes = filtrarIdsRecorteGerencial(
+      clientes,
+      new Set(["prevista"]),
+      "recuperacao_judicial",
+      statusMap,
+      ramosMap,
+    );
+    expect([...idsClientes]).toEqual(["judicial"]);
+    expect(statusMap.get("ressarcimento")).toBe("prevista");
+    expect(statusMap.get("judicial")).toBe("prevista");
   });
 });
 

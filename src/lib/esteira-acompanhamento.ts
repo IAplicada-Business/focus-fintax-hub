@@ -7,12 +7,20 @@ import { ESTEIRA_STAGES_TERMINAIS, isEstagioEsteira, slaDiasDaEtapa, type Estagi
 import type { TipoRecuperacao } from "@/lib/tipo-recuperacao";
 
 export type RamoFiltro = TipoRecuperacao | "todas";
+export type RamoGerencialFiltro = RamoFiltro | "administrativo";
 
 export const RAMO_FILTROS: { value: RamoFiltro; label: string }[] = [
   { value: "todas", label: "Todas" },
   { value: "compensacao", label: "Compensação" },
   { value: "ressarcimento", label: "Ressarcimento" },
   { value: "recuperacao_judicial", label: "Recuperação Judicial" },
+];
+
+/** Mesmo recorte da esteira, com o agrupador executivo solicitado. */
+export const RAMO_GERENCIAL_FILTROS: { value: RamoGerencialFiltro; label: string }[] = [
+  RAMO_FILTROS[0],
+  { value: "administrativo", label: "Administrativo" },
+  ...RAMO_FILTROS.slice(1),
 ];
 
 export interface ClienteRamoFlags {
@@ -36,6 +44,17 @@ export function ramosDoCliente(c: ClienteRamoFlags): TipoRecuperacao[] {
 export function pertenceAoRamo(c: ClienteRamoFlags, filtro: RamoFiltro): boolean {
   if (filtro === "todas") return true;
   return ramosDoCliente(c).includes(filtro);
+}
+
+export function pertenceAoRamoGerencial(
+  c: ClienteRamoFlags,
+  filtro: RamoGerencialFiltro,
+): boolean {
+  if (filtro === "administrativo") {
+    const ramos = ramosDoCliente(c);
+    return ramos.includes("compensacao") || ramos.includes("ressarcimento");
+  }
+  return pertenceAoRamo(c, filtro);
 }
 
 export interface ClienteSlaLike extends ClienteRamoFlags {

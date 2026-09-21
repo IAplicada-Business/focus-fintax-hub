@@ -32,7 +32,13 @@ describe("sugerirEstagioRealocacao (organizar esteira herdada da importação)",
   });
 
   it("status operacional ativo vai pra Em Compensação", () => {
-    for (const st of ["compensando", "reporto", "prevista", "ressarcimento", "judicial"]) {
+    for (const st of ["compensando", "reporto", "prevista"]) {
+      expect(sugerirEstagioRealocacao(st, "triagem").estagio).toBe("em_compensacao");
+    }
+  });
+
+  it("aceita aliases legados de ramo sem misturá-los na lista de status", () => {
+    for (const st of ["ressarcimento", "judicial"]) {
       expect(sugerirEstagioRealocacao(st, "triagem").estagio).toBe("em_compensacao");
     }
   });

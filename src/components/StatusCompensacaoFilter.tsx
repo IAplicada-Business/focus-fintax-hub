@@ -6,39 +6,48 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Filter } from "lucide-react";
+import {
+  STATUS_COMPENSACAO_VALUES,
+  buildRamoFlagsPorCliente,
+  countByRamo,
+  countByStatus,
+  makeRamoFilterPredicate,
+  makeStatusFilterPredicate,
+  normalizarStatusCompensacao,
+  type StatusCompensacao,
+} from "@/lib/gerencial-filters";
+import {
+  RAMO_GERENCIAL_FILTROS,
+  type RamoGerencialFiltro,
+} from "@/lib/esteira-acompanhamento";
 
 // -----------------------------------------------------------------------------
 // Enum + config visual
 // -----------------------------------------------------------------------------
 
-export const STATUS_COMPENSACAO_VALUES = [
-  "compensando",
-  "prevista",
-  "reporto",
-  "ressarcimento",
-  "judicial",
-  "encerrado",
-  "sem_operacao",
-] as const;
-
-export type StatusCompensacao = (typeof STATUS_COMPENSACAO_VALUES)[number];
+export {
+  STATUS_COMPENSACAO_VALUES,
+  buildRamoFlagsPorCliente,
+  countByRamo,
+  countByStatus,
+  makeRamoFilterPredicate,
+  makeStatusFilterPredicate,
+  normalizarStatusCompensacao,
+};
+export type { StatusCompensacao, RamoGerencialFiltro };
 
 export const STATUS_COMPENSACAO_LABELS: Record<StatusCompensacao, string> = {
   compensando: "Compensando",
   prevista: "Prevista",
   reporto: "Possíveis futuros",
-  ressarcimento: "Ressarcimento",
-  judicial: "Judicial",
   encerrado: "Encerrado",
-  sem_operacao: "Sem operação",
+  sem_operacao: "Pendente / sem operação",
 };
 
 export const STATUS_COMPENSACAO_COLORS: Record<StatusCompensacao, string> = {
   compensando: "bg-emerald-100 text-emerald-800 border-emerald-200",
   prevista: "bg-blue-100 text-blue-800 border-blue-200",
   reporto: "bg-slate-100 text-slate-700 border-slate-200",
-  ressarcimento: "bg-amber-100 text-amber-800 border-amber-200",
-  judicial: "bg-rose-100 text-rose-800 border-rose-200",
   encerrado: "bg-slate-100 text-slate-700 border-slate-200",
   sem_operacao: "bg-neutral-100 text-neutral-600 border-neutral-200",
 };
@@ -57,12 +66,17 @@ export function useStatusCompensacao() {
   const statusMap = useMemo(() => {
     const m = new Map<string, StatusCompensacao>();
     for (const row of data ?? []) {
-      m.set(row.cliente_id, row.status_principal as StatusCompensacao);
+      m.set(row.cliente_id, normalizarStatusCompensacao(row));
     }
     return m;
   }, [data]);
 
-  return { statusMap, loading: isPending && !data };
+  const ramosMap = useMemo(
+    () => buildRamoFlagsPorCliente((data ?? []).flatMap((row) => row.processos ?? [])),
+    [data],
+  );
+
+  return { statusMap, ramosMap, loading: isPending && !data };
 }
 
 // -----------------------------------------------------------------------------
@@ -150,39 +164,51 @@ export function StatusCompensacaoFilter({ selectedStatuses, onChange, counts, cl
   );
 }
 
-/** Utilitário: dado um set de status selecionados e um Map<cliente_id, status>,
- * retorna um predicado pra filtrar arrays de clientes/leads. */
-export function makeStatusFilterPredicate(
-  selected: Set<StatusCompensacao>,
-  statusMap: Map<string, StatusCompensacao>
-) {
-  // Selection vazia OU total = sem filtro (mostra tudo)
-  const allOrNone = selected.size === 0 || selected.size === STATUS_COMPENSACAO_VALUES.length;
-  return (clienteId: string | null | undefined) => {
-    if (allOrNone) return true;
-    if (!clienteId) return selected.has("sem_operacao");
-    const s = statusMap.get(clienteId);
-    return s ? selected.has(s) : selected.has("sem_operacao");
-  };
+interface TipoProps {
+  ramo: RamoGerencialFiltro;
+  onChange: (next: RamoGerencialFiltro) => void;
+  counts?: Partial<Record<RamoGerencialFiltro, number>>;
+  className?: string;
 }
 
-/** Utilitário: conta clientes por status pra alimentar o Popover. */
-export function countByStatus(
-  ids: string[],
-  statusMap: Map<string, StatusCompensacao>
-): Record<StatusCompensacao, number> {
-  const counts: Record<StatusCompensacao, number> = {
-    compensando: 0,
-    prevista: 0,
-    reporto: 0,
-    ressarcimento: 0,
-    judicial: 0,
-    encerrado: 0,
-    sem_operacao: 0,
-  };
-  for (const id of ids) {
-    const s = statusMap.get(id) ?? "sem_operacao";
-    counts[s]++;
-  }
-  return counts;
+export function TipoRecuperacaoFilter({ ramo, onChange, counts, className }: TipoProps) {
+  const atual = RAMO_GERENCIAL_FILTROS.find((item) => item.value === ramo);
+  const label = ramo === "todas" ? "Tipo de recuperação" : atual?.label ?? ramo;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className={className}>
+          <Filter className="h-3.5 w-3.5 mr-1" />
+          {label}
+          {ramo !== "todas" && <Badge className="ml-2 text-[10px] h-4 px-1">{counts?.[ramo] ?? 0}</Badge>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="text-xs font-semibold">Tipo / ramo de recuperação</p>
+              <p className="text-[10px] text-muted-foreground">Administrativo inclui compensação e ressarcimento.</p>
+            </div>
+            <button
+              className="text-[11px] text-primary underline"
+              onClick={() => onChange("todas")}
+            >
+              Todos
+            </button>
+          </div>
+          {RAMO_GERENCIAL_FILTROS.filter((item) => item.value !== "todas").map((item) => (
+            <label key={item.value} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-muted rounded px-1.5 py-1">
+              <Checkbox checked={ramo === item.value} onCheckedChange={() => onChange(item.value)} />
+              <span>{item.label}</span>
+              {typeof counts?.[item.value] === "number" && (
+                <span className="ml-auto text-[11px] text-muted-foreground">{counts[item.value]}</span>
+              )}
+            </label>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }

@@ -149,7 +149,9 @@ export interface ProcessoLike {
   criado_em: string | null;
   valor_credito?: number | null;
   status_contrato?: string | null;
+  status_processo?: string | null;
   categoria?: string | null;
+  tipo_recuperacao?: string | null;
 }
 
 export interface TeseCarteiraRow {
