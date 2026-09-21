@@ -4,7 +4,17 @@
  * esteira e o pulso semanal (movimentos + ações do time).
  */
 import { MONTH_ABBR } from "@/components/dashboard/dashboard-utils";
-import { ESTEIRA_STAGES, type EstagioEsteira } from "@/lib/esteira-constants";
+import {
+  ESTEIRA_STAGES,
+  ESTEIRA_STAGES_TERMINAIS,
+  type EstagioEsteira,
+} from "@/lib/esteira-constants";
+import {
+  filterCompensadoCanonical,
+  mergeCreditosComProcessosFallback,
+  normalizeTeseCatalogCodigo,
+} from "@/lib/clientes-constants";
+import { buildLinhasMapa, calcularTotais } from "@/lib/mapa-creditos";
 
 const MS_DIA = 86_400_000;
 
@@ -17,6 +27,7 @@ export interface CompLike {
   honorario_valor?: number | null;
   valor_nf_servico?: number | null;
   tese_origem_id?: string | null;
+  processo_tese_id?: string | null;
   criado_em?: string | null;
   tributo_enum?: string | null;
   tributo?: string | null;
@@ -43,6 +54,127 @@ export function labelMes(chave: string): string {
 
 export function honorarioDe(c: Pick<CompLike, "honorario_valor" | "valor_nf_servico">): number {
   return Number(c.honorario_valor ?? c.valor_nf_servico ?? 0);
+}
+
+export interface ResumoFinanceiroCliente {
+  cliente_id: string;
+  credito_apurado: number;
+  total_compensado: number;
+  saldo_restante: number;
+  honorarios: number;
+  sem_base_financeira: boolean;
+}
+
+/**
+ * Consolida a carteira com a mesma régua do mapa do cliente:
+ * teses marcadas em `incluir_no_calculo`, compensação canônica por tese,
+ * snapshot manual quando maior e os mesmos fallbacks de processo/REPORTO.
+ */
+export function resumirFinanceiroPorCliente(
+  clienteIds: Iterable<string>,
+  comps: CompLike[],
+  creditos: CreditoLike[],
+  teses: TeseLike[],
+  processos: ProcessoLike[],
+): ResumoFinanceiroCliente[] {
+  const ids = new Set(clienteIds);
+  const compsAtivas = comps.filter((row) => ids.has(row.cliente_id));
+  const creditosAtivos = creditos.filter((row) => ids.has(row.cliente_id));
+  const processosAtivos = processos.filter((row) => ids.has(row.cliente_id));
+  const teseIdByCodigo = new Map(
+    teses
+      .filter((t) => t.id && t.codigo)
+      .map((t) => [String(t.codigo).toUpperCase(), t.id]),
+  );
+  const reportoTeseIds = new Set(
+    teses.filter((t) => String(t.codigo || "").toUpperCase() === "REPORTO").map((t) => t.id),
+  );
+
+  return [...ids].map((clienteId) => {
+    const compsCliente = compsAtivas.filter((row) => row.cliente_id === clienteId);
+    const processosCliente = processosAtivos.filter((row) => row.cliente_id === clienteId);
+    const creditosCliente = creditosAtivos.filter((row) => row.cliente_id === clienteId);
+    const reportoProcessoIds = new Set(
+      processosCliente
+        .filter((p) => normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao) === "REPORTO")
+        .map((p) => p.id),
+    );
+    const creditosComFallback = mergeCreditosComProcessosFallback({
+      creditos: creditosCliente,
+      processos: processosCliente,
+      teseIdByCodigo,
+    });
+    const teseInfo = new Map(teses.map((t) => [t.id, t]));
+    const linhasMapa = buildLinhasMapa({
+      mapa: creditosComFallback.map((credito) => {
+        const tese = teseInfo.get(credito.tese_id);
+        return {
+          cliente_id: clienteId,
+          tese_id: credito.tese_id,
+          tese_codigo: String(tese?.codigo || credito.tese_id).toUpperCase(),
+          tese_label: tese?.label || tese?.codigo || "Tese",
+          visivel_cliente: true,
+          valor_apurado_inicial: Number(credito.valor_apurado_inicial ?? 0),
+          total_compensado: 0,
+          saldo_final: Number(credito.valor_apurado_inicial ?? 0),
+          incluir_no_calculo: credito.incluir_no_calculo ?? undefined,
+        };
+      }),
+      compensacoes: compsCliente,
+      processos: processosCliente.map((p) => ({
+        id: p.id,
+        tese: normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao),
+      })),
+      creditos: creditosCliente.map((credito) => ({
+        tese_id: credito.tese_id,
+        valor_compensado_manual: credito.valor_compensado_manual ?? null,
+      })),
+    });
+    // O mapa interno esconde REPORTO por padrão; o consolidado operacional
+    // usa exatamente esse mesmo recorte financeiro.
+    const totaisMapa = calcularTotais(
+      linhasMapa.filter((linha) => linha.tese_codigo !== "REPORTO"),
+    );
+    const compsCanonicas = filterCompensadoCanonical(compsCliente, {
+      reportoTeseIds,
+      reportoProcessoIds,
+    });
+    return {
+      cliente_id: clienteId,
+      credito_apurado: totaisMapa.apurado,
+      total_compensado: totaisMapa.compensado,
+      saldo_restante: totaisMapa.saldo,
+      honorarios: compsCanonicas.reduce((sum, row) => sum + honorarioDe(row), 0),
+      sem_base_financeira:
+        creditosCliente.length === 0 &&
+        !processosCliente.some((p) => Number(p.valor_credito ?? 0) !== 0),
+    };
+  });
+}
+
+/** Mantém só os lançamentos que entram nos totais das fichas dos clientes. */
+export function compensacoesCanonicas(
+  comps: CompLike[],
+  teses: TeseLike[],
+  processos: ProcessoLike[],
+): CompLike[] {
+  const reportoTeseIds = new Set(
+    teses.filter((t) => String(t.codigo || "").toUpperCase() === "REPORTO").map((t) => t.id),
+  );
+  const reportoProcessoIds = new Set(
+    processos
+      .filter((p) => normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao) === "REPORTO")
+      .map((p) => p.id),
+  );
+  const porCliente = new Map<string, CompLike[]>();
+  for (const row of comps) {
+    const atuais = porCliente.get(row.cliente_id) ?? [];
+    atuais.push(row);
+    porCliente.set(row.cliente_id, atuais);
+  }
+  return [...porCliente.values()].flatMap((rows) =>
+    filterCompensadoCanonical(rows, { reportoTeseIds, reportoProcessoIds }),
+  );
 }
 
 /** Últimos `meses` meses (até o corrente), sem buracos. */
@@ -139,6 +271,7 @@ export interface CreditoLike {
   tese_id: string;
   valor_apurado_inicial: number | null;
   incluir_no_calculo?: boolean | null;
+  valor_compensado_manual?: number | null;
 }
 
 export interface ProcessoLike {
@@ -267,7 +400,7 @@ export function geracaoTesesPorMes(processos: Pick<ProcessoLike, "cliente_id" | 
 export interface EsteiraClienteLike {
   id: string;
   empresa?: string | null;
-  estagio_esteira: string;
+  estagio_esteira: string | null;
   dias_na_etapa?: number | null;
   sla_dias?: number | null;
   atrasado?: boolean | null;
@@ -297,6 +430,7 @@ export interface EtapaEsteiraResumo {
 }
 
 export function clienteAtrasado(c: EsteiraClienteLike, sla: number | null | undefined): boolean {
+  if (ESTEIRA_STAGES_TERMINAIS.includes(c.estagio_esteira as EstagioEsteira)) return false;
   if (typeof c.atrasado === "boolean") return c.atrasado;
   if (sla == null) return false;
   return (c.dias_na_etapa ?? 0) > sla;
@@ -305,9 +439,23 @@ export function clienteAtrasado(c: EsteiraClienteLike, sla: number | null | unde
 /** Uma linha por etapa ativa (ou com cliente), na ordem da config. */
 export function resumoEsteira(clientes: EsteiraClienteLike[], config: EsteiraConfigLike[]): EtapaEsteiraResumo[] {
   const ordenada = [...config].sort((a, b) => a.ordem - b.ordem);
-  return ordenada
+  const configuradas = new Set(ordenada.map((cfg) => cfg.estagio));
+  const extras = [...new Set(
+    clientes
+      .map((c) => c.estagio_esteira || "__sem_etapa__")
+      .filter((estagio) => !configuradas.has(estagio)),
+  )].map((estagio, index) => ({
+    estagio,
+    label: estagio === "__sem_etapa__" ? "Sem etapa configurada" : `Etapa não configurada: ${estagio}`,
+    sla_dias: null,
+    ordem: Number.MAX_SAFE_INTEGER - 100 + index,
+    ativo: false,
+  }));
+  return [...ordenada, ...extras]
     .map((cfg) => {
-      const daEtapa = clientes.filter((c) => c.estagio_esteira === cfg.estagio);
+      const daEtapa = clientes.filter(
+        (c) => (c.estagio_esteira || "__sem_etapa__") === cfg.estagio,
+      );
       let atrasados = 0;
       let acumulado = 0;
       for (const c of daEtapa) {
@@ -344,6 +492,7 @@ export interface CargaResponsavel {
 export function cargaPorResponsavel(clientes: EsteiraClienteLike[], slaPorEtapa: Map<string, number | null> = new Map(), agora: number = Date.now()): CargaResponsavel[] {
   const acc = new Map<string, CargaResponsavel>();
   for (const c of clientes) {
+    if (ESTEIRA_STAGES_TERMINAIS.includes(c.estagio_esteira as EstagioEsteira)) continue;
     const key = c.responsavel_id ?? "__sem__";
     const cur = acc.get(key) ?? {
       responsavel_id: c.responsavel_id ?? null,
@@ -355,7 +504,7 @@ export function cargaPorResponsavel(clientes: EsteiraClienteLike[], slaPorEtapa:
       tesesAssinadas: 0,
     };
     cur.clientes += 1;
-    if (clienteAtrasado(c, c.sla_dias ?? slaPorEtapa.get(c.estagio_esteira))) cur.atrasados += 1;
+    if (clienteAtrasado(c, c.sla_dias ?? slaPorEtapa.get(c.estagio_esteira ?? ""))) cur.atrasados += 1;
     if (c.estagio_esteira === "em_compensacao") cur.emCompensacao += 1;
     cur.tesesAssinadas += Number(c.teses_assinadas ?? 0);
     const t = c.ultima_acao_em ? new Date(c.ultima_acao_em).getTime() : NaN;
@@ -497,8 +646,8 @@ export function filaPrioridade(
   const terminal = new Set(["concluido", "devolutiva_cliente"]);
   const rows: (ClientePrioridade & { peso: number })[] = [];
   for (const c of clientes) {
-    if (terminal.has(c.estagio_esteira)) continue;
-    const sla = c.sla_dias ?? slas.get(c.estagio_esteira) ?? null;
+    if (terminal.has(c.estagio_esteira ?? "")) continue;
+    const sla = c.sla_dias ?? slas.get(c.estagio_esteira ?? "") ?? null;
     const dias = c.dias_na_etapa ?? 0;
     const atrasado = clienteAtrasado(c, sla);
     const saldo = saldoPorCliente.get(c.id) ?? 0;
@@ -521,8 +670,10 @@ export function filaPrioridade(
       id: c.id,
       empresa: c.empresa ?? "—",
       saldo,
-      estagio: c.estagio_esteira,
-      estagioLabel: labels.get(c.estagio_esteira) ?? LABEL_ETAPA[c.estagio_esteira] ?? c.estagio_esteira,
+      estagio: c.estagio_esteira ?? "__sem_etapa__",
+      estagioLabel: c.estagio_esteira
+        ? labels.get(c.estagio_esteira) ?? LABEL_ETAPA[c.estagio_esteira] ?? c.estagio_esteira
+        : "Sem etapa configurada",
       dias,
       atrasado,
       responsavel: c.responsavel_nome ?? null,

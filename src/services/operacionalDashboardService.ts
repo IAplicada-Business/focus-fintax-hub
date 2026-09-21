@@ -1,5 +1,14 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { AcaoLike, CompLike, CreditoLike, HistoricoEsteiraLike, ProcessoLike, TeseLike } from "@/lib/operacional-analytics";
+import {
+  compensacoesCanonicas,
+  resumirFinanceiroPorCliente,
+  type AcaoLike,
+  type CompLike,
+  type CreditoLike,
+  type HistoricoEsteiraLike,
+  type ProcessoLike,
+  type TeseLike,
+} from "@/lib/operacional-analytics";
 import { listEsteiraClientes, type EsteiraCliente } from "@/services/esteiraService";
 import { listEsteiraSlaConfig, type EsteiraSlaConfigRow } from "@/services/esteiraSlaConfigService";
 import {
@@ -46,6 +55,15 @@ export interface OperacionalDashboardData {
   /** user_id → nome (para ações do time). */
   nomes: Record<string, string>;
   intimacoes: IntimacaoResumo[];
+  qualidade: {
+    compensacoesForaDaCarteiraAtiva: number;
+    lancamentosForaDaRegraCanonica: number;
+    statusForaDaCarteiraAtiva: number;
+    clientesSemBaseFinanceira: number;
+    clientesComSnapshotManual: number;
+    clientesSemEtapa: number;
+    clientesEmEtapaSemConfig: number;
+  };
 }
 
 /**
@@ -66,7 +84,6 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
     creditosRes,
     tesesRes,
     processosRes,
-    totaisRes,
     statusRes,
     esteira,
     slaConfig,
@@ -78,20 +95,19 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
     supabase.from("clientes").select("id, empresa, tese_ativa_id, criado_em, atualizado_em").eq("status", "ativo").limit(5000),
     supabase
       .from("compensacoes_mensais")
-      .select("cliente_id, mes_referencia, valor_compensado, honorario_valor, valor_nf_servico, tese_origem_id, tributo_enum, tributo, criado_em")
+      .select("cliente_id, mes_referencia, valor_compensado, honorario_valor, valor_nf_servico, tese_origem_id, processo_tese_id, tributo_enum, tributo, criado_em")
       .limit(10000),
-    db.from("creditos_apurados").select("cliente_id, tese_id, valor_apurado_inicial, incluir_no_calculo").limit(10000),
+    db.from("creditos_apurados").select("cliente_id, tese_id, valor_apurado_inicial, valor_compensado_manual, incluir_no_calculo").limit(10000),
     db.from("teses_tributarias").select("id, codigo, label, incluir_no_calculo").limit(200),
     supabase
       .from("processos_teses")
       .select("id, cliente_id, tese, nome_exibicao, criado_em, valor_credito, status_contrato, status_processo, categoria, tipo_recuperacao")
       .limit(10000),
-    db.from("v_cliente_totais_calculo").select("cliente_id, credito_apurado, total_compensado, saldo_restante").limit(5000),
     db
       .from("v_clientes_status_compensacao")
       .select("cliente_id, status_principal, tem_compensacao_mes_corrente, tem_tese_ativa, todos_encerrados, tem_reporto")
       .limit(5000),
-    listEsteiraClientes().catch(() => [] as EsteiraCliente[]),
+    listEsteiraClientes(),
     listEsteiraSlaConfig(),
     supabase
       .from("esteira_historico")
@@ -105,37 +121,92 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
 
   if (clientesRes.error) throw clientesRes.error;
   if (compsRes.error) throw compsRes.error;
+  if (creditosRes.error) throw creditosRes.error;
+  if (tesesRes.error) throw tesesRes.error;
+  if (processosRes.error) throw processosRes.error;
+  if (statusRes.error) throw statusRes.error;
+  if (histRes.error) throw histRes.error;
+  if (acoesRes.error) throw acoesRes.error;
+  if (profilesRes.error) throw profilesRes.error;
+  if (intimRes.error) throw intimRes.error;
 
   const nomes: Record<string, string> = {};
   for (const p of profilesRes.data ?? []) nomes[p.user_id] = p.full_name;
+  const clientes = (clientesRes.data ?? []).map((c) => ({
+    id: c.id,
+    empresa: c.empresa || "—",
+    tese_ativa_id: c.tese_ativa_id ?? null,
+    criado_em: c.criado_em ?? null,
+    atualizado_em: c.atualizado_em ?? null,
+  }));
+  const idsAtivos = new Set(clientes.map((c) => c.id));
+  const compsTodos = (compsRes.data ?? []) as CompLike[];
+  const creditosTodos = (creditosRes.data ?? []) as CreditoLike[];
+  const processosTodos = (processosRes.data ?? []) as ProcessoLike[];
+  const statusTodos = (statusRes.data ?? []) as StatusCompensacaoRow[];
+  if (compsTodos.length === 10_000 || creditosTodos.length === 10_000 || processosTodos.length === 10_000) {
+    throw new Error("Base operacional atingiu o limite de leitura; os totais não seriam completos.");
+  }
+  const compsAtivos = compsTodos.filter((row) => idsAtivos.has(row.cliente_id));
+  const creditos = creditosTodos.filter((row) => idsAtivos.has(row.cliente_id));
+  const processos = processosTodos.filter((row) => idsAtivos.has(row.cliente_id));
+  const teses = (tesesRes.data ?? []) as TeseLike[];
+  const comps = compensacoesCanonicas(compsAtivos, teses, processos);
+  const mesAtual = new Date().toISOString().slice(0, 7);
+  const clientesComCompensacaoMes = new Set(
+    comps
+      .filter(
+        (row) =>
+          Number(row.valor_compensado ?? 0) > 0 &&
+          String(row.mes_referencia).slice(0, 7) === mesAtual,
+      )
+      .map((row) => row.cliente_id),
+  );
+  const statusRows = statusTodos
+    .filter((row) => idsAtivos.has(row.cliente_id))
+    .map((row) => {
+      const reconciliada = {
+        ...row,
+        tem_compensacao_mes_corrente: clientesComCompensacaoMes.has(row.cliente_id),
+      };
+      return { ...reconciliada, status_principal: normalizarStatusCompensacao(reconciliada) };
+    });
+  const totaisCanonicos = resumirFinanceiroPorCliente(idsAtivos, comps, creditos, teses, processos);
+  const configStages = new Set(slaConfig.map((row) => row.estagio as string));
 
   return {
-    clientes: (clientesRes.data ?? []).map((c) => ({
-      id: c.id,
-      empresa: c.empresa || "—",
-      tese_ativa_id: c.tese_ativa_id ?? null,
-      criado_em: c.criado_em ?? null,
-      atualizado_em: c.atualizado_em ?? null,
-    })),
-    comps: (compsRes.data ?? []) as CompLike[],
-    creditos: (creditosRes.data ?? []) as CreditoLike[],
-    teses: (tesesRes.data ?? []) as TeseLike[],
-    processos: (processosRes.data ?? []) as ProcessoLike[],
-    totais: ((totaisRes.data ?? []) as TotaisCliente[]).map((t) => ({
+    clientes,
+    comps,
+    creditos,
+    teses,
+    processos,
+    totais: totaisCanonicos.map((t) => ({
       cliente_id: t.cliente_id,
-      credito_apurado: Number(t.credito_apurado ?? 0),
-      total_compensado: Number(t.total_compensado ?? 0),
-      saldo_restante: Number(t.saldo_restante ?? 0),
+      credito_apurado: t.credito_apurado,
+      total_compensado: t.total_compensado,
+      saldo_restante: t.saldo_restante,
     })),
-    statusRows: ((statusRes.data ?? []) as StatusCompensacaoRow[]).map((row) => ({
-      ...row,
-      status_principal: normalizarStatusCompensacao(row),
-    })),
+    statusRows,
     esteira,
     slaConfig,
     esteiraHistorico: (histRes.data ?? []) as HistoricoEsteiraLike[],
     acoes: (acoesRes.data ?? []) as AcaoLike[],
     nomes,
     intimacoes: (intimRes.data ?? []) as IntimacaoResumo[],
+    qualidade: {
+      compensacoesForaDaCarteiraAtiva: compsTodos.filter((row) => !idsAtivos.has(row.cliente_id)).length,
+      lancamentosForaDaRegraCanonica: compsAtivos.length - comps.length,
+      statusForaDaCarteiraAtiva: statusTodos.filter((row) => !idsAtivos.has(row.cliente_id)).length,
+      clientesSemBaseFinanceira: totaisCanonicos.filter((row) => row.sem_base_financeira).length,
+      clientesComSnapshotManual: new Set(
+        creditos
+          .filter((row) => row.valor_compensado_manual != null)
+          .map((row) => row.cliente_id),
+      ).size,
+      clientesSemEtapa: esteira.filter((row) => !row.estagio_esteira).length,
+      clientesEmEtapaSemConfig: esteira.filter(
+        (row) => !!row.estagio_esteira && !configStages.has(row.estagio_esteira),
+      ).length,
+    },
   };
 }

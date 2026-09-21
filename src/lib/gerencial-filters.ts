@@ -34,6 +34,10 @@ export interface ProcessoTipoRecuperacaoRow {
 
 export function normalizarStatusCompensacao(row: StatusCompensacaoRow): StatusCompensacao {
   const status = row.status_principal;
+  // Movimento real no mês corrente é a evidência operacional mais forte.
+  // REPORTO é tipo de tese/possível futuro e não pode esconder um cliente
+  // que também está efetivamente compensando.
+  if (row.tem_compensacao_mes_corrente) return "compensando";
   if (STATUS_COMPENSACAO_VALUES.includes(status as StatusCompensacao)) {
     return status as StatusCompensacao;
   }
@@ -41,7 +45,6 @@ export function normalizarStatusCompensacao(row: StatusCompensacaoRow): StatusCo
   // Compatibilidade com a view anterior, em que ramo judicial/ressarcimento
   // sobrescrevia o status operacional.
   if (row.tem_reporto) return "reporto";
-  if (row.tem_compensacao_mes_corrente) return "compensando";
   if (row.tem_tese_ativa) return "prevista";
   if (row.todos_encerrados) return "encerrado";
   return "sem_operacao";

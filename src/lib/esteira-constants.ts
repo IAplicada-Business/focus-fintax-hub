@@ -175,9 +175,18 @@ export function visibleEsteiraStages(
   estagiosComCliente: Iterable<string>,
 ): { value: string; label: string }[] {
   const comCliente = new Set(estagiosComCliente);
-  return config
+  const configuradas = new Set(config.map((s) => s.estagio));
+  const visiveis = config
     .filter((s) => s.ativo || comCliente.has(s.estagio))
     .map((s) => ({ value: s.estagio, label: s.label }));
+  for (const estagio of comCliente) {
+    if (configuradas.has(estagio)) continue;
+    visiveis.push({
+      value: estagio,
+      label: estagio === "__sem_etapa__" ? "Sem etapa configurada" : `Etapa não configurada: ${estagio}`,
+    });
+  }
+  return visiveis;
 }
 
 export const ORIGEM_LABELS: Record<string, string> = {
