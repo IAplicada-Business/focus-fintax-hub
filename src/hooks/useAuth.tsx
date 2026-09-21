@@ -8,7 +8,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   userRole: string | null;
-  profile: { full_name: string; email: string; cargo: string } | null;
+  profile: { full_name: string; email: string; cargo: string; is_active?: boolean } | null;
   permissions: ScreenPermission[];
   signOut: () => Promise<void>;
 }
@@ -28,13 +28,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [profile, setProfile] = useState<{ full_name: string; email: string; cargo: string } | null>(null);
+  const [profile, setProfile] = useState<{ full_name: string; email: string; cargo: string; is_active?: boolean } | null>(null);
   const [permissions, setPermissions] = useState<ScreenPermission[]>([]);
 
   const fetchUserMeta = async (userId: string) => {
     const [{ data: roles }, { data: prof }] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", userId),
-      supabase.from("profiles").select("full_name, email, cargo").eq("user_id", userId).single(),
+      // is_active decide se a conta ainda entra (ver ProtectedRoute).
+      supabase.from("profiles").select("full_name, email, cargo, is_active").eq("user_id", userId).single(),
     ]);
     const role = roles?.[0]?.role ?? null;
     setUserRole(role);

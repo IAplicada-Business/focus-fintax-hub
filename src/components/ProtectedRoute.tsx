@@ -12,8 +12,28 @@ function AuthSpinner() {
   );
 }
 
+function ContaDesativada({ onSair }: { onSair: () => void }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-8">
+      <div className="max-w-md w-full rounded-2xl border border-card-border bg-card p-8 text-center shadow-sm">
+        <h2 className="text-lg font-bold text-foreground mb-2">Conta desativada</h2>
+        <p className="text-sm text-muted-foreground mb-6">
+          Seu acesso ao sistema está desativado. Fale com um administrador para reativar a conta.
+        </p>
+        <button
+          type="button"
+          onClick={onSair}
+          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+        >
+          Sair
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, permissions } = useAuth();
+  const { user, loading, permissions, profile, signOut } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -26,6 +46,12 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (permissions.length === 0) {
     return <AuthSpinner />;
+  }
+
+  // Status da Gestão de Usuários: "Inativo" tira o acesso de verdade.
+  // Só bloqueia com o perfil carregado e o campo explicitamente false.
+  if (profile?.is_active === false) {
+    return <ContaDesativada onSair={() => { void signOut(); }} />;
   }
 
   const onPicker = location.pathname === "/ambientes";
