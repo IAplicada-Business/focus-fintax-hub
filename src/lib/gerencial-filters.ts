@@ -112,9 +112,13 @@ export function countByStatus(
   ids: string[],
   statusMap: Map<string, StatusCompensacao>,
 ): Record<StatusCompensacao, number> {
-  const counts = Object.fromEntries(
-    STATUS_COMPENSACAO_VALUES.map((status) => [status, 0]),
-  ) as Record<StatusCompensacao, number>;
+  const counts: Record<StatusCompensacao, number> = {
+    compensando: 0,
+    reporto: 0,
+    encerrado: 0,
+    prevista: 0,
+    sem_operacao: 0,
+  };
   for (const id of ids) counts[statusMap.get(id) ?? "sem_operacao"] += 1;
   return counts;
 }
