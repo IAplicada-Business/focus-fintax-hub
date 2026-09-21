@@ -282,14 +282,12 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
             aria-label="Compensado de"
             value={mesInicio}
             onChange={setMesInicio}
-            placeholder="mês/ano"
           />
           <span className="text-[11px] text-ink-35">até</span>
           <MonthPicker
             aria-label="Compensado até"
             value={mesFim}
             onChange={setMesFim}
-            placeholder="mês/ano"
           />
           {(mesInicio || mesFim) && (
             <button

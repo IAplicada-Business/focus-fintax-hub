@@ -497,14 +497,12 @@ Equipe AGF.`;
               aria-label="Período de"
               value={mesInicio}
               onChange={setMesInicio}
-              placeholder="mês/ano"
             />
             <span className="text-[11px] text-ink-35">até</span>
             <MonthPicker
               aria-label="Período até"
               value={mesFim}
               onChange={setMesFim}
-              placeholder="mês/ano"
             />
             {(mesInicio || mesFim) && (
               <button
@@ -726,8 +724,9 @@ Equipe AGF.`;
                 aria-label="Mês de referência"
                 value={form.mes_referencia}
                 onChange={(v) => setForm((p) => ({ ...p, mes_referencia: v }))}
-                placeholder="mês/ano"
-                className="h-10 w-full"
+                clearable={false}
+                className="w-full"
+                triggerClassName="h-10"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
