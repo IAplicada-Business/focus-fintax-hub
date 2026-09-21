@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,12 +7,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search, Shield, Users as UsersIcon } from "lucide-react";
+import { Copy, Eye, EyeOff, KeyRound, Pencil, Plus, RefreshCw, Search, Shield, Users as UsersIcon } from "lucide-react";
 import { SCREENS, getDefaultPermissions, type ScreenPermission } from "@/lib/screen-permissions";
+import { SENHA_MIN, gerarSenha, validarSenha } from "@/lib/password";
+import { cn } from "@/lib/utils";
 
 interface UserRow {
   user_id: string;
@@ -59,7 +72,7 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 export default function UserManagement() {
-  const { userRole } = useAuth();
+  const { user, userRole } = useAuth();
   const isAdmin = userRole === "admin";
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +87,25 @@ export default function UserManagement() {
   const [formPassword, setFormPassword] = useState("");
   const [formPermissions, setFormPermissions] = useState<ScreenPermission[]>(getDefaultPermissions("cliente"));
   const [saving, setSaving] = useState(false);
+
+  // Senha visível: quem gera precisa ler pra repassar ao usuário.
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const senhaRef = useRef<HTMLInputElement>(null);
+  const [focarSenha, setFocarSenha] = useState(false);
+  // Confirmação de desativar + linha em processamento.
+  const [statusTarget, setStatusTarget] = useState<UserRow | null>(null);
+  const [statusSalvando, setStatusSalvando] = useState<string | null>(null);
+
+  // Abriu pelo botão "Redefinir senha": vai direto pro campo.
+  useEffect(() => {
+    if (!dialogOpen || !focarSenha) return;
+    const t = setTimeout(() => {
+      senhaRef.current?.focus();
+      senhaRef.current?.scrollIntoView({ block: "center" });
+      setFocarSenha(false);
+    }, 80);
+    return () => clearTimeout(t);
+  }, [dialogOpen, focarSenha]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -118,13 +150,15 @@ export default function UserManagement() {
     }
   };
 
-  const openEdit = async (u: UserRow) => {
+  const openEdit = async (u: UserRow, irParaSenha = false) => {
     setEditUser(u);
     setFormName(u.full_name);
     setFormEmail(u.email);
     setFormCargo(u.cargo);
     setFormRole(u.role);
     setFormPassword("");
+    setMostrarSenha(false);
+    setFocarSenha(irParaSenha);
     await loadUserPermissions(u.user_id, u.role);
     setDialogOpen(true);
   };
@@ -136,8 +170,30 @@ export default function UserManagement() {
     setFormCargo("");
     setFormRole("cliente");
     setFormPassword("");
+    setMostrarSenha(false);
+    setFocarSenha(false);
     setFormPermissions(getDefaultPermissions("cliente"));
     setDialogOpen(true);
+  };
+
+  /** Gera uma senha forte, deixa visível e já copia pra área de transferência. */
+  const gerarECopiar = async () => {
+    const senha = gerarSenha();
+    setFormPassword(senha);
+    setMostrarSenha(true);
+    const copiou = await copiarSenha(senha);
+    toast.success("Senha gerada", {
+      description: copiou ? "Copiada para a área de transferência." : "Copie o campo antes de salvar.",
+    });
+  };
+
+  const copiarSenha = async (senha: string): Promise<boolean> => {
+    try {
+      await navigator.clipboard.writeText(senha);
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const handleRoleChange = (newRole: string) => {
@@ -169,8 +225,9 @@ export default function UserManagement() {
     setSaving(true);
 
     if (editUser) {
-      if (formPassword && formPassword.length < 6) {
-        toast.error("A nova senha precisa ter pelo menos 6 caracteres");
+      const erroSenha = formPassword ? validarSenha(formPassword) : null;
+      if (erroSenha) {
+        toast.error(erroSenha);
         setSaving(false);
         return;
       }
@@ -197,8 +254,9 @@ export default function UserManagement() {
 
       toast.success(formPassword ? "Usuário atualizado e senha redefinida!" : "Usuário atualizado!");
     } else {
-      if (!formEmail || !formPassword || formPassword.length < 6) {
-        toast.error("E-mail e senha (mín. 6 caracteres) são obrigatórios");
+      const erroSenha = validarSenha(formPassword);
+      if (!formEmail || erroSenha) {
+        toast.error(!formEmail ? "Informe o e-mail" : erroSenha!);
         setSaving(false);
         return;
       }
@@ -238,11 +296,48 @@ export default function UserManagement() {
     fetchUsers();
   };
 
-  const handleToggleActive = async (u: UserRow) => {
+  /**
+   * Antes isto era um ícone de lixeira que ignorava o erro e avisava "sucesso"
+   * mesmo quando o banco recusava a linha (RLS devolve 0 linhas sem erro).
+   * Agora pede as linhas de volta e só comemora com a mudança confirmada.
+   */
+  const aplicarStatus = async (u: UserRow, ativo: boolean) => {
     if (!isAdmin) return;
-    await supabase.from("profiles").update({ is_active: !u.is_active }).eq("user_id", u.user_id);
-    toast.success(u.is_active ? "Usuário desativado" : "Usuário ativado");
-    fetchUsers();
+    if (!ativo && u.user_id === user?.id) {
+      toast.error("Você não pode desativar a própria conta");
+      return;
+    }
+
+    setStatusSalvando(u.user_id);
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ is_active: ativo })
+      .eq("user_id", u.user_id)
+      .select("user_id, is_active");
+    setStatusSalvando(null);
+
+    if (error) {
+      toast.error("Erro ao mudar o status", { description: error.message });
+      return;
+    }
+    if (!data || data.length === 0) {
+      toast.error("O status não foi alterado", {
+        description: "O banco recusou a mudança (permissão). Recarregue a página e tente de novo.",
+      });
+      fetchUsers();
+      return;
+    }
+
+    setUsers((prev) => prev.map((x) => (x.user_id === u.user_id ? { ...x, is_active: ativo } : x)));
+    toast.success(ativo ? "Usuário ativado" : "Usuário desativado", {
+      description: ativo ? "Ele já pode entrar no sistema." : "Ele perde o acesso ao sistema.",
+    });
+  };
+
+  /** Desativar tira o acesso: confirma antes. Reativar é direto. */
+  const pedirMudancaStatus = (u: UserRow, ativo: boolean) => {
+    if (ativo) aplicarStatus(u, true);
+    else setStatusTarget(u);
   };
 
   const filtered = users.filter(
@@ -292,24 +387,73 @@ export default function UserManagement() {
                 <Label className="font-semibold">Nome completo</Label>
                 <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Nome do usuário" />
               </div>
-              {!editUser ? (
-                <>
-                  <div className="space-y-2">
-                    <Label className="font-semibold">E-mail</Label>
-                    <Input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="email@empresa.com" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="font-semibold">Senha inicial</Label>
-                    <Input type="password" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} placeholder="Mínimo 6 caracteres" minLength={6} required />
-                  </div>
-                </>
-              ) : (
+              {!editUser && (
                 <div className="space-y-2">
-                  <Label className="font-semibold">Redefinir senha <span className="font-normal text-muted-foreground">(opcional)</span></Label>
-                  <Input type="password" autoComplete="new-password" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} placeholder="Deixe em branco para manter a atual" minLength={6} />
-                  <p className="text-xs text-muted-foreground">Use quando o usuário não consegue entrar: a senha nova vale na hora, sem e-mail de confirmação.</p>
+                  <Label className="font-semibold">E-mail</Label>
+                  <Input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="email@empresa.com" required />
                 </div>
               )}
+
+              {/* Senha: criar exige; editar só troca se preencher. "Gerar" evita
+                  inventar senha na hora e já copia pra repassar ao usuário. */}
+              <div className={cn("space-y-2 rounded-lg", editUser && "border border-card-border bg-muted/30 p-3")}>
+                <Label className="font-semibold">
+                  {editUser ? (
+                    <>Redefinir senha <span className="font-normal text-muted-foreground">(opcional)</span></>
+                  ) : (
+                    "Senha inicial"
+                  )}
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    ref={senhaRef}
+                    type={mostrarSenha ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={formPassword}
+                    onChange={(e) => setFormPassword(e.target.value)}
+                    placeholder={editUser ? "Deixe em branco para manter a atual" : `Mínimo ${SENHA_MIN} caracteres`}
+                    minLength={SENHA_MIN}
+                    required={!editUser}
+                    className={cn("flex-1", mostrarSenha && "font-mono-dm tracking-tight")}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setMostrarSenha((v) => !v)}
+                    title={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+                    aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+                  >
+                    {mostrarSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    disabled={!formPassword}
+                    onClick={async () => {
+                      const ok = await copiarSenha(formPassword);
+                      if (ok) toast.success("Senha copiada");
+                      else toast.error("Não foi possível copiar", { description: "Selecione o campo e copie manualmente." });
+                    }}
+                    title="Copiar senha"
+                    aria-label="Copiar senha"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" variant="secondary" size="sm" onClick={gerarECopiar} className="font-semibold">
+                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                    Gerar senha
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    {editUser
+                      ? "A senha nova vale na hora, sem e-mail de confirmação."
+                      : "Anote ou copie: ela não aparece de novo depois de salvar."}
+                  </p>
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label className="font-semibold">Cargo</Label>
                 <Input value={formCargo} onChange={(e) => setFormCargo(e.target.value)} placeholder="Ex: Analista Fiscal" />
@@ -493,16 +637,31 @@ export default function UserManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={u.is_active ? "default" : "secondary"} className="text-xs">
-                          {u.is_active ? "Ativo" : "Inativo"}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={u.is_active}
+                            disabled={statusSalvando === u.user_id || (u.is_active && u.user_id === user?.id)}
+                            onCheckedChange={(v) => pedirMudancaStatus(u, v)}
+                            aria-label={`${u.is_active ? "Desativar" : "Ativar"} ${u.full_name || u.email}`}
+                            title={
+                              u.is_active && u.user_id === user?.id
+                                ? "Você não pode desativar a própria conta"
+                                : u.is_active
+                                  ? "Desativar acesso"
+                                  : "Ativar acesso"
+                            }
+                          />
+                          <Badge variant={u.is_active ? "default" : "secondary"} className="text-xs">
+                            {u.is_active ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right space-x-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(u)}>
-                          <Pencil className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(u, true)} title="Redefinir senha" aria-label={`Redefinir senha de ${u.full_name || u.email}`}>
+                          <KeyRound className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleToggleActive(u)}>
-                          <Trash2 className="h-4 w-4 text-secondary" />
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(u)} title="Editar usuário" aria-label={`Editar ${u.full_name || u.email}`}>
+                          <Pencil className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -514,6 +673,29 @@ export default function UserManagement() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!statusTarget} onOpenChange={(o) => !o && setStatusTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{statusTarget?.full_name || statusTarget?.email}</strong> perde o acesso ao sistema e não consegue
+              mais entrar. A conta e o histórico continuam guardados — dá para reativar a qualquer momento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (statusTarget) aplicarStatus(statusTarget, false);
+                setStatusTarget(null);
+              }}
+            >
+              Desativar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

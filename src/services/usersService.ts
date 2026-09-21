@@ -34,9 +34,20 @@ export async function loadUserPermissions(userId: string): Promise<ScreenPermiss
   return (data as ScreenPermission[]) ?? [];
 }
 
+/**
+ * Liga/desliga o acesso. Pede as linhas de volta: sob RLS um update recusado
+ * volta sem erro e com zero linhas, e antes isso passava por sucesso.
+ */
 export async function toggleUserActive(userId: string, isActive: boolean) {
-  const { error } = await supabase.from("profiles").update({ is_active: !isActive }).eq("user_id", userId);
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ is_active: !isActive })
+    .eq("user_id", userId)
+    .select("user_id");
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error("O status não foi alterado: o banco recusou a mudança.");
+  }
 }
 
 export async function manageUser(body: Record<string, unknown>) {
