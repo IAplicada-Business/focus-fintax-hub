@@ -86,8 +86,8 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
     const proj3mComp = projecao.reduce((s, p) => s + p.compensado, 0);
     const proj3mHon = projecao.reduce((s, p) => s + p.honorarios, 0);
 
-    const compensando = clientes.filter(
-      (cliente) => statusMap.get(cliente.id) === "compensando",
+    const compensando = [...idsRecorte].filter(
+      (clienteId) => statusMap.get(clienteId) === "compensando",
     ).length;
     const slaMap = new Map(slaConfig.map((c) => [c.estagio as string, c.sla_dias]));
     const etapas = resumoEsteira(esteira, slaConfig);
@@ -101,7 +101,7 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
     const vencendo = pendentes.filter((i) => i.prazo_vencimento && i.prazo_vencimento <= em15).length;
 
     return {
-      ativos: clientes.length,
+      ativos: idsRecorte.size,
       recorte: idsRecorte.size,
       foraRecorte: clientes.length - idsRecorte.size,
       compensando,
