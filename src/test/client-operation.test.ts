@@ -4,6 +4,7 @@ import {
   isStatusProcessoEditavel,
   podeEditarFichaCliente,
   statusProcessoEditaveis,
+  totalProcessosACompensar,
   tiposRecuperacaoDistintos,
 } from "@/lib/client-operation";
 import { normalizarStatusCompensacao } from "@/lib/gerencial-filters";
@@ -68,6 +69,32 @@ describe("modelo operacional da ficha do cliente", () => {
       expect(isStatusProcessoEditavel(legacyStatus, false)).toBe(false);
     },
   );
+
+  it("não inclui REPORTO nem status legado no valor a compensar", () => {
+    expect(
+      totalProcessosACompensar([
+        {
+          status_processo: "a_compensar",
+          status_contrato: "assinado",
+          tese: "INSUMOS",
+          valor_credito: 1_000,
+        },
+        {
+          status_processo: "a_compensar",
+          status_contrato: "assinado",
+          categoria: "reporto",
+          tese: "REPORTO",
+          valor_credito: 5_000,
+        },
+        {
+          status_processo: "a_iniciar",
+          status_contrato: "assinado",
+          tese: "SUBVENCAO",
+          valor_credito: 2_000,
+        },
+      ]),
+    ).toBe(1_000);
+  });
 
   it("resume tipos distintos sem perder o tipo de cada processo", () => {
     expect(

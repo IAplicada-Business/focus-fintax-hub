@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, AlertTriangle, AlertOctagon, FileText, Printer, Pencil, Trash2, Upload, Download, ChevronDown, Building2 } from "lucide-react";
+import { Plus, AlertTriangle, FileText, Printer, Pencil, Trash2, Upload, Download, ChevronDown, Building2 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import * as XLSX from "xlsx";
@@ -119,9 +119,6 @@ export default function ClientesList() {
       const hasAlertAguardando = cp.some(
         (p) => p.status_contrato === "aguardando_assinatura" && (now - new Date(p.criado_em).getTime()) > 7 * 86400000,
       );
-      const hasAlertNaoProtocolado = cp.some(
-        (p) => p.status_processo === "nao_protocolado" && (now - new Date(p.atualizado_em).getTime()) > 15 * 86400000,
-      );
       return {
         ...c,
         tesesAtivas: assinados.length,
@@ -129,7 +126,6 @@ export default function ClientesList() {
         totalCompensado,
         saldo: total?.saldo_restante ?? 0,
         hasAlertAguardando,
-        hasAlertNaoProtocolado,
       };
     });
   }, [clientes, processos, compensacoes, creditos, teses, filterTipoTese]);
@@ -453,8 +449,7 @@ export default function ClientesList() {
                 })()}
               </TableCell>
               <TableCell>
-                {c.hasAlertNaoProtocolado ? <AlertOctagon className="h-4 w-4 text-red-500" /> :
-                 c.hasAlertAguardando ? <AlertTriangle className="h-4 w-4 text-orange-500" /> : null}
+                {c.hasAlertAguardando ? <AlertTriangle className="h-4 w-4 text-orange-500" /> : null}
               </TableCell>
               {!isComercial && (
                 <TableCell>

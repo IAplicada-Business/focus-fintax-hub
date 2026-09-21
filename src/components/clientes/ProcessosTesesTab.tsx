@@ -46,6 +46,7 @@ import {
   type TipoRecuperacao,
 } from "@/lib/tipo-recuperacao";
 import {
+  totalProcessosACompensar,
   tiposRecuperacaoDistintos,
 } from "@/lib/client-operation";
 
@@ -193,9 +194,7 @@ export function ProcessosTesesTab({
   const assinados = processos.filter((p) => p.status_contrato === "assinado");
   const totalCreditoAssinado = assinados.reduce((s, p) => s + Number(p.valor_credito || 0), 0);
   const totalHonorarios = assinados.reduce((s, p) => s + Number(p.valor_honorario || 0), 0);
-  const totalACompensar = processos
-    .filter((p) => ["a_compensar", "a_iniciar"].includes(p.status_processo) && p.status_contrato === "assinado")
-    .reduce((s, p) => s + Number(p.valor_credito || 0), 0);
+  const totalACompensar = totalProcessosACompensar(processos);
 
   // Por que a tese não mexe nos cards do cabeçalho: sem crédito apurado ou
   // com o checkbox do Mapa de Créditos desmarcado (caso ICMS-ST da São Fernando).
@@ -223,12 +222,6 @@ export function ProcessosTesesTab({
       p.status_contrato === "aguardando_assinatura" &&
       now - new Date(p.criado_em).getTime() > 7 * 86400000,
   );
-  const alertNaoProtocolado = processos.filter(
-    (p) =>
-      p.status_processo === "nao_protocolado" &&
-      now - new Date(p.atualizado_em).getTime() > 15 * 86400000,
-  );
-
   const existingCodes = processos.map((p) => p.tese);
   const tesesDisponiveis = opcoesTese.filter((t) => !existingCodes.includes(t.tese));
   const tiposDaEmpresa = tiposRecuperacaoDistintos(processos);
@@ -289,13 +282,6 @@ export function ProcessosTesesTab({
           {alertAguardando.length} processo(s) aguardando assinatura há mais de 7 dias.
         </div>
       )}
-      {alertNaoProtocolado.length > 0 && (
-        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          <AlertTriangle className="h-4 w-4" />
-          {alertNaoProtocolado.length} processo(s) não protocolado(s) há mais de 15 dias.
-        </div>
-      )}
-
       {!loading && processos.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-10 text-center">
           <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
