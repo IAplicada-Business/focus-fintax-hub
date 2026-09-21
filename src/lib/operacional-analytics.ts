@@ -227,11 +227,10 @@ export function projetarMensal(serie: PontoMensal[], passos = 3, janela = 6): Po
   const base = fechados.slice(-janela);
   const comp = regressao(base.map((p) => p.compensado), passos);
   const hon = regressao(base.map((p) => p.honorarios), passos);
-  const [y, m] = serie[serie.length - 1].mes.split("-").map(Number);
+  const ultimoMes = serie[serie.length - 1].mes;
   const out: PontoMensal[] = [];
   for (let k = 0; k < passos; k++) {
-    const d = new Date(y, m - 1 + k + 1, 1);
-    const chave = chaveMes(d);
+    const chave = shiftMonthKey(ultimoMes, k + 1);
     out.push({ mes: chave, label: labelMes(chave), compensado: comp[k], honorarios: hon[k], projecao: true });
   }
   return out;
