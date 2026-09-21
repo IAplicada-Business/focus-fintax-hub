@@ -87,6 +87,10 @@ export default function Esteira() {
     if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
   }, [tab, ramo, searchParams, setSearchParams]);
 
+  // `?etapa=` vem do painel "Onde os clientes estão" (dashboard operacional);
+  // sem isso o link "clique para abrir a etapa" abria o quadro sem destino.
+  const etapaFoco = searchParams.get("etapa");
+
   // A config do banco é opcional: se a query ainda não voltou (ou a RLS de
   // `esteira_sla_config` barrou o papel), o quadro abre com os defaults locais
   // em vez de ficar preso no skeleton.
@@ -214,6 +218,7 @@ export default function Esteira() {
         <EsteiraKanban
           clientes={clientesDoRamo}
           stages={stages}
+          focusStage={etapaFoco}
           onClienteClick={(id) => navigate(`/clientes/${id}`)}
         />
       ) : tab === "cobranca" ? (
