@@ -43,7 +43,10 @@ export interface IntimacaoResumo {
 
 export interface OperacionalDashboardData {
   clientes: ClienteResumo[];
+  /** Lançamentos já canônicos para telas sem filtro de tese (exclui REPORTO). */
   comps: CompLike[];
+  /** Base autenticada completa, usada somente para recorte explícito por tese. */
+  compsRaw: CompLike[];
   creditos: CreditoLike[];
   teses: TeseLike[];
   processos: ProcessoLike[];
@@ -192,9 +195,8 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
 
   return {
     clientes,
-    // Mantém o bruto autenticado para permitir inspeção explícita de REPORTO.
-    // Cada visão aplica `compensacoesCanonicas` no recorte selecionado.
-    comps: compsAtivos,
+    comps: compsCanonicas,
+    compsRaw: compsAtivos,
     creditos,
     teses,
     processos,

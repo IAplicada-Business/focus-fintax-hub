@@ -10,6 +10,7 @@ const data: OperacionalDashboardData = {
     { id: "legacy-2", empresa: "Legado sem lançamentos", tese_ativa_id: null, criado_em: null, atualizado_em: null },
   ],
   comps: [],
+  compsRaw: [],
   creditos: [],
   teses: [],
   processos: [],

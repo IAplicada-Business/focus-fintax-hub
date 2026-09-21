@@ -79,14 +79,14 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
     );
     const processosRecorte = data.processos.filter((row) => idsRecorte.has(row.cliente_id));
     const comps = compensacoesCanonicas(
-      data.comps.filter((row) => idsRecorte.has(row.cliente_id)),
+      data.compsRaw.filter((row) => idsRecorte.has(row.cliente_id)),
       data.teses,
       processosRecorte,
       tipoTeseFiltro,
     );
     const totaisCalculados = resumirFinanceiroPorCliente(
       idsRecorte,
-      data.comps,
+      data.compsRaw,
       data.creditos,
       data.teses,
       data.processos,

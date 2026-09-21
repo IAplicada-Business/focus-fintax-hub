@@ -97,7 +97,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
     const clientes = data.clientes.filter((cliente) => ids.has(cliente.id));
     const totaisCalculados = resumirFinanceiroPorCliente(
       ids,
-      data.comps,
+      data.compsRaw,
       data.creditos,
       data.teses,
       data.processos,
@@ -117,7 +117,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       tipoTeseFiltro,
     );
     const comps = compensacoesCanonicas(
-      data.comps.filter((row) => ids.has(row.cliente_id)),
+      data.compsRaw.filter((row) => ids.has(row.cliente_id)),
       data.teses,
       processosDoCliente,
       tipoTeseFiltro,
