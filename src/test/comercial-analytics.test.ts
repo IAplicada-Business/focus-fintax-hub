@@ -38,7 +38,7 @@ describe("serieSemanalLeads", () => {
       { lead_id: "a", para_etapa: "contrato_emitido", criado_em: diasAtras(1) },
       { lead_id: "a", para_etapa: "qualificado", criado_em: diasAtras(1) },
       { lead_id: "a", para_etapa: "contrato_emitido", criado_em: diasAtras(0) }, // repetido, não duplica
-      { lead_id: "c", para_etapa: "cliente_ativo", criado_em: diasAtras(8) },
+      { lead_id: "c", para_etapa: "ganho", criado_em: diasAtras(8) },
     ];
     const s = serieSemanalLeads(leads, hist, 4, AGORA);
     expect(s).toHaveLength(4);
@@ -84,25 +84,25 @@ describe("projetarSerieSemanal / ritmoSemanal", () => {
 });
 
 describe("pipelinePonderado", () => {
-  it("pondera pelo estágio e ignora perdidos e clientes ativos", () => {
+  it("pondera pelo estágio e ignora perdidos e ganhos", () => {
     const r = pipelinePonderado([
       { id: "1", status_funil: "novo", potencial: 100 },
       { id: "2", status_funil: "levantamento_teses", potencial: 100 },
       { id: "3", status_funil: "contrato_emitido", potencial: 200 },
       { id: "4", status_funil: "perdido", potencial: 999 },
-      { id: "5", status_funil: "cliente_ativo", potencial: 999 },
+      { id: "5", status_funil: "ganho", potencial: 999 },
     ]);
     expect(r.potencial).toBe(400);
-    expect(r.total).toBeCloseTo(10 + 45 + 170);
+    expect(r.total).toBeCloseTo(10 + 65 + 170);
     expect(r.porEtapa[0].etapa).toBe("contrato_emitido");
   });
 });
 
 describe("clientesConvertidosNoFunil", () => {
-  it("conta leads em cliente_ativo, não a carteira global de clientes", () => {
+  it("conta leads ganhos, não a carteira global de clientes", () => {
     expect(clientesConvertidosNoFunil([
-      { status_funil: "cliente_ativo" },
-      { status_funil: "cliente_ativo" },
+      { status_funil: "ganho" },
+      { status_funil: "ganho" },
       { status_funil: "novo" },
       { status_funil: "perdido" },
     ])).toBe(2);
@@ -121,7 +121,7 @@ describe("leadsPorOrigem", () => {
   it("rotula, soma potencial e conta convertidos", () => {
     const r = leadsPorOrigem([
       { id: "1", origem: "meta_ads", potencial: 10, status_funil: "novo" },
-      { id: "2", origem: "meta_ads", potencial: 20, status_funil: "cliente_ativo" },
+      { id: "2", origem: "meta_ads", potencial: 20, status_funil: "ganho" },
       { id: "3", origem: "", potencial: 5 },
     ]);
     expect(r[0]).toMatchObject({ origem: "meta_ads", label: "Meta Ads", leads: 2, potencial: 30, convertidos: 1 });

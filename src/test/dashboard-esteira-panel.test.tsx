@@ -18,7 +18,7 @@ const BASE_LEGADA: EtapaEsteiraResumo[] = [
   { ...etapa({ estagio: "nova_abordagem", label: "Nova Abordagem" }) },
   { ...etapa({ estagio: "triagem", label: "Triagem", clientes: 94, atrasados: 94, diasMedios: 1758 }) },
   { ...etapa({ estagio: "levantamento", label: "Levantamento" }) },
-  { ...etapa({ estagio: "emitir_contrato", label: "Emitir Contrato" }) },
+  { ...etapa({ estagio: "contrato_emitido", label: "Contrato Emitido" }) },
 ];
 
 const renderPainel = (etapas: EtapaEsteiraResumo[]) =>
@@ -53,7 +53,7 @@ describe("EsteiraPorEtapa (dashboard)", () => {
 
     expect(screen.getByText("Sem cliente")).toBeInTheDocument();
     expect(
-      screen.getByText("Nova Abordagem · Levantamento · Emitir Contrato"),
+      screen.getByText("Nova Abordagem · Levantamento · Contrato Emitido"),
     ).toBeInTheDocument();
   });
 

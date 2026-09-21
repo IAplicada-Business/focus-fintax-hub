@@ -62,7 +62,7 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
   const [obs, setObs] = useState("");
   const [historico, setHistorico] = useState<HistoricoEntry[]>([]);
   const [showConvert, setShowConvert] = useState(false);
-  const [convertParaEtapa, setConvertParaEtapa] = useState("cliente_ativo");
+  const [convertParaEtapa, setConvertParaEtapa] = useState("triagem");
   const [showException, setShowException] = useState(false);
   const [exceptionReason, setExceptionReason] = useState("");
   const [exceptionSaving, setExceptionSaving] = useState(false);
@@ -241,7 +241,7 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
       const result = await entregarLeadNaEsteira({
         lead,
         deEtapa: lead.status_funil,
-        paraEtapa: "cliente_ativo",
+        paraEtapa: "ganho",
         usuarioId: user?.id,
         anotacao: `⚠ EXCEÇÃO: ${exceptionReason.trim()}`,
       });

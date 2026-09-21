@@ -16,7 +16,7 @@ const diasAtras = (n: number) => new Date(AGORA - n * 86_400_000).toISOString();
 
 describe("normalizarEtapaFunil", () => {
   it("unifica valor legado e trata vazio como novo", () => {
-    expect(normalizarEtapaFunil("levantamento_teses")).toBe("em_negociacao");
+    expect(normalizarEtapaFunil("levantamento_teses")).toBe("triagem");
     expect(normalizarEtapaFunil("")).toBe("novo");
     expect(normalizarEtapaFunil(null)).toBe("novo");
     expect(normalizarEtapaFunil("contrato_emitido")).toBe("contrato_emitido");
@@ -26,6 +26,7 @@ describe("normalizarEtapaFunil", () => {
     expect(normalizarEtapaFunil("perdido")).toBeNull();
     expect(normalizarEtapaFunil("nao_vai_fazer")).toBeNull();
     expect(normalizarEtapaFunil("cliente_ativo")).toBeNull();
+    expect(normalizarEtapaFunil("ganho")).toBeNull();
   });
 });
 
@@ -42,7 +43,7 @@ describe("resumirSlaFunil", () => {
   const leads = [
     { id: "a", empresa: "A", status_funil: "novo", status_funil_atualizado_em: diasAtras(10), potencial: 100 }, // meta 3 → -7
     { id: "b", empresa: "B", status_funil: "novo", status_funil_atualizado_em: diasAtras(1), potencial: 50 },
-    { id: "c", empresa: "C", status_funil: "levantamento_teses", status_funil_atualizado_em: diasAtras(12) }, // em_negociacao meta 10 → -2
+    { id: "c", empresa: "C", status_funil: "levantamento_teses", status_funil_atualizado_em: diasAtras(12) }, // triagem meta 3 → -9
     { id: "d", empresa: "D", status_funil: "contrato_emitido", status_funil_atualizado_em: diasAtras(3) }, // vence hoje
     { id: "e", empresa: "E", status_funil: "perdido", status_funil_atualizado_em: diasAtras(90) }, // fora
   ];
@@ -57,12 +58,12 @@ describe("resumirSlaFunil", () => {
     const novo = r.etapas.find((e) => e.etapa === "novo")!;
     expect(novo).toMatchObject({ leads: 2, atrasados: 1, atrasoAcumulado: 7, potencial: 150 });
     expect(novo.diasMedios).toBe(5.5);
-    const neg = r.etapas.find((e) => e.etapa === "em_negociacao")!;
-    expect(neg).toMatchObject({ leads: 1, atrasados: 1, atrasoAcumulado: 2 });
-    expect(r.atrasados.map((l) => l.lead.id)).toEqual(["a", "c"]);
+    const triagem = r.etapas.find((e) => e.etapa === "triagem")!;
+    expect(triagem).toMatchObject({ leads: 1, atrasados: 1, atrasoAcumulado: 9 });
+    expect(r.atrasados.map((l) => l.lead.id)).toEqual(["c", "a"]);
     expect(r.totalAtrasados).toBe(2);
     expect(r.totalNoPrazo).toBe(2);
-    expect(r.atrasoAcumulado).toBe(9);
+    expect(r.atrasoAcumulado).toBe(16);
     const d = r.linhas.find((l) => l.lead.id === "d")!;
     expect(d.sla.status).toBe("atencao");
   });
@@ -85,11 +86,18 @@ describe("serieGraficoSla", () => {
 
   it("gera um ponto por etapa com média, máximo e meta, marcando média acima da meta", () => {
     const serie = serieGraficoSla(resumirSlaFunil(leads, config, AGORA));
-    expect(serie.map((p) => p.etapa)).toEqual(["novo", "qualificado", "em_negociacao", "em_apresentacao", "contrato_emitido"]);
+    expect(serie.map((p) => p.etapa)).toEqual([
+      "novo",
+      "qualificado",
+      "apresentacao",
+      "triagem",
+      "contrato_emitido",
+      "contrato_assinado",
+    ]);
     expect(serie[0]).toMatchObject({ labelCurto: "Novo", media: 5.5, maximo: 10, meta: 3, leads: 2, atrasados: 1, atrasoAcumulado: 7, acimaDaMeta: true });
     expect(serie[1]).toMatchObject({ media: 2, maximo: 2, meta: 5, leads: 1, atrasados: 0, acimaDaMeta: false });
     // etapa vazia: zera as barras mas mantém a meta pra linha
-    expect(serie[2]).toMatchObject({ labelCurto: "Negociação", media: 0, maximo: 0, meta: 10, leads: 0, acimaDaMeta: false });
+    expect(serie[2]).toMatchObject({ labelCurto: "Apresentação", media: 0, maximo: 0, meta: 7, leads: 0, acimaDaMeta: false });
   });
 
   it("etapa sem meta nunca fica acima da meta", () => {
@@ -104,22 +112,22 @@ describe("filtrarFilaSla", () => {
   const leads = [
     { id: "a", empresa: "Alfa Supermercados", status_funil: "novo", status_funil_atualizado_em: diasAtras(10) }, // +7
     { id: "b", empresa: "Beta Pet", status_funil: "novo", status_funil_atualizado_em: diasAtras(1) },
-    { id: "c", empresa: "Gama Farma", status_funil: "levantamento_teses", status_funil_atualizado_em: diasAtras(12) }, // +2
-    { id: "d", empresa: "Delta", status_funil: "em_negociacao", status_funil_atualizado_em: diasAtras(9) }, // no prazo, 9d
+    { id: "c", empresa: "Gama Farma", status_funil: "levantamento_teses", status_funil_atualizado_em: diasAtras(12) }, // +9
+    { id: "d", empresa: "Delta", status_funil: "em_negociacao", status_funil_atualizado_em: diasAtras(9) }, // +6
     { id: "e", empresa: "Épsilon", status_funil: "contrato_emitido", status_funil_atualizado_em: diasAtras(20) }, // +17
   ];
   const resumo = resumirSlaFunil(leads, config, AGORA);
 
   it("atrasados: só estourados, do maior atraso pro menor", () => {
-    expect(filtrarFilaSla(resumo, "atrasados").map((l) => l.lead.id)).toEqual(["e", "a", "c"]);
+    expect(filtrarFilaSla(resumo, "atrasados").map((l) => l.lead.id)).toEqual(["e", "c", "a", "d"]);
   });
 
   it("todos: atrasados primeiro e depois por dias na etapa", () => {
-    expect(filtrarFilaSla(resumo, "todos").map((l) => l.lead.id)).toEqual(["e", "a", "c", "d", "b"]);
+    expect(filtrarFilaSla(resumo, "todos").map((l) => l.lead.id)).toEqual(["e", "c", "a", "d", "b"]);
   });
 
   it("por etapa inclui no prazo e atrasados da etapa", () => {
-    expect(filtrarFilaSla(resumo, "em_negociacao").map((l) => l.lead.id)).toEqual(["c", "d"]);
+    expect(filtrarFilaSla(resumo, "triagem").map((l) => l.lead.id)).toEqual(["c", "d"]);
     expect(filtrarFilaSla(resumo, "novo").map((l) => l.lead.id)).toEqual(["a", "b"]);
   });
 
@@ -131,7 +139,7 @@ describe("filtrarFilaSla", () => {
   it("diasDeAtraso zera fora do estouro", () => {
     const porId = new Map(resumo.linhas.map((l) => [l.lead.id, l]));
     expect(diasDeAtraso(porId.get("e")!)).toBe(17);
-    expect(diasDeAtraso(porId.get("d")!)).toBe(0);
+    expect(diasDeAtraso(porId.get("d")!)).toBe(6);
     expect(diasDeAtraso(porId.get("b")!)).toBe(0);
   });
 

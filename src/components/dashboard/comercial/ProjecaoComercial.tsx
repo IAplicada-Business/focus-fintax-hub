@@ -52,7 +52,8 @@ export function ProjecaoComercial({ ponderado, ritmoNovos, ritmoContratos, tempo
 const ETAPA_LABEL: Record<string, string> = {
   novo: "Novo",
   qualificado: "Qualificado",
-  em_negociacao: "Negociação",
-  em_apresentacao: "Apresentação",
-  contrato_emitido: "Contrato",
+  apresentacao: "Apresentação",
+  triagem: "Triagem",
+  contrato_emitido: "Contrato emitido",
+  contrato_assinado: "Contrato assinado",
 };

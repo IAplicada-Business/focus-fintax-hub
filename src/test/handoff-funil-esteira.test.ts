@@ -6,27 +6,25 @@ import {
 } from "@/lib/handoff-funil-esteira";
 
 describe("handoff funil comercial → esteira operacional", () => {
-  it("só entrega o lead na esteira no fechamento comercial", () => {
-    expect(funilEntraNaEsteira("em_apresentacao")).toBe(false);
+  it("sincroniza somente as etapas compartilhadas", () => {
+    expect(funilEntraNaEsteira("apresentacao")).toBe(false);
+    expect(funilEntraNaEsteira("triagem")).toBe(true);
     expect(funilEntraNaEsteira("contrato_emitido")).toBe(true);
-    expect(funilEntraNaEsteira("cliente_ativo")).toBe(true);
+    expect(funilEntraNaEsteira("contrato_assinado")).toBe(true);
+    expect(funilEntraNaEsteira("ganho")).toBe(true);
     expect(funilEntraNaEsteira("perdido")).toBe(false);
   });
 
-  it("não recomeça a operação quando o contrato já saiu do comercial", () => {
-    expect(estagioEsteiraDoFunil("contrato_emitido", "em_apresentacao")).toBe("receber_assinado");
-    expect(estagioEsteiraDoFunil("cliente_ativo", "contrato_emitido")).toBe("receber_assinado");
-    expect(estagioEsteiraDoFunil("cliente_ativo", "cliente_ativo")).toBe("receber_assinado");
-  });
-
-  it("conversão antecipada entra em triagem", () => {
-    expect(estagioEsteiraDoFunil("cliente_ativo", "em_apresentacao")).toBe("triagem");
-    expect(estagioEsteiraDoFunil("cliente_ativo", "qualificado")).toBe("triagem");
+  it("mapeia o trecho conectado sem nomes divergentes", () => {
+    expect(estagioEsteiraDoFunil("triagem")).toBe("triagem");
+    expect(estagioEsteiraDoFunil("contrato_emitido")).toBe("contrato_emitido");
+    expect(estagioEsteiraDoFunil("contrato_assinado")).toBe("contrato_assinado");
+    expect(estagioEsteiraDoFunil("ganho")).toBe("em_compensacao");
   });
 
   it("nunca volta etapa da esteira já avançada", () => {
-    expect(avancarEstagioEsteira("em_compensacao", "receber_assinado")).toBe("em_compensacao");
-    expect(avancarEstagioEsteira("triagem", "receber_assinado")).toBe("receber_assinado");
+    expect(avancarEstagioEsteira("em_compensacao", "contrato_assinado")).toBe("em_compensacao");
+    expect(avancarEstagioEsteira("triagem", "contrato_assinado")).toBe("contrato_assinado");
     expect(avancarEstagioEsteira(null, "triagem")).toBe("triagem");
   });
 });

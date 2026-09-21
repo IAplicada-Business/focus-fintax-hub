@@ -41,7 +41,7 @@ export function leadAtivo(l: Pick<LeadAnalitico, "status_funil">): boolean {
 export function clientesConvertidosNoFunil(
   leads: Pick<LeadAnalitico, "status_funil">[],
 ): number {
-  return leads.filter((lead) => etapaUnificada(lead.status_funil) === "cliente_ativo").length;
+  return leads.filter((lead) => etapaUnificada(lead.status_funil) === "ganho").length;
 }
 
 // ───────────────────────────────────────── Série semanal (novos × conversões)
@@ -78,7 +78,7 @@ function labelDia(d: Date): string {
 
 /**
  * Novos leads por semana de criação e conversões por semana em que o lead
- * entrou em Contrato Emitido / Cliente Ativo (via lead_historico). Semanas
+ * entrou em Contrato Emitido / Ganho (via lead_historico). Semanas
  * sem evento aparecem zeradas; a última é a semana corrente.
  */
 export function serieSemanalLeads(
@@ -112,7 +112,7 @@ export function serieSemanalLeads(
   const ordenado = [...historico].sort((a, b) => String(a.criado_em ?? "").localeCompare(String(b.criado_em ?? "")));
   for (const h of ordenado) {
     const etapa = etapaUnificada(h.para_etapa);
-    if (etapa !== "contrato_emitido" && etapa !== "cliente_ativo") continue;
+    if (etapa !== "contrato_emitido" && etapa !== "ganho") continue;
     const k = `${h.lead_id}:${etapa}`;
     if (vistos.has(k)) continue;
     vistos.add(k);
@@ -185,10 +185,10 @@ export function ritmoSemanal(serie: PontoSemanal[], campo: "novos" | "contratos"
 export const PROBABILIDADE_ETAPA: Record<string, number> = {
   novo: 0.1,
   qualificado: 0.25,
-  em_negociacao: 0.45,
-  levantamento_teses: 0.45,
-  em_apresentacao: 0.65,
+  apresentacao: 0.45,
+  triagem: 0.65,
   contrato_emitido: 0.85,
+  contrato_assinado: 0.95,
 };
 
 export interface EtapaPonderada {
@@ -209,7 +209,7 @@ export function pipelinePonderado(leads: LeadAnalitico[], probabilidades: Record
   const acc = new Map<string, EtapaPonderada>();
   for (const l of leads) {
     const etapa = etapaUnificada(l.status_funil);
-    if (ETAPAS_PERDIDAS.has(etapa) || etapa === "cliente_ativo") continue;
+    if (ETAPAS_PERDIDAS.has(etapa) || etapa === "ganho") continue;
     const prob = probabilidades[etapa] ?? 0;
     const cur = acc.get(etapa) ?? { etapa, leads: 0, potencial: 0, probabilidade: prob, ponderado: 0 };
     const pot = Number(l.potencial ?? 0);
@@ -283,7 +283,7 @@ export function leadsPorOrigem(leads: LeadAnalitico[]): OrigemRow[] {
     cur.leads += 1;
     cur.potencial += Number(l.potencial ?? 0);
     const etapa = etapaUnificada(l.status_funil);
-    if (etapa === "cliente_ativo" || etapa === "contrato_emitido") cur.convertidos += 1;
+    if (etapa === "ganho") cur.convertidos += 1;
     acc.set(origem, cur);
   }
   return [...acc.values()].sort((a, b) => b.leads - a.leads || a.label.localeCompare(b.label, "pt-BR"));

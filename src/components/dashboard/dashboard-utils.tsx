@@ -63,12 +63,13 @@ export const SCORE_VAL_COLOR: Record<string, string> = {
 };
 
 export const FUNNEL_STAGES_COM = [
-  { value: "novo", label: "Prospecção / Novo", color: "#6366f1" },
+  { value: "novo", label: "Novo", color: "#6366f1" },
   { value: "qualificado", label: "Qualificado", color: "#3b82f6" },
-  { value: "levantamento_teses", label: "Levantamento de Teses", color: "#0ea5e9" },
-  { value: "em_apresentacao", label: "Apresentação", color: "#06b6d4" },
+  { value: "apresentacao", label: "Apresentação", color: "#06b6d4" },
+  { value: "triagem", label: "Triagem", color: "#0ea5e9" },
   { value: "contrato_emitido", label: "Contrato Emitido", color: "var(--dash-amber)" },
-  { value: "cliente_ativo", label: "Cliente Ativo", color: "var(--dash-green)" },
+  { value: "contrato_assinado", label: "Contrato Assinado", color: "#14b8a6" },
+  { value: "ganho", label: "Ganho", color: "var(--dash-green)" },
 ];
 
 export const ORIGEM_LABELS: Record<string, string> = {

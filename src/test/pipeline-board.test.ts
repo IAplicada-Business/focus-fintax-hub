@@ -23,7 +23,7 @@ describe("agruparPorEtapa", () => {
       { id: "3", status_funil: "xpto" },
       { id: "4", status_funil: "" },
     ]);
-    expect(g.em_negociacao.map((l) => l.id)).toEqual(["1"]);
+    expect(g.triagem.map((l) => l.id)).toEqual(["1"]);
     expect(g.perdido.map((l) => l.id)).toEqual(["2"]);
     expect(g.novo.map((l) => l.id)).toEqual(["3", "4"]);
     expect(etapasVazias(g)).toContain("qualificado");

@@ -5,8 +5,13 @@ import {
   type EstagioEsteira,
 } from "@/lib/esteira-constants";
 
-/** Etapas comerciais que entregam o lead na esteira operacional. */
-export const ETAPAS_FUNIL_HANDOFF = ["contrato_emitido", "cliente_ativo"] as const;
+/** Etapas comerciais compartilhadas/sincronizadas com a operação. */
+export const ETAPAS_FUNIL_HANDOFF = [
+  "triagem",
+  "contrato_emitido",
+  "contrato_assinado",
+  "ganho",
+] as const;
 
 function etapaFunilUnificada(statusFunil: string | null | undefined): string {
   const raw = String(statusFunil ?? "").trim();
@@ -15,25 +20,26 @@ function etapaFunilUnificada(statusFunil: string | null | undefined): string {
 
 export function funilEntraNaEsteira(statusFunil: string | null | undefined): boolean {
   const etapa = etapaFunilUnificada(statusFunil);
-  return etapa === "contrato_emitido" || etapa === "cliente_ativo";
+  return ETAPAS_FUNIL_HANDOFF.includes(
+    etapa as (typeof ETAPAS_FUNIL_HANDOFF)[number],
+  );
 }
 
 /**
- * Continua o fluxo: comercial não recomeça a operação.
- * Contrato emitido no funil → operação espera o assinado.
- * Cliente ativo vindo do contrato permanece nessa etapa (não volta à triagem).
- * Conversão antecipada (exceção) entra em triagem.
+ * Mapeamento explícito das etapas conectadas:
+ * comercial Triagem → operação Triagem
+ * Contrato Emitido → Contrato Emitido
+ * Contrato Assinado → Contrato Assinado
+ * Ganho → Em Compensação
  */
 export function estagioEsteiraDoFunil(
   paraFunil: string | null | undefined,
-  deFunil?: string | null,
+  _deFunil?: string | null,
 ): EstagioEsteira {
   const para = etapaFunilUnificada(paraFunil);
-  const de = etapaFunilUnificada(deFunil);
-  if (para === "contrato_emitido") return "receber_assinado";
-  if (para === "cliente_ativo" && (de === "contrato_emitido" || de === "cliente_ativo")) {
-    return "receber_assinado";
-  }
+  if (para === "contrato_emitido") return "contrato_emitido";
+  if (para === "contrato_assinado") return "contrato_assinado";
+  if (para === "ganho") return "em_compensacao";
   return "triagem";
 }
 

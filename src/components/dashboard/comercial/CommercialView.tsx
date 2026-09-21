@@ -60,7 +60,7 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
     const { leads, historico, conversas, slaConfig, motor } = data;
     const ativos = leads.filter(leadAtivo);
     const clientesConvertidos = clientesConvertidosNoFunil(leads);
-    const emAndamento = ativos.filter((l) => etapaUnificada(l.status_funil) !== "cliente_ativo");
+    const emAndamento = ativos.filter((l) => etapaUnificada(l.status_funil) !== "ganho");
     const d7 = agora - 7 * MS_DIA;
     const d14 = agora - 14 * MS_DIA;
     const t = (iso: string | null) => (iso ? new Date(iso).getTime() : NaN);
@@ -81,13 +81,7 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
     for (const s of FUNNEL_STAGES_COM) contagem[s.value] = { count: 0, potencial: 0 };
     for (const l of emAndamento) {
       const etapa = etapaUnificada(l.status_funil);
-      // A UI ainda chama esta coluna de levantamento; estágios legados
-      // desconhecidos permanecem visíveis em Novo em vez de sumirem do funil.
-      const key = etapa === "em_negociacao"
-        ? "levantamento_teses"
-        : contagem[etapa]
-          ? etapa
-          : "novo";
+      const key = contagem[etapa] ? etapa : "novo";
       contagem[key].count += 1;
       contagem[key].potencial += l.potencial;
     }
@@ -95,7 +89,7 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
       stage: s.value,
       label: s.label,
       color: s.color,
-      count: s.value === "cliente_ativo" ? clientesConvertidos : contagem[s.value].count,
+      count: s.value === "ganho" ? clientesConvertidos : contagem[s.value].count,
       potencial: contagem[s.value].potencial,
     }));
 
