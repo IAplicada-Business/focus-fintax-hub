@@ -15,6 +15,7 @@ import {
   normalizarStatusCompensacao,
   type StatusCompensacaoRow,
 } from "@/lib/gerencial-filters";
+import { currentMonthKey } from "@/lib/month-key";
 
 const MS_DIA = 86_400_000;
 
@@ -158,16 +159,42 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
   const creditos = creditosTodos.filter((row) => idsAtivos.has(row.cliente_id));
   const processos = processosTodos.filter((row) => idsAtivos.has(row.cliente_id));
   const teses = (tesesRes.error ? [] : tesesRes.data ?? []) as TeseLike[];
-  const comps = compensacoesCanonicas(compsAtivos, teses, processos);
-  const statusRows = statusTodos
-    .filter((row) => idsAtivos.has(row.cliente_id))
-    .map((row) => ({ ...row, status_principal: normalizarStatusCompensacao(row) }));
-  const totaisCanonicos = resumirFinanceiroPorCliente(idsAtivos, comps, creditos, teses, processos);
+  const compsCanonicas = compensacoesCanonicas(compsAtivos, teses, processos);
+  const mesAtual = currentMonthKey();
+  const clientesComCompensacaoMes = new Set(
+    compsCanonicas
+      .filter(
+        (row) =>
+          Number(row.valor_compensado ?? 0) > 0 &&
+          String(row.mes_referencia).slice(0, 7) === mesAtual,
+      )
+      .map((row) => row.cliente_id),
+  );
+  const statusPorCliente = new Map(
+    statusTodos.filter((row) => idsAtivos.has(row.cliente_id)).map((row) => [row.cliente_id, row]),
+  );
+  // Preserva o flag da view (PR 137). Só sintetiza a evidência BRT quando a
+  // linha inteira está ausente, mantendo o fallback legado do PR 135.
+  for (const clienteId of clientesComCompensacaoMes) {
+    if (!statusPorCliente.has(clienteId)) {
+      statusPorCliente.set(clienteId, {
+        cliente_id: clienteId,
+        tem_compensacao_mes_corrente: true,
+      });
+    }
+  }
+  const statusRows = [...statusPorCliente.values()].map((row) => ({
+    ...row,
+    status_principal: normalizarStatusCompensacao(row),
+  }));
+  const totaisCanonicos = resumirFinanceiroPorCliente(idsAtivos, compsAtivos, creditos, teses, processos);
   const configStages = new Set(slaConfig.map((row) => row.estagio as string));
 
   return {
     clientes,
-    comps,
+    // Mantém o bruto autenticado para permitir inspeção explícita de REPORTO.
+    // Cada visão aplica `compensacoesCanonicas` no recorte selecionado.
+    comps: compsAtivos,
     creditos,
     teses,
     processos,
@@ -186,7 +213,7 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
     intimacoes: (intimRes.error ? [] : intimRes.data ?? []) as IntimacaoResumo[],
     qualidade: {
       compensacoesForaDaCarteiraAtiva: compsTodos.filter((row) => !idsAtivos.has(row.cliente_id)).length,
-      lancamentosForaDaRegraCanonica: compsAtivos.length - comps.length,
+      lancamentosForaDaRegraCanonica: compsAtivos.length - compsCanonicas.length,
       statusForaDaCarteiraAtiva: statusTodos.filter((row) => !idsAtivos.has(row.cliente_id)).length,
       clientesSemBaseFinanceira: totaisCanonicos.filter((row) => row.sem_base_financeira).length,
       clientesComSnapshotManual: new Set(

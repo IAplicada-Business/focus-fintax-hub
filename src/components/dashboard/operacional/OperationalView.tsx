@@ -18,6 +18,7 @@ import {
   filaPrioridade,
   honorarioDe,
   projetarMensal,
+  resumirFinanceiroPorCliente,
   resumoEsteira,
   serieMensal,
 } from "@/lib/operacional-analytics";
@@ -26,6 +27,12 @@ import {
   normalizarStatusCompensacao,
   type StatusCompensacao,
 } from "@/lib/gerencial-filters";
+import { TipoTeseFilter } from "@/components/TipoTeseFilter";
+import {
+  filtrarIdsPorTipoTese,
+  listarTiposTese,
+  type TipoTeseFiltro,
+} from "@/lib/tese-filter";
 import { compactCurrency } from "../dashboard-utils";
 import { DarkPanel, DarkStat, KpiCard } from "../ui/primitives";
 import { EvolucaoMensalChart } from "./EvolucaoMensalChart";
@@ -48,26 +55,42 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
     new Set(STATUS_COMPENSACAO_VALUES),
   );
   const [ramoFiltro, setRamoFiltro] = useState<RamoGerencialFiltro>("todas");
+  const [tipoTeseFiltro, setTipoTeseFiltro] = useState<TipoTeseFiltro>(null);
   const m = useMemo(() => {
     const agora = Date.now();
-    const { totais, statusRows, esteira, slaConfig, intimacoes, clientes } = data;
+    const { statusRows, esteira, slaConfig, intimacoes, clientes } = data;
     const statusMap = new Map(
       statusRows.map((row) => [row.cliente_id, normalizarStatusCompensacao(row)]),
     );
     const ramosMap = buildRamoFlagsPorCliente(data.processos);
-    const idsRecorte = filtrarIdsRecorteGerencial(
+    const idsGerenciais = filtrarIdsRecorteGerencial(
       clientes.map((cliente) => cliente.id),
       statusFiltro,
       ramoFiltro,
       statusMap,
       ramosMap,
     );
-    const totaisRecorte = totais.filter((row) => idsRecorte.has(row.cliente_id));
+    const idsRecorte = filtrarIdsPorTipoTese(
+      idsGerenciais,
+      tipoTeseFiltro,
+      data.processos,
+      data.creditos,
+      data.teses,
+    );
     const processosRecorte = data.processos.filter((row) => idsRecorte.has(row.cliente_id));
     const comps = compensacoesCanonicas(
       data.comps.filter((row) => idsRecorte.has(row.cliente_id)),
       data.teses,
       processosRecorte,
+      tipoTeseFiltro,
+    );
+    const totaisRecorte = resumirFinanceiroPorCliente(
+      idsRecorte,
+      data.comps,
+      data.creditos,
+      data.teses,
+      data.processos,
+      tipoTeseFiltro,
     );
     const apurado = totaisRecorte.reduce((s, t) => s + t.credito_apurado, 0);
     const compensado = totaisRecorte.reduce((s, t) => s + t.total_compensado, 0);
@@ -86,22 +109,28 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
     const proj3mComp = projecao.reduce((s, p) => s + p.compensado, 0);
     const proj3mHon = projecao.reduce((s, p) => s + p.honorarios, 0);
 
-    const compensando = clientes.filter(
-      (cliente) => statusMap.get(cliente.id) === "compensando",
+    const compensando = [...idsRecorte].filter(
+      (clienteId) => statusMap.get(clienteId) === "compensando",
     ).length;
     const slaMap = new Map(slaConfig.map((c) => [c.estagio as string, c.sla_dias]));
-    const etapas = resumoEsteira(esteira, slaConfig);
+    const esteiraRecorte = esteira.filter((cliente) => idsRecorte.has(cliente.id));
+    const etapas = resumoEsteira(esteiraRecorte, slaConfig);
     const atrasadosEsteira = etapas.reduce((s, e) => s + e.atrasados, 0);
-    const carga = cargaPorResponsavel(esteira, slaMap, agora);
-    const saldoPorCliente = new Map(totais.map((t) => [t.cliente_id, t.saldo_restante]));
-    const fila = filaPrioridade(esteira, saldoPorCliente, slaConfig, 8, agora);
+    const etapasPopuladas = etapas.filter((etapa) => etapa.clientes > 0);
+    const esteiraLegadaConcentrada =
+      esteiraRecorte.length > 1 &&
+      etapasPopuladas.length === 1 &&
+      etapasPopuladas[0].clientes === esteiraRecorte.length;
+    const carga = cargaPorResponsavel(esteiraRecorte, slaMap, agora);
+    const saldoPorCliente = new Map(totaisRecorte.map((t) => [t.cliente_id, t.saldo_restante]));
+    const fila = filaPrioridade(esteiraRecorte, saldoPorCliente, slaConfig, 8, agora);
 
     const pendentes = intimacoes.filter((i) => ["pendente", "informado_aline", "em_andamento"].includes(i.status));
     const em15 = new Date(agora + 15 * 86_400_000).toISOString().slice(0, 10);
     const vencendo = pendentes.filter((i) => i.prazo_vencimento && i.prazo_vencimento <= em15).length;
 
     return {
-      ativos: clientes.length,
+      ativos: idsRecorte.size,
       recorte: idsRecorte.size,
       foraRecorte: clientes.length - idsRecorte.size,
       compensando,
@@ -119,7 +148,9 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       proj3mComp,
       proj3mHon,
       etapas,
+      esteiraRecorte,
       atrasadosEsteira,
+      esteiraLegadaConcentrada,
       carga,
       fila,
       intimPendentes: pendentes.length,
@@ -127,8 +158,9 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       semDados: comps.length === 0,
       statusCounts: countByStatus(clientes.map((cliente) => cliente.id), statusMap),
       ramoCounts: countByRamo(clientes.map((cliente) => cliente.id), ramosMap),
+      tiposTese: listarTiposTese(data.processos, data.creditos, data.teses),
     };
-  }, [data, ramoFiltro, statusFiltro]);
+  }, [data, ramoFiltro, statusFiltro, tipoTeseFiltro]);
 
   return (
     <div className="space-y-4">
@@ -143,8 +175,13 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
           onChange={setRamoFiltro}
           counts={m.ramoCounts}
         />
+        <TipoTeseFilter
+          value={tipoTeseFiltro}
+          onChange={setTipoTeseFiltro}
+          options={m.tiposTese}
+        />
         <span className="text-[11px] text-ink-35">
-          {m.recorte} cliente{m.recorte === 1 ? "" : "s"} no recorte financeiro · {m.foraRecorte} ativo{m.foraRecorte === 1 ? "" : "s"} fora
+          {m.recorte} cliente{m.recorte === 1 ? "" : "s"} no recorte · tese: {tipoTeseFiltro ?? "elegíveis (REPORTO fora do saldo)"} · {m.foraRecorte} ativo{m.foraRecorte === 1 ? "" : "s"} fora
         </span>
       </div>
       {(data.qualidade.clientesSemBaseFinanceira > 0 ||
@@ -183,7 +220,15 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
         <KpiCard label="Compensado no mês" raw={m.cmpComp.atual} format={compactCurrency} sub={`mês anterior ${compactCurrency(m.cmpComp.anterior)}`} trend={m.cmpComp.variacaoPct ?? undefined} trendSuffix="%" tom="green" icon={<TrendingUp />} size="md" />
         <KpiCard label="Honorários no mês" raw={m.cmpHon.atual} format={compactCurrency} sub={`taxa média ${(m.taxaHon * 100).toFixed(1)}% · ${compactCurrency(m.honorarios)} acumulados`} trend={m.cmpHon.variacaoPct ?? undefined} trendSuffix="%" tom="gold" icon={<Coins />} size="md" />
         <KpiCard label="Saldo a compensar" raw={m.saldo} format={compactCurrency} sub={m.prazoSaldoMeses != null ? `${m.recorte} clientes · ≈ ${m.prazoSaldoMeses.toFixed(1)} meses` : `${m.recorte} clientes · sem ritmo médio ainda`} tom="navy" icon={<Layers />} size="md" />
-        <KpiCard label="Atrasados na esteira" raw={m.atrasadosEsteira} sub={`de ${data.esteira.length} clientes na esteira`} tom={m.atrasadosEsteira > 0 ? "red" : "green"} icon={<Clock />} onClick={() => navigate("/esteira?tab=acompanhamento")} size="md" />
+        <KpiCard
+          label={m.esteiraLegadaConcentrada ? "Qualidade da esteira" : "Atrasados na esteira"}
+          {...(m.esteiraLegadaConcentrada ? { value: "Revisar" } : { raw: m.atrasadosEsteira })}
+          sub={m.esteiraLegadaConcentrada ? `${m.esteiraRecorte.length} clientes concentrados em uma etapa` : `de ${m.esteiraRecorte.length} clientes no recorte`}
+          tom={m.esteiraLegadaConcentrada ? "amber" : m.atrasadosEsteira > 0 ? "red" : "green"}
+          icon={<Clock />}
+          onClick={() => navigate("/esteira?tab=acompanhamento")}
+          size="md"
+        />
         <KpiCard label="Intimações pendentes" raw={m.intimPendentes} sub={m.intimVencendo > 0 ? `${m.intimVencendo} vencem em 15 dias` : "nenhuma vencendo em 15 dias"} tom={m.intimVencendo > 0 ? "red" : m.intimPendentes > 0 ? "amber" : "muted"} icon={<AlertTriangle />} onClick={() => navigate("/intimacoes")} size="md" />
       </div>
 
@@ -219,7 +264,7 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
 
       <div className="animate-slide-up delay-3 grid grid-cols-1 xl:grid-cols-12 gap-4">
         <div className="xl:col-span-7 min-w-0">
-          <EsteiraPorEtapa etapas={m.etapas} clientes={data.esteira} />
+          <EsteiraPorEtapa etapas={m.etapas} clientes={m.esteiraRecorte} />
         </div>
         <div className="xl:col-span-5 min-w-0">
           <CargaTime carga={m.carga} />

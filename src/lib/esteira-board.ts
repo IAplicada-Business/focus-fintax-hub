@@ -11,9 +11,9 @@ export const DASH_ESTEIRA_VIEW_KEY = "dash.esteira.view";
 
 export type DashEsteiraView = "etapas" | "kanban";
 
-/** Sem preferência salva o painel abre em Kanban — é o formato que a operação espera. */
+/** Sem preferência salva, o dashboard abre no resumo compacto. */
 export function parseDashEsteiraView(value: string | null | undefined): DashEsteiraView {
-  return value === "etapas" ? "etapas" : "kanban";
+  return value === "kanban" ? "kanban" : "etapas";
 }
 
 export interface EsteiraBoardStage {

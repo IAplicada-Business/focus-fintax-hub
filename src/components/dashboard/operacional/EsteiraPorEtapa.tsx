@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Clock, KanbanSquare, LayoutGrid } from "lucide-react";
+import { AlertTriangle, KanbanSquare, LayoutGrid } from "lucide-react";
 import { Panel, LinkMore } from "../ui/primitives";
 import type { EsteiraClienteLike, EtapaEsteiraResumo } from "@/lib/operacional-analytics";
 import {
@@ -47,12 +47,21 @@ export function EsteiraPorEtapa({ etapas, clientes }: Props) {
 
   const total = etapas.reduce((s, e) => s + e.clientes, 0);
   const atrasados = etapas.reduce((s, e) => s + e.atrasados, 0);
+  const etapasComClientes = etapas.filter((etapa) => etapa.clientes > 0);
+  const baseConcentrada =
+    total > 1 &&
+    etapasComClientes.length === 1 &&
+    etapasComClientes[0].clientes === total;
 
   return (
     <Panel
       eyebrow="Esteira"
       title="Onde os clientes estão"
-      subtitle={`${total} clientes na esteira · ${atrasados} acima do SLA · clique para abrir a etapa`}
+      subtitle={
+        baseConcentrada
+          ? `${total} clientes · 100% em ${etapasComClientes[0].label} · base requer revisão`
+          : `${total} clientes na esteira · ${atrasados} acima do SLA · clique para abrir a etapa`
+      }
       action={
         <div className="flex items-center gap-2">
           <div role="tablist" aria-label="Formato da esteira" className="flex rounded-full border border-ink-06 bg-white p-0.5">
@@ -85,15 +94,24 @@ export function EsteiraPorEtapa({ etapas, clientes }: Props) {
         </div>
       }
     >
-      {view === "kanban" ? <MiniKanban etapas={etapas} clientes={clientes} onEtapa={(e) => navigate(`/esteira?tab=kanban&etapa=${e}`)} onCliente={(id) => navigate(`/clientes/${id}`)} /> : <GradeEtapas etapas={etapas} onEtapa={(e) => navigate(`/esteira?tab=acompanhamento&etapa=${e}`)} />}
+      {baseConcentrada && (
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-dash-amber/30 bg-dash-amber/[0.06] px-3 py-2 text-[11px] text-ink-60">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-dash-amber" />
+          <span>
+            Distribuição concentrada em uma única etapa. Os dias acima do SLA refletem
+            cadastro legado e não são tratados como atraso operacional até a base ser revisada.
+          </span>
+        </div>
+      )}
+      {view === "kanban" ? <MiniKanban etapas={etapas} clientes={clientes} onEtapa={(e) => navigate(`/esteira?tab=kanban&etapa=${e}`)} onCliente={(id) => navigate(`/clientes/${id}`)} /> : <GradeEtapas etapas={etapasComClientes} ocultarAtrasos={baseConcentrada} onEtapa={(e) => navigate(`/esteira?tab=acompanhamento&etapa=${e}`)} />}
     </Panel>
   );
 }
 
-function GradeEtapas({ etapas, onEtapa }: { etapas: EtapaEsteiraResumo[]; onEtapa: (estagio: string) => void }) {
+function GradeEtapas({ etapas, ocultarAtrasos, onEtapa }: { etapas: EtapaEsteiraResumo[]; ocultarAtrasos: boolean; onEtapa: (estagio: string) => void }) {
   const max = Math.max(...etapas.map((e) => e.clientes), 1);
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+    <div className="space-y-1.5">
       {etapas.map((e) => {
         const acima = e.sla != null && e.diasMedios != null && e.diasMedios > e.sla;
         return (
@@ -102,21 +120,22 @@ function GradeEtapas({ etapas, onEtapa }: { etapas: EtapaEsteiraResumo[]; onEtap
             type="button"
             onClick={() => onEtapa(e.estagio)}
             className={cn(
-              "rounded-xl px-3 py-3 text-left border transition-all hover:-translate-y-0.5 hover:shadow-soft",
-              e.atrasados > 0 ? "border-dash-red/25 bg-dash-red/[0.03]" : "border-ink-06 bg-white hover:border-gold/40",
+              "grid w-full grid-cols-[minmax(120px,1fr)_minmax(100px,2fr)_auto] items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors hover:border-gold/40 hover:bg-ink-03",
+              !ocultarAtrasos && e.atrasados > 0 ? "border-dash-red/25" : "border-ink-06",
             )}
           >
-            <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35 leading-tight min-h-[26px]">{e.label}</p>
-            <p className="font-display text-[26px] font-extrabold text-navy leading-none mt-1 tabular-nums">{e.clientes}</p>
-            <div className="mt-2 h-1 rounded-full bg-ink-06 overflow-hidden">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-60">{e.label}</p>
+              <p className="text-[10px] text-ink-35">{e.diasMedios != null ? `${e.diasMedios}d méd.` : "sem histórico"}{e.sla != null ? ` · SLA ${e.sla}d` : ""}</p>
+            </div>
+            <div className="h-1.5 rounded-full bg-ink-06 overflow-hidden">
               <div className={cn("h-full rounded-full", e.atrasados > 0 ? "bg-dash-red/70" : "bg-navy/70")} style={{ width: `${(e.clientes / max) * 100}%` }} />
             </div>
-            <p className="text-[10px] text-ink-35 mt-1.5 flex items-center gap-1 tabular-nums">
-              <Clock className="w-3 h-3" />
-              <span className={acima ? "text-dash-red font-semibold" : undefined}>{e.diasMedios != null ? `${e.diasMedios}d méd.` : "—"}</span>
-              {e.sla != null && <span className="text-ink-35/70">· sla {e.sla}d</span>}
-            </p>
-            {e.atrasados > 0 && <p className="text-[10px] font-semibold text-dash-red mt-1">{e.atrasados} atrasado{e.atrasados > 1 ? "s" : ""} · {e.atrasoAcumulado}d acum.</p>}
+            <div className="text-right">
+              <p className="font-display text-xl font-extrabold text-navy tabular-nums">{e.clientes}</p>
+              {!ocultarAtrasos && e.atrasados > 0 && <p className="text-[9px] font-semibold text-dash-red">{e.atrasados} acima do SLA</p>}
+              {ocultarAtrasos && acima && <p className="text-[9px] font-semibold text-dash-amber">SLA a revisar</p>}
+            </div>
           </button>
         );
       })}

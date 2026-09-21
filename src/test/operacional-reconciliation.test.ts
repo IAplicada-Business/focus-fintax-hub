@@ -5,6 +5,11 @@ import {
   resumirFinanceiroPorCliente,
 } from "@/lib/operacional-analytics";
 import { filtrarIdsRecorteGerencial, normalizarStatusCompensacao } from "@/lib/gerencial-filters";
+import {
+  filtrarIdsPorTipoTese,
+  listarTiposTese,
+} from "@/lib/tese-filter";
+import { isReportoProcesso } from "@/lib/clientes-constants";
 
 const TESES = [
   { id: "t-insumos", codigo: "INSUMOS", label: "Insumos" },
@@ -120,6 +125,15 @@ describe("reconciliação financeira da Visão Operacional", () => {
     expect([...ids]).toEqual(["legacy"]);
   });
 
+  it("cliente sem tipo não invade ressarcimento nem judicial", () => {
+    const semTipo = (ramo: "compensacao" | "ressarcimento" | "recuperacao_judicial") =>
+      filtrarIdsRecorteGerencial(["legacy"], new Set(), ramo, new Map(), new Map());
+
+    expect([...semTipo("compensacao")]).toEqual(["legacy"]);
+    expect([...semTipo("ressarcimento")]).toEqual([]);
+    expect([...semTipo("recuperacao_judicial")]).toEqual([]);
+  });
+
   it("movimento no mês prevalece sobre REPORTO no status operacional", () => {
     expect(normalizarStatusCompensacao({
       cliente_id: "a",
@@ -138,6 +152,48 @@ describe("reconciliação financeira da Visão Operacional", () => {
       tem_reporto: true,
       tem_compensacao_mes_corrente: canonicas.length > 0,
     })).toBe("reporto");
+  });
+
+  it("classifica REPORTO por categoria ou tese textual", () => {
+    expect(isReportoProcesso({
+      categoria: " reporto ",
+      tese: "slug_legado",
+    })).toBe(true);
+    expect(isReportoProcesso({
+      categoria: "compensacao",
+      tese: " reporto ",
+    })).toBe(true);
+    expect(isReportoProcesso({
+      categoria: "compensacao",
+      tese: "INSUMOS",
+    })).toBe(false);
+  });
+
+  it("usa o mesmo filtro de tese na carteira e no dashboard", () => {
+    const creditos = [
+      { cliente_id: "a", tese_id: "t-insumos", valor_apurado_inicial: 1_000, incluir_no_calculo: true },
+      { cliente_id: "a", tese_id: "t-reporto", valor_apurado_inicial: 5_000, incluir_no_calculo: true },
+      { cliente_id: "b", tese_id: "t-subvencao", valor_apurado_inicial: 500, incluir_no_calculo: true },
+    ];
+    const idsReporto = filtrarIdsPorTipoTese(
+      ["a", "b"],
+      "REPORTO",
+      PROCESSOS,
+      creditos,
+      TESES,
+    );
+    const dashboard = resumirFinanceiroPorCliente(idsReporto, COMPS, creditos, TESES, PROCESSOS, "REPORTO");
+    const carteira = resumirFinanceiroPorCliente(idsReporto, COMPS, creditos, TESES, PROCESSOS, "REPORTO");
+
+    expect([...idsReporto]).toEqual(["a"]);
+    expect(dashboard).toEqual(carteira);
+    expect(dashboard[0]).toMatchObject({
+      credito_apurado: 5_000,
+      total_compensado: 0,
+      saldo_restante: 5_000,
+    });
+    expect(listarTiposTese(PROCESSOS, creditos, TESES).map((option) => option.value))
+      .toEqual(["INSUMOS", "SUBVENCAO", "REPORTO"]);
   });
 
   it("soma exatamente os valores canônicos das fichas no mesmo recorte", () => {
