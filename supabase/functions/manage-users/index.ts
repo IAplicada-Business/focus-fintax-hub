@@ -25,6 +25,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    let callerId: string | null = null;
     const bearerToken = authHeader.replace("Bearer ", "");
     const seedKey = req.headers.get("x-seed-key");
     const isServiceRole = bearerToken === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || 
@@ -45,7 +46,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const callerId = claimsData.claims.sub as string;
+      callerId = claimsData.claims.sub as string;
 
       const { data: roleCheck } = await serviceClient
         .from("user_roles")
@@ -65,19 +66,51 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, permissions } = body;
 
-    const upsertPermissions = async (userId: string, perms: { screen_key: string; can_access: boolean; read_only: boolean }[]) => {
-      if (!perms || !Array.isArray(perms)) return;
-      // Delete existing then insert new
-      await serviceClient.from("user_permissions").delete().eq("user_id", userId);
+    /**
+     * Grava as permissões. Devolve a mensagem de erro, ou null quando deu certo:
+     * antes o insert era disparado sem conferir, e uma falha depois do delete
+     * deixava o usuário sem nenhuma permissão, sem ninguém saber.
+     */
+    const upsertPermissions = async (
+      userId: string,
+      perms: { screen_key: string; can_access: boolean; read_only: boolean }[],
+    ): Promise<string | null> => {
+      if (!perms || !Array.isArray(perms) || perms.length === 0) return null;
+
       const rows = perms.map((p) => ({
         user_id: userId,
         screen_key: p.screen_key,
         can_access: p.can_access,
         read_only: p.read_only,
       }));
-      if (rows.length > 0) {
-        await serviceClient.from("user_permissions").insert(rows);
+
+      // Upsert na chave única (user_id, screen_key): nunca existe um instante
+      // com o usuário sem permissão alguma.
+      const { error: upErr } = await serviceClient
+        .from("user_permissions")
+        .upsert(rows, { onConflict: "user_id,screen_key" });
+      if (upErr) return upErr.message;
+
+      // Tira só o que saiu da lista (telas removidas do sistema), nomeando
+      // cada chave: um filtro negativo malformado apagaria tudo.
+      const { data: atuais } = await serviceClient
+        .from("user_permissions")
+        .select("screen_key")
+        .eq("user_id", userId);
+
+      const novas = new Set(rows.map((r) => r.screen_key));
+      const sobrando = (atuais ?? []).map((r) => r.screen_key).filter((k: string) => !novas.has(k));
+
+      if (sobrando.length > 0) {
+        const { error: delErr } = await serviceClient
+          .from("user_permissions")
+          .delete()
+          .eq("user_id", userId)
+          .in("screen_key", sobrando);
+        if (delErr) return delErr.message;
       }
+
+      return null;
     };
 
     if (action === "create") {
@@ -137,8 +170,13 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Upsert permissions
-      await upsertPermissions(userId, permissions);
+      const permErr = await upsertPermissions(userId, permissions);
+      if (permErr) {
+        return new Response(
+          JSON.stringify({ error: `Usuário criado, mas as permissões não foram salvas: ${permErr}`, user_id: userId }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       return new Response(
         JSON.stringify({ success: true, user_id: userId }),
@@ -197,8 +235,65 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Upsert permissions
-      await upsertPermissions(user_id, permissions);
+      const permErr = await upsertPermissions(user_id, permissions);
+      if (permErr) {
+        return new Response(
+          JSON.stringify({ error: `As permissões não foram salvas: ${permErr}` }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "delete") {
+      const { user_id } = body;
+
+      if (!user_id) {
+        return new Response(
+          JSON.stringify({ error: "user_id é obrigatório" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (callerId && callerId === user_id) {
+        return new Response(
+          JSON.stringify({ error: "Você não pode excluir a própria conta." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Sobra um admin? Excluir o último tranca a gestão de usuários pra todo mundo.
+      const { data: alvoRoles } = await serviceClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user_id);
+
+      if ((alvoRoles ?? []).some((r) => r.role === "admin")) {
+        const { count } = await serviceClient
+          .from("user_roles")
+          .select("user_id", { count: "exact", head: true })
+          .eq("role", "admin");
+        if ((count ?? 0) <= 1) {
+          return new Response(
+            JSON.stringify({ error: "Este é o último administrador. Promova outra pessoa antes de excluir." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // profiles, user_roles e user_permissions saem em cascata; o que aponta
+      // pra este usuário em clientes/histórico vira NULL (ON DELETE SET NULL).
+      const { error: delErr } = await serviceClient.auth.admin.deleteUser(user_id);
+      if (delErr) {
+        return new Response(
+          JSON.stringify({ error: delErr.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       return new Response(
         JSON.stringify({ success: true }),
@@ -207,7 +302,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Ação inválida. Use 'create' ou 'update'" }),
+      JSON.stringify({ error: "Ação inválida. Use 'create', 'update' ou 'delete'" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

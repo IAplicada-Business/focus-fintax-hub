@@ -22,8 +22,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Copy, Eye, EyeOff, KeyRound, Pencil, Plus, RefreshCw, Search, Shield, Users as UsersIcon } from "lucide-react";
-import { SCREENS, getDefaultPermissions, type ScreenPermission } from "@/lib/screen-permissions";
+import { Copy, Eye, EyeOff, KeyRound, Pencil, Plus, RefreshCw, Search, Shield, Trash2, Users as UsersIcon } from "lucide-react";
+import { SCREENS, getDefaultPermissions, mergePermissions, type ScreenPermission } from "@/lib/screen-permissions";
 import { SENHA_MIN, gerarSenha, validarSenha } from "@/lib/password";
 import { cn } from "@/lib/utils";
 
@@ -95,6 +95,9 @@ export default function UserManagement() {
   // Confirmação de desativar + linha em processamento.
   const [statusTarget, setStatusTarget] = useState<UserRow | null>(null);
   const [statusSalvando, setStatusSalvando] = useState<string | null>(null);
+  // Confirmação de exclusão definitiva.
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
+  const [excluindo, setExcluindo] = useState(false);
 
   // Abriu pelo botão "Redefinir senha": vai direto pro campo.
   useEffect(() => {
@@ -138,16 +141,20 @@ export default function UserManagement() {
   }, []);
 
   const loadUserPermissions = async (userId: string, role: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("user_permissions")
       .select("screen_key, can_access, read_only")
       .eq("user_id", userId);
 
-    if (data && data.length > 0) {
-      setFormPermissions(data as ScreenPermission[]);
-    } else {
+    if (error) {
+      toast.error("Erro ao carregar as permissões", { description: error.message });
       setFormPermissions(getDefaultPermissions(role));
+      return;
     }
+
+    // Sempre uma linha por tela: sem isso, telas criadas depois do cadastro do
+    // usuário ficavam fora da lista e a caixa de seleção não respondia.
+    setFormPermissions(mergePermissions(role, (data ?? []) as ScreenPermission[]));
   };
 
   const openEdit = async (u: UserRow, irParaSenha = false) => {
@@ -202,22 +209,27 @@ export default function UserManagement() {
     setFormPermissions(getDefaultPermissions(newRole));
   };
 
+  /** Alterna a tela; se ela ainda não estiver na lista, entra agora (liberada). */
   const toggleAccess = (screenKey: string) => {
-    setFormPermissions((prev) =>
-      prev.map((p) =>
+    setFormPermissions((prev) => {
+      if (!prev.some((p) => p.screen_key === screenKey)) {
+        return [...prev, { screen_key: screenKey, can_access: true, read_only: false }];
+      }
+      return prev.map((p) =>
         p.screen_key === screenKey
           ? { ...p, can_access: !p.can_access, read_only: !p.can_access ? p.read_only : false }
           : p
-      )
-    );
+      );
+    });
   };
 
   const toggleReadOnly = (screenKey: string) => {
-    setFormPermissions((prev) =>
-      prev.map((p) =>
-        p.screen_key === screenKey ? { ...p, read_only: !p.read_only } : p
-      )
-    );
+    setFormPermissions((prev) => {
+      if (!prev.some((p) => p.screen_key === screenKey)) {
+        return [...prev, { screen_key: screenKey, can_access: true, read_only: true }];
+      }
+      return prev.map((p) => (p.screen_key === screenKey ? { ...p, read_only: !p.read_only } : p));
+    });
   };
 
   const handleSave = async () => {
@@ -338,6 +350,25 @@ export default function UserManagement() {
   const pedirMudancaStatus = (u: UserRow, ativo: boolean) => {
     if (ativo) aplicarStatus(u, true);
     else setStatusTarget(u);
+  };
+
+  /** Exclusão definitiva: apaga o login. A função checa último admin e autoexclusão. */
+  const excluirUsuario = async (u: UserRow) => {
+    if (!isAdmin) return;
+    setExcluindo(true);
+    const { data, error } = await supabase.functions.invoke("manage-users", {
+      body: { action: "delete", user_id: u.user_id },
+    });
+    setExcluindo(false);
+
+    if (error || data?.error) {
+      toast.error("Erro ao excluir usuário", { description: await mensagemDaFuncao(error, data) });
+      return;
+    }
+
+    setUsers((prev) => prev.filter((x) => x.user_id !== u.user_id));
+    setDeleteTarget(null);
+    toast.success("Usuário excluído", { description: `${u.full_name || u.email} não tem mais acesso.` });
   };
 
   const filtered = users.filter(
@@ -663,6 +694,16 @@ export default function UserManagement() {
                         <Button variant="ghost" size="icon" onClick={() => openEdit(u)} title="Editar usuário" aria-label={`Editar ${u.full_name || u.email}`}>
                           <Pencil className="h-4 w-4" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={u.user_id === user?.id}
+                          onClick={() => setDeleteTarget(u)}
+                          title={u.user_id === user?.id ? "Você não pode excluir a própria conta" : "Excluir usuário"}
+                          aria-label={`Excluir ${u.full_name || u.email}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -692,6 +733,43 @@ export default function UserManagement() {
               }}
             >
               Desativar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  O login de <strong>{deleteTarget?.full_name || deleteTarget?.email}</strong> é apagado em definitivo,
+                  junto com o perfil e as permissões. Não dá para desfazer.
+                </p>
+                <p>
+                  Clientes, esteira e históricos continuam no sistema, mas onde essa pessoa era responsável o campo fica
+                  em branco.
+                </p>
+                <p className="text-foreground">
+                  Se a ideia é só tirar o acesso, <strong>desative</strong> em vez de excluir: assim o histórico continua
+                  com o nome dela.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluindo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={excluindo}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteTarget) void excluirUsuario(deleteTarget);
+              }}
+            >
+              {excluindo ? "Excluindo..." : "Excluir definitivamente"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
