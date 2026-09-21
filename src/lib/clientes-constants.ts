@@ -52,6 +52,7 @@ export function formatCompetenciaPT(mesRef: string | null | undefined): string {
 }
 
 export type CompensacaoSumRow = {
+  cliente_id?: string | null;
   valor_compensado?: number | null;
   tese_origem_id?: string | null;
   processo_tese_id?: string | null;
@@ -199,10 +200,10 @@ export function isOrphanDuplicateOfLinked(
  * sem Reporto; órfãs duplicadas (mesmo mês+tributo+valor de uma linkada) fora.
  * NÃO descarta órfãs só porque o mês já tem outra linha linkada (bug Maravista).
  */
-export function filterCompensadoCanonical(
-  rows: CompensacaoSumRow[],
+export function filterCompensadoCanonical<T extends CompensacaoSumRow>(
+  rows: T[],
   opts?: { reportoTeseIds?: Set<string>; reportoProcessoIds?: Set<string> },
-): CompensacaoSumRow[] {
+): T[] {
   const linked = rows.filter((c) => !!c.tese_origem_id);
   return rows.filter((c) => {
     if (isReportoCompensacao(c, opts)) return false;

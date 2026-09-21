@@ -442,7 +442,7 @@ export function clienteAtrasado(c: EsteiraClienteLike, sla: number | null | unde
 export function resumoEsteira(clientes: EsteiraClienteLike[], config: EsteiraConfigLike[]): EtapaEsteiraResumo[] {
   const ordenada = [...config].sort((a, b) => a.ordem - b.ordem);
   const configuradas = new Set(ordenada.map((cfg) => cfg.estagio));
-  const extras = [...new Set(
+  const extras: EsteiraConfigLike[] = [...new Set(
     clientes
       .map((c) => c.estagio_esteira || "__sem_etapa__")
       .filter((estagio) => !configuradas.has(estagio)),

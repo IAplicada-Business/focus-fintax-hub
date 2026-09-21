@@ -117,20 +117,17 @@ export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props)
           .select("id, cliente_id, tese, nome_exibicao, categoria")
           .in("cliente_id", clienteIds)
       : { data: [] as any[] };
-    const processoIdByClienteTese = new Map<string, string>(
-      ((procsExistentes as {
-        id: string;
-        cliente_id: string;
-        tese: string | null;
-        nome_exibicao?: string | null;
-        categoria?: string | null;
-      }[]) || [])
-        .map((processo) => {
-          const codigo = processoTeseCatalogCodigo(processo);
-          return codigo ? [`${processo.cliente_id}|${codigo}`, processo.id] as const : null;
-        })
-        .filter((entry): entry is readonly [string, string] => entry !== null),
-    );
+    const processoIdByClienteTese = new Map<string, string>();
+    for (const processo of (procsExistentes as {
+      id: string;
+      cliente_id: string;
+      tese: string | null;
+      nome_exibicao?: string | null;
+      categoria?: string | null;
+    }[]) || []) {
+      const codigo = processoTeseCatalogCodigo(processo);
+      if (codigo) processoIdByClienteTese.set(`${processo.cliente_id}|${codigo}`, processo.id);
+    }
 
     let linhasInseridas = 0;
     let dcompsInseridas = 0;
