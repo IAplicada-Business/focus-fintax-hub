@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   agruparEsteiraPorEtapa,
   ordenarCardsEsteira,
-  parseDashEsteiraView,
   resumoEtapaEsteira,
   slaDoClienteEsteira,
   type EsteiraCardLike,
@@ -83,14 +82,5 @@ describe("ordenarCardsEsteira", () => {
       5,
     ).map((c) => c.id);
     expect(ordem).toEqual(["atrasado", "atencao", "ok-velho", "ok-novo"]);
-  });
-});
-
-describe("parseDashEsteiraView", () => {
-  it("abre no resumo compacto e preserva Kanban quando escolhido", () => {
-    expect(parseDashEsteiraView("kanban")).toBe("kanban");
-    expect(parseDashEsteiraView("etapas")).toBe("etapas");
-    expect(parseDashEsteiraView(null)).toBe("etapas");
-    expect(parseDashEsteiraView("x")).toBe("etapas");
   });
 });

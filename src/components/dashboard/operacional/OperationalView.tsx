@@ -305,10 +305,10 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       </div>
 
       <div className="animate-slide-up delay-3 grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <div className="xl:col-span-7 min-w-0">
-          <EsteiraPorEtapa etapas={m.etapas} clientes={m.esteiraRecorte} />
-        </div>
         <div className="xl:col-span-5 min-w-0">
+          <EsteiraPorEtapa etapas={m.etapas} />
+        </div>
+        <div className="xl:col-span-7 min-w-0">
           <CargaTime carga={m.carga} />
         </div>
       </div>
