@@ -205,7 +205,10 @@ export default function ClienteDetail() {
         motivoParada: normalized,
       });
       setMotivoParada(saved || "");
-      setCliente((prev) => ({ ...prev, motivo_parada: saved }));
+      setCliente((prev: Record<string, unknown> | null) => ({
+        ...(prev ?? {}),
+        motivo_parada: saved,
+      }));
     } catch {
       // O hook apresenta o erro e mantém o texto para nova tentativa.
     }

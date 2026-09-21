@@ -446,7 +446,7 @@ export function resumoEsteira(clientes: EsteiraClienteLike[], config: EsteiraCon
     clientes
       .map((c) => c.estagio_esteira || "__sem_etapa__")
       .filter((estagio) => !configuradas.has(estagio)),
-  )].map((estagio, index) => ({
+  )].map((estagio, index): EsteiraConfigLike => ({
     estagio,
     label: estagio === "__sem_etapa__" ? "Sem etapa configurada" : `Etapa não configurada: ${estagio}`,
     sla_dias: null,
