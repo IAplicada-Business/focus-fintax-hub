@@ -18,7 +18,9 @@ import {
 import { buildLinhasMapa, calcularTotais } from "@/lib/mapa-creditos";
 import { currentMonthKey, monthKeyBrt, shiftMonthKey } from "@/lib/month-key";
 import {
+  codigoNoFiltroTese,
   filtrarCompensacoesPorTipoTese,
+  teseFiltroAtivo,
   type TipoTeseFiltro,
 } from "@/lib/tese-filter";
 
@@ -82,7 +84,7 @@ export function resumirFinanceiroPorCliente(
   creditos: CreditoLike[],
   teses: TeseLike[],
   processos: ProcessoLike[],
-  tipoTese: TipoTeseFiltro = null,
+  tipoTese: TipoTeseFiltro = [],
 ): ResumoFinanceiroCliente[] {
   const ids = new Set(clienteIds);
   const compsAtivas = comps.filter((row) => ids.has(row.cliente_id));
@@ -139,13 +141,14 @@ export function resumirFinanceiroPorCliente(
         valor_compensado_manual: credito.valor_compensado_manual ?? null,
       })),
     });
-    const linhasDoRecorte = tipoTese
-      ? linhasMapa.filter((linha) => linha.tese_codigo === tipoTese)
-      : linhasMapa.filter((linha) => linha.tese_codigo !== "REPORTO");
+    const filtroAtivo = teseFiltroAtivo(tipoTese);
+    const linhasDoRecorte = linhasMapa.filter((linha) =>
+      codigoNoFiltroTese(linha.tese_codigo, tipoTese),
+    );
     // Sem filtro, conserva a régua do mapa (`incluir_no_calculo`) e exclui
-    // REPORTO. Uma tese explicitamente escolhida é inspecionada isoladamente,
-    // mesmo quando não participa do cálculo padrão.
-    const totaisMapa = tipoTese
+    // REPORTO. Teses explicitamente escolhidas são inspecionadas isoladamente,
+    // mesmo quando não participam do cálculo padrão.
+    const totaisMapa = filtroAtivo
       ? linhasDoRecorte.reduce(
           (acc, linha) => ({
             apurado: acc.apurado + Number(linha.valor_apurado_inicial || 0),
@@ -179,7 +182,7 @@ export function compensacoesCanonicas(
   comps: CompLike[],
   teses: TeseLike[],
   processos: ProcessoLike[],
-  tipoTese: TipoTeseFiltro = null,
+  tipoTese: TipoTeseFiltro = [],
 ): CompLike[] {
   const reportoTeseIds = new Set(
     teses.filter((t) => String(t.codigo || "").toUpperCase() === "REPORTO").map((t) => t.id),
@@ -190,7 +193,9 @@ export function compensacoesCanonicas(
       .map((p) => p.id),
   );
   const compsDoTipo = filtrarCompensacoesPorTipoTese(comps, processos, teses, tipoTese);
-  if (tipoTese === "REPORTO") return compsDoTipo;
+  if (teseFiltroAtivo(tipoTese) && tipoTese.length === 1 && tipoTese[0] === "REPORTO") {
+    return compsDoTipo;
+  }
   const porCliente = new Map<string, CompLike[]>();
   for (const row of compsDoTipo) {
     const atuais = porCliente.get(row.cliente_id) ?? [];

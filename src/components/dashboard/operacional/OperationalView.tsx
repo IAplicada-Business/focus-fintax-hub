@@ -31,6 +31,8 @@ import { TipoTeseFilter } from "@/components/TipoTeseFilter";
 import {
   filtrarIdsPorTipoTese,
   listarTiposTese,
+  rotuloFiltroTese,
+  teseFiltroAtivo,
   type TipoTeseFiltro,
 } from "@/lib/tese-filter";
 import { DashboardPeriodFilter } from "@/components/DashboardPeriodFilter";
@@ -66,7 +68,7 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
     new Set(STATUS_COMPENSACAO_VALUES),
   );
   const [ramoFiltro, setRamoFiltro] = useState<RamoGerencialFiltro>("todas");
-  const [tipoTeseFiltro, setTipoTeseFiltro] = useState<TipoTeseFiltro>(null);
+  const [tipoTeseFiltro, setTipoTeseFiltro] = useState<TipoTeseFiltro>([]);
   const [periodo, setPeriodo] = useState<DashboardPeriod>(() =>
     defaultDashboardPeriod(data.compsRaw),
   );
@@ -115,7 +117,7 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
     );
     const totaisBase = new Map(data.totais.map((total) => [total.cliente_id, total]));
     const totaisRecorte = totaisCalculados.map((total) =>
-      !tipoTeseFiltro && total.sem_base_financeira
+      !teseFiltroAtivo(tipoTeseFiltro) && total.sem_base_financeira
         ? { ...total, ...(totaisBase.get(total.cliente_id) ?? {}) }
         : total,
     );
@@ -223,7 +225,7 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
           options={m.periodoOptions}
         />
         <span className="text-[11px] text-ink-35">
-          {m.recorte} cliente{m.recorte === 1 ? "" : "s"} no recorte · período: {m.periodoLabel} · tese: {tipoTeseFiltro ?? "elegíveis (REPORTO fora do saldo)"} · {m.foraRecorte} ativo{m.foraRecorte === 1 ? "" : "s"} fora
+          {m.recorte} cliente{m.recorte === 1 ? "" : "s"} no recorte · período: {m.periodoLabel} · tese: {rotuloFiltroTese(tipoTeseFiltro, m.tiposTese)} · {m.foraRecorte} ativo{m.foraRecorte === 1 ? "" : "s"} fora
         </span>
       </div>
       {(data.qualidade.clientesSemBaseFinanceira > 0 ||

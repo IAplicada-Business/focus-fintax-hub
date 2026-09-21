@@ -82,7 +82,7 @@ describe("OperationalView com base legada", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/2 clientes no recorte · período: Acumulado · tese: elegíveis \(REPORTO fora do saldo\) · 0 ativos fora/)).toBeInTheDocument();
+    expect(screen.getByText(/2 clientes no recorte · período: Acumulado · tese: todas · 0 ativos fora/)).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Saldo a compensar: 1500" })).toBeInTheDocument();
     expect(screen.getByText(/2 sem status de compensação/)).toBeInTheDocument();
     expect(screen.getByText(/2 sem tipo de recuperação/)).toBeInTheDocument();

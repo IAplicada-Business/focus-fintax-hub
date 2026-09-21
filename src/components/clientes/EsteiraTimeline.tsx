@@ -5,6 +5,7 @@ import { KanbanSquare } from "lucide-react";
 import { ResponsavelAvatar } from "@/components/esteira/ResponsavelAvatar";
 import { useEsteiraHistorico, useEsteiraSlaConfig } from "@/hooks/data/useEsteira";
 import { cn } from "@/lib/utils";
+import { esteiraStageLabel } from "@/lib/esteira-constants";
 
 interface Props {
   clienteId: string;
@@ -30,7 +31,7 @@ export function EsteiraTimeline({ clienteId }: Props) {
   const { data: slaConfig } = useEsteiraSlaConfig();
   const labelEtapa = useMemo(() => {
     const m = new Map((slaConfig ?? []).map((r) => [r.estagio as string, r.label]));
-    return (e: string) => m.get(e) ?? e;
+    return (e: string) => m.get(e) ?? esteiraStageLabel(e);
   }, [slaConfig]);
 
   if (isLoading || !data || data.length === 0) return null;

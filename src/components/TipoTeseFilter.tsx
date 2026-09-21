@@ -1,8 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Filter } from "lucide-react";
 import type { TipoTeseFiltro, TipoTeseOpcao } from "@/lib/tese-filter";
+import { teseFiltroAtivo } from "@/lib/tese-filter";
 
 interface Props {
   value: TipoTeseFiltro;
@@ -11,53 +13,72 @@ interface Props {
   className?: string;
 }
 
+/**
+ * Seletor de teses: nenhuma, uma, várias ou todas.
+ * Conjunto vazio = todas (sem texto de "elegíveis" / "saldo padrão").
+ */
 export function TipoTeseFilter({ value, onChange, options, className }: Props) {
-  const selecionada = options.find((option) => option.value === value);
+  const ativo = teseFiltroAtivo(value);
+  const selecionadas = new Set(value);
+  const label = !ativo
+    ? "Teses"
+    : value.length === 1
+      ? options.find((option) => option.value === value[0])?.label ?? "1 tese"
+      : `${value.length} teses`;
+
+  const toggle = (codigo: string) => {
+    const next = new Set(selecionadas);
+    if (next.has(codigo)) next.delete(codigo);
+    else next.add(codigo);
+    onChange([...next]);
+  };
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className={className}>
+        <Button variant="outline" size="sm" className={className} aria-label="Filtrar por teses">
           <Filter className="mr-1 h-3.5 w-3.5" />
-          {selecionada?.label ?? "Tipo de tese"}
-          {selecionada && (
-            <Badge className="ml-2 h-4 px-1 text-[10px]">{selecionada.clientes}</Badge>
-          )}
+          <span className="max-w-[180px] truncate">{label}</span>
+          {ativo && <Badge className="ml-2 h-4 px-1 text-[10px]">{value.length}</Badge>}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72">
-        <div className="space-y-1">
-          <p className="px-1.5 text-xs font-semibold">Tipo de tese</p>
-          <p className="px-1.5 pb-1 text-[10px] text-muted-foreground">
-            O padrão inclui teses elegíveis e deixa REPORTO fora do saldo.
-          </p>
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-semibold">Filtrar por tese</p>
           <button
             type="button"
-            onClick={() => onChange(null)}
-            className="flex w-full items-center justify-between rounded px-1.5 py-1.5 text-left text-xs hover:bg-muted"
+            className="text-[11px] text-primary underline"
+            onClick={() => onChange([])}
           >
-            <span className={!value ? "font-semibold text-primary" : undefined}>
-              Todas elegíveis (sem REPORTO)
-            </span>
+            Todas
           </button>
+        </div>
+        <div className="max-h-64 space-y-1 overflow-y-auto">
+          <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-muted">
+            <Checkbox
+              checked={!ativo}
+              aria-label="Todas as teses"
+              onCheckedChange={() => onChange([])}
+            />
+            <span className="font-medium">Todas as teses</span>
+          </label>
           {options.map((option) => (
-            <button
-              type="button"
+            <label
               key={option.value}
-              onClick={() => onChange(option.value)}
-              className="flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-left text-xs hover:bg-muted"
+              className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-muted"
             >
-              <span className={value === option.value ? "font-semibold text-primary" : undefined}>
-                {option.label}
-              </span>
-              {option.value === "REPORTO" && (
-                <Badge variant="outline" className="text-[9px]">fora do saldo padrão</Badge>
-              )}
-              <span className="ml-auto text-[11px] text-muted-foreground">
-                {option.clientes}
-              </span>
-            </button>
+              <Checkbox
+                checked={selecionadas.has(option.value)}
+                aria-label={option.label}
+                onCheckedChange={() => toggle(option.value)}
+              />
+              <span className="min-w-0 flex-1 truncate">{option.label}</span>
+              <span className="text-[11px] text-muted-foreground">{option.clientes}</span>
+            </label>
           ))}
+          {options.length === 0 && (
+            <p className="py-3 text-center text-xs text-muted-foreground">Nenhuma tese cadastrada.</p>
+          )}
         </div>
       </PopoverContent>
     </Popover>

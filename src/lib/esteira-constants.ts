@@ -1,5 +1,4 @@
 export const ESTEIRA_STAGES = [
-  { value: "nova_abordagem", label: "Nova abordagem" },
   { value: "triagem", label: "Triagem" },
   { value: "levantamento", label: "Levantamento" },
   { value: "emitir_contrato", label: "Emitir Contrato" },
@@ -10,8 +9,18 @@ export const ESTEIRA_STAGES = [
   { value: "devolutiva_cliente", label: "Devolutiva ao cliente" },
 ] as const;
 
-/** Espelha o enum `estagio_esteira` do Postgres. */
-export type EstagioEsteira = (typeof ESTEIRA_STAGES)[number]["value"];
+/**
+ * Etapa legada removida do fluxo operacional vigente. O valor permanece no
+ * enum e no histórico para não apagar auditoria, mas não é mais um destino.
+ */
+export const ESTEIRA_STAGES_LEGADAS = [
+  { value: "nova_abordagem", label: "Nova abordagem (legado comercial)" },
+] as const;
+
+export const ESTEIRA_ALL_STAGES = [...ESTEIRA_STAGES, ...ESTEIRA_STAGES_LEGADAS] as const;
+
+/** Espelha o enum `estagio_esteira` do Postgres, incluindo valores históricos. */
+export type EstagioEsteira = (typeof ESTEIRA_ALL_STAGES)[number]["value"];
 
 /**
  * Defaults de SLA (dias de calendário). Fonte de verdade em runtime:
@@ -83,7 +92,11 @@ export function sugerirEstagioRealocacao(
  * viraria erro `invalid input value for enum`.
  */
 export function isEstagioEsteira(value: string): value is EstagioEsteira {
-  return ESTEIRA_STAGES.some((s) => s.value === value);
+  return ESTEIRA_ALL_STAGES.some((s) => s.value === value);
+}
+
+export function esteiraStageLabel(value: string): string {
+  return ESTEIRA_ALL_STAGES.find((s) => s.value === value)?.label ?? value;
 }
 
 export function slaDiasDaEtapa(

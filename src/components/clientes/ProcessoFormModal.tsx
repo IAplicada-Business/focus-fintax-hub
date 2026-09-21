@@ -225,6 +225,25 @@ export function ProcessoFormModal({
         `Processo "${form.nome_exibicao}": ${processo.tese} → ${form.tese}`,
       );
     }
+    if (
+      processo &&
+      (processo.status_contrato !== form.status_contrato ||
+        processo.status_processo !== form.status_processo)
+    ) {
+      logClienteHistorico(
+        clienteId,
+        "status_mudado",
+        `Situação da tese "${form.nome_exibicao}" atualizada`,
+        {
+          status_contrato: processo.status_contrato,
+          status_processo: processo.status_processo,
+        },
+        {
+          status_contrato: form.status_contrato,
+          status_processo: form.status_processo,
+        },
+      );
+    }
 
     try {
       await syncCreditoApuradoFromProcesso({
@@ -249,7 +268,7 @@ export function ProcessoFormModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90vh] max-w-md flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="shrink-0 space-y-1 px-6 pb-3 pt-6 pr-12 text-left">
-          <DialogTitle>{processo ? "Editar Processo" : "Adicionar Tese"}</DialogTitle>
+          <DialogTitle>{processo ? "Editar tese" : "Adicionar tese"}</DialogTitle>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-6">
         <div className="grid gap-3 py-2">
@@ -331,7 +350,7 @@ export function ProcessoFormModal({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Status do Processo</Label>
+            <Label>Etapa da tese</Label>
             <Select value={form.status_processo} onValueChange={(v) => update("status_processo", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -352,6 +371,9 @@ export function ProcessoFormModal({
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Contrato e etapa são editados somente aqui.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Observação</Label>

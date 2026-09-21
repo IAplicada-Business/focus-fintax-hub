@@ -21,17 +21,13 @@ import { ImportControleModal } from "@/components/clientes/ImportControleModal";
 import { ImportFluxoCaixaModal } from "@/components/clientes/ImportFluxoCaixaModal";
 import {
   StatusCompensacaoFilter,
-  TipoRecuperacaoFilter,
   useStatusCompensacao,
   makeStatusFilterPredicate,
-  makeRamoFilterPredicate,
   countByStatus,
-  countByRamo,
   STATUS_COMPENSACAO_VALUES,
   STATUS_COMPENSACAO_LABELS,
   STATUS_COMPENSACAO_COLORS,
   type StatusCompensacao,
-  type RamoGerencialFiltro,
 } from "@/components/StatusCompensacaoFilter";
 import { formatCurrencyBR } from "@/lib/clientes-constants";
 import { SEGMENTO_LABELS } from "@/lib/pipeline-constants";
@@ -49,6 +45,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { TipoTeseFilter } from "@/components/TipoTeseFilter";
 import {
+  codigoNoFiltroTese,
   codigoTipoTeseProcesso,
   filtrarIdsPorTipoTese,
   listarTiposTese,
@@ -83,13 +80,11 @@ export default function ClientesList() {
   const [importFluxoOpen, setImportFluxoOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filterSegmento, setFilterSegmento] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
   const [filterStatusCompensacao, setFilterStatusCompensacao] = useState<Set<StatusCompensacao>>(
     new Set(STATUS_COMPENSACAO_VALUES)
   );
-  const [filterRamo, setFilterRamo] = useState<RamoGerencialFiltro>("todas");
-  const [filterTipoTese, setFilterTipoTese] = useState<TipoTeseFiltro>(null);
-  const { statusMap: statusCompMap, ramosMap } = useStatusCompensacao();
+  const [filterTipoTese, setFilterTipoTese] = useState<TipoTeseFiltro>([]);
+  const { statusMap: statusCompMap } = useStatusCompensacao();
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 25;
 
@@ -116,9 +111,7 @@ export default function ClientesList() {
       const assinados = cp.filter(
         (p) =>
           p.status_contrato === "assinado" &&
-          (filterTipoTese
-            ? codigoTipoTeseProcesso(p) === filterTipoTese
-            : !isReportoProcesso(p)),
+          codigoNoFiltroTese(codigoTipoTeseProcesso(p), filterTipoTese),
       );
       const total = totais.get(c.id);
       const totalCredito = total?.credito_apurado ?? 0;
@@ -148,10 +141,7 @@ export default function ClientesList() {
       next = next.filter((c) => c.empresa?.toLowerCase().includes(q) || c.cnpj?.includes(q));
     }
     if (filterSegmento !== "all") next = next.filter((c) => c.segmento === filterSegmento);
-    if (filterStatus === "compensando") next = next.filter((c) => c.totalCompensado > 0);
-    else if (filterStatus !== "all") next = next.filter((c) => c.status === filterStatus);
     const statusCompPredicate = makeStatusFilterPredicate(filterStatusCompensacao, statusCompMap);
-    const ramoPredicate = makeRamoFilterPredicate(filterRamo, ramosMap);
     const idsTipoTese = filtrarIdsPorTipoTese(
       next.map((cliente) => cliente.id),
       filterTipoTese,
@@ -159,10 +149,8 @@ export default function ClientesList() {
       creditos,
       teses,
     );
-    return next.filter(
-      (c) => statusCompPredicate(c.id) && ramoPredicate(c.id) && idsTipoTese.has(c.id),
-    );
-  }, [allStats, search, filterSegmento, filterStatus, filterStatusCompensacao, filterRamo, filterTipoTese, statusCompMap, ramosMap, processos, creditos, teses]);
+    return next.filter((c) => statusCompPredicate(c.id) && idsTipoTese.has(c.id));
+  }, [allStats, search, filterSegmento, filterStatusCompensacao, filterTipoTese, statusCompMap, processos, creditos, teses]);
 
   const totalClientes = filtered.length;
   const totalCompensando = filtered.filter((c) => c.totalCompensado > 0).length;
@@ -173,17 +161,13 @@ export default function ClientesList() {
     () => countByStatus(allStats.map((c) => c.id), statusCompMap),
     [allStats, statusCompMap]
   );
-  const ramoCounts = useMemo(
-    () => countByRamo(allStats.map((c) => c.id), ramosMap),
-    [allStats, ramosMap],
-  );
   const tiposTese = useMemo(
     () => listarTiposTese(processos, creditos, teses),
     [processos, creditos, teses],
   );
 
   // Reset page on filter change
-  useEffect(() => setCurrentPage(1), [search, filterSegmento, filterStatus, filterStatusCompensacao, filterRamo, filterTipoTese]);
+  useEffect(() => setCurrentPage(1), [search, filterSegmento, filterStatusCompensacao, filterTipoTese]);
 
   // Pagination
   const totalItems = filtered.length;
@@ -211,7 +195,7 @@ export default function ClientesList() {
     for (const p of processos) {
       if (p.status_contrato !== "assinado") continue;
       const key = codigoTipoTeseProcesso(p) || p.tese || p.nome_exibicao;
-      if (filterTipoTese && key !== filterTipoTese) continue;
+      if (!codigoNoFiltroTese(codigoTipoTeseProcesso(p), filterTipoTese)) continue;
       const reporto = isReportoProcesso(p);
       if (!map[key]) map[key] = { nome: reporto ? "REPORTO" : p.nome_exibicao || p.tese, clientes: new Set(), identificado: 0, compensado: 0, reporto };
       map[key].clientes.add(p.cliente_id);
@@ -374,24 +358,10 @@ export default function ClientesList() {
             {Object.entries(SEGMENTO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="compensando">Compensando</SelectItem>
-            <SelectItem value="ativo">Ativo</SelectItem>
-            <SelectItem value="encerrado">Encerrado</SelectItem>
-          </SelectContent>
-        </Select>
         <StatusCompensacaoFilter
           selectedStatuses={filterStatusCompensacao}
           onChange={setFilterStatusCompensacao}
           counts={statusCompCounts}
-        />
-        <TipoRecuperacaoFilter
-          ramo={filterRamo}
-          onChange={setFilterRamo}
-          counts={ramoCounts}
         />
         <TipoTeseFilter
           value={filterTipoTese}
@@ -399,7 +369,7 @@ export default function ClientesList() {
           options={tiposTese}
         />
         <span className="self-center text-[11px] text-muted-foreground">
-          {totalClientes} cliente{totalClientes === 1 ? "" : "s"} · tese: {filterTipoTese ?? "elegíveis (REPORTO fora do saldo)"}
+          {totalClientes} cliente{totalClientes === 1 ? "" : "s"}
         </span>
       </div>
 
