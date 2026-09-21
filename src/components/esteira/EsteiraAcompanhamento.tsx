@@ -158,6 +158,7 @@ export function EsteiraAcompanhamento({ clientes, slaConfig }: Props) {
                 <TableHead>Etapa</TableHead>
                 <TableHead className="text-right">Parado</TableHead>
                 <TableHead>SLA</TableHead>
+                <TableHead>Motivo da parada</TableHead>
                 <TableHead>Responsável</TableHead>
                 <TableHead>Última ação</TableHead>
                 <TableHead>Próxima ação</TableHead>
@@ -204,6 +205,21 @@ export function EsteiraAcompanhamento({ clientes, slaConfig }: Props) {
                         {slaTexto(sla.status, sla.restante)}
                       </span>
                       {sla.sla != null && <p className="mt-0.5 text-[10px] text-muted-foreground">meta {sla.sla}d</p>}
+                    </TableCell>
+                    <TableCell className="max-w-[240px]">
+                      {sla.status === "estourado" ? (
+                        c.motivo_parada ? (
+                          <p className="line-clamp-2 text-xs text-foreground" title={c.motivo_parada}>
+                            {c.motivo_parada}
+                          </p>
+                        ) : (
+                          <span className="text-[10px] font-medium text-destructive">
+                            Não informado
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="max-w-[170px]">
                       <ResponsavelAvatar nome={c.responsavel_nome} comNome />

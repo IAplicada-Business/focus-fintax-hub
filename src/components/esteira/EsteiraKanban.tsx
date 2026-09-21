@@ -228,6 +228,23 @@ function ClienteCard({ cliente, index, sla, onClick }: { cliente: EsteiraCliente
             )}
           </div>
 
+          {atrasado && (
+            <div
+              className={cn(
+                "mt-2 rounded-md border px-2 py-1.5 text-[10px] leading-snug",
+                cliente.motivo_parada
+                  ? "border-amber-200 bg-amber-50 text-amber-950"
+                  : "border-dash-red/20 bg-dash-red/5 text-dash-red",
+              )}
+              title={cliente.motivo_parada || "Motivo da parada ainda não informado"}
+            >
+              <span className="font-bold">Motivo: </span>
+              <span className="line-clamp-2">
+                {cliente.motivo_parada || "não informado — abra o cliente para preencher"}
+              </span>
+            </div>
+          )}
+
           <div className="mt-2.5 pt-2 border-t border-ink-06 flex items-center justify-between gap-2">
             <ResponsavelAvatar nome={cliente.responsavel_nome} size="xs" comNome className="min-w-0 [&>span]:text-[10px]" />
             <span className={cn("inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-[2px] rounded-full border tabular-nums shrink-0", SLA_BADGE[sla.status])} title={sla.sla != null ? `Meta da etapa: ${sla.sla} dias` : "Etapa sem meta"}>
