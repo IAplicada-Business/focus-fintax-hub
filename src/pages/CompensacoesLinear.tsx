@@ -565,11 +565,13 @@ export default function CompensacoesLinear() {
                           <span>{formatCompetenciaPT(c.mes_referencia)}</span>
                         ) : (
                           <MonthPicker
+                            aria-label="Competência"
                             value={monthKey(c.mes_referencia)}
                             onChange={(v) => {
                               if (v && v !== monthKey(c.mes_referencia)) patchRow(c.id, { mes_referencia: `${v}-01` });
                             }}
-                            className="h-7 w-32 text-xs"
+                            clearable={false}
+                            triggerClassName="h-7"
                           />
                         )}
                       </TableCell>
