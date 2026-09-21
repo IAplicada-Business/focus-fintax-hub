@@ -1,17 +1,14 @@
 /**
- * Esteira operacional do cliente. O funil comercial termina no handoff
- * (`contrato_emitido` / `cliente_ativo`); daqui em diante a etapa avança só
- * neste quadro, sem repetir aquisição.
+ * Esteira operacional do cliente. Triagem e contrato são sincronizados com o
+ * comercial; depois de Ganho, a operação segue até Concluído.
  */
 export const ESTEIRA_STAGES = [
   { value: "triagem", label: "Triagem" },
-  { value: "levantamento", label: "Levantamento" },
-  { value: "emitir_contrato", label: "Emitir Contrato" },
-  { value: "receber_assinado", label: "Receber Assinado" },
+  { value: "contrato_emitido", label: "Contrato Emitido" },
+  { value: "contrato_assinado", label: "Contrato Assinado" },
   { value: "em_compensacao", label: "Em Compensação" },
-  { value: "encaminhar_financeiro", label: "Encaminhar Financeiro" },
+  { value: "compensado", label: "Compensado" },
   { value: "concluido", label: "Concluído" },
-  { value: "devolutiva_cliente", label: "Devolutiva ao cliente" },
 ] as const;
 
 /**
@@ -20,6 +17,11 @@ export const ESTEIRA_STAGES = [
  */
 export const ESTEIRA_STAGES_LEGADAS = [
   { value: "nova_abordagem", label: "Nova abordagem (legado comercial)" },
+  { value: "levantamento", label: "Levantamento (legado)" },
+  { value: "emitir_contrato", label: "Emitir Contrato (legado)" },
+  { value: "receber_assinado", label: "Receber Assinado (legado)" },
+  { value: "encaminhar_financeiro", label: "Encaminhar Financeiro (legado)" },
+  { value: "devolutiva_cliente", label: "Devolutiva ao cliente (legado)" },
 ] as const;
 
 export const ESTEIRA_ALL_STAGES = [...ESTEIRA_STAGES, ...ESTEIRA_STAGES_LEGADAS] as const;
@@ -42,10 +44,13 @@ export const ESTEIRA_SLA_DIAS: Record<EstagioEsteira, number | null> = {
   encaminhar_financeiro: 5,
   concluido: null,
   devolutiva_cliente: null,
+  contrato_emitido: 3,
+  contrato_assinado: 3,
+  compensado: 5,
 };
 
-/** Etapas terminais: cliente saiu do fluxo (com sucesso ou por tese inviável). */
-export const ESTEIRA_STAGES_TERMINAIS: readonly EstagioEsteira[] = ["concluido", "devolutiva_cliente"];
+/** Etapa terminal vigente. Valores legados continuam reconhecidos no histórico. */
+export const ESTEIRA_STAGES_TERMINAIS: readonly EstagioEsteira[] = ["concluido"];
 
 export type EsteiraSlaMap = Partial<Record<EstagioEsteira, number | null>>;
 

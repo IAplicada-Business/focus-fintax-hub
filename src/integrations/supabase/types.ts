@@ -2640,6 +2640,9 @@ export type Database = {
         | "encaminhar_financeiro"
         | "nova_abordagem"
         | "devolutiva_cliente"
+        | "contrato_emitido"
+        | "contrato_assinado"
+        | "compensado"
       regime_tributario: "lucro_real" | "lucro_presumido" | "simples_nacional"
       status_cliente: "fechado" | "relatorio_enviado" | "em_analise" | "ativo"
       status_pagamento: "pendente" | "pago"
@@ -2808,6 +2811,9 @@ export const Constants = {
         "encaminhar_financeiro",
         "nova_abordagem",
         "devolutiva_cliente",
+        "contrato_emitido",
+        "contrato_assinado",
+        "compensado",
       ],
       regime_tributario: ["lucro_real", "lucro_presumido", "simples_nacional"],
       status_cliente: ["fechado", "relatorio_enviado", "em_analise", "ativo"],

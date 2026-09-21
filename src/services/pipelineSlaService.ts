@@ -50,12 +50,12 @@ export interface LeadFunil extends LeadFunilLike {
   score_lead: number | null;
 }
 
-/** Leads em andamento no funil (mesmo recorte do Dashboard: sem perdidos/cliente ativo). */
+/** Leads em andamento no funil (sem perdidos/ganhos). */
 export async function listLeadsFunil(): Promise<LeadFunil[]> {
   const { data, error } = await supabase
     .from("leads")
     .select("id, empresa, status_funil, status_funil_atualizado_em, criado_em, segmento, score_lead")
-    .not("status_funil", "in", "(perdido,nao_vai_fazer,cliente_ativo)")
+    .not("status_funil", "in", "(perdido,nao_vai_fazer,ganho,cliente_ativo)")
     .limit(5000);
   if (error) throw error;
   const leads = (data ?? []) as LeadFunil[];

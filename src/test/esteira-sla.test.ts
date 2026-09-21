@@ -11,16 +11,15 @@ import {
 } from "@/lib/esteira-constants";
 
 describe("ESTEIRA_SLA_DIAS (épica Painel SLA)", () => {
-  it("bate com as metas do backlog para as 4 etapas iniciais", () => {
+  it("bate com as metas das etapas conectadas ao comercial", () => {
     expect(ESTEIRA_SLA_DIAS.triagem).toBe(1);
-    expect(ESTEIRA_SLA_DIAS.levantamento).toBe(3);
-    expect(ESTEIRA_SLA_DIAS.emitir_contrato).toBe(1);
-    expect(ESTEIRA_SLA_DIAS.receber_assinado).toBe(3);
+    expect(ESTEIRA_SLA_DIAS.contrato_emitido).toBe(3);
+    expect(ESTEIRA_SLA_DIAS.contrato_assinado).toBe(3);
   });
 
-  it("define default operacional pra Em Compensação, Financeiro e sem meta pra Concluído", () => {
+  it("define default operacional pra Em Compensação, Compensado e Concluído", () => {
     expect(ESTEIRA_SLA_DIAS.em_compensacao).toBe(30);
-    expect(ESTEIRA_SLA_DIAS.encaminhar_financeiro).toBe(5);
+    expect(ESTEIRA_SLA_DIAS.compensado).toBe(5);
     expect(ESTEIRA_SLA_DIAS.concluido).toBeNull();
   });
 
@@ -51,19 +50,14 @@ describe("isClienteAtrasadoSla", () => {
     expect(isClienteAtrasadoSla("triagem", 2)).toBe(true);
   });
 
-  it("Levantamento: >3d é atraso", () => {
-    expect(isClienteAtrasadoSla("levantamento", 3)).toBe(false);
-    expect(isClienteAtrasadoSla("levantamento", 4)).toBe(true);
+  it("Contrato Emitido: >3d é atraso", () => {
+    expect(isClienteAtrasadoSla("contrato_emitido", 3)).toBe(false);
+    expect(isClienteAtrasadoSla("contrato_emitido", 4)).toBe(true);
   });
 
-  it("Emitir Contrato: >1d é atraso", () => {
-    expect(isClienteAtrasadoSla("emitir_contrato", 1)).toBe(false);
-    expect(isClienteAtrasadoSla("emitir_contrato", 2)).toBe(true);
-  });
-
-  it("Receber Assinado: >3d é atraso", () => {
-    expect(isClienteAtrasadoSla("receber_assinado", 3)).toBe(false);
-    expect(isClienteAtrasadoSla("receber_assinado", 4)).toBe(true);
+  it("Contrato Assinado: >3d é atraso", () => {
+    expect(isClienteAtrasadoSla("contrato_assinado", 3)).toBe(false);
+    expect(isClienteAtrasadoSla("contrato_assinado", 4)).toBe(true);
   });
 
   it("Em Compensação: >30d é atraso", () => {
@@ -71,16 +65,16 @@ describe("isClienteAtrasadoSla", () => {
     expect(isClienteAtrasadoSla("em_compensacao", 31)).toBe(true);
   });
 
-  it("Encaminhar Financeiro: >5d é atraso", () => {
-    expect(isClienteAtrasadoSla("encaminhar_financeiro", 5)).toBe(false);
-    expect(isClienteAtrasadoSla("encaminhar_financeiro", 6)).toBe(true);
+  it("Compensado: >5d é atraso", () => {
+    expect(isClienteAtrasadoSla("compensado", 5)).toBe(false);
+    expect(isClienteAtrasadoSla("compensado", 6)).toBe(true);
   });
 
   it("aceita override de SLA (config editável)", () => {
     expect(isClienteAtrasadoSla("triagem", 2)).toBe(true);
     expect(isClienteAtrasadoSla("triagem", 2, { triagem: 5 })).toBe(false);
-    expect(slaDiasDaEtapa("encaminhar_financeiro")).toBe(5);
-    expect(slaDiasDaEtapa("encaminhar_financeiro", { encaminhar_financeiro: 10 })).toBe(10);
+    expect(slaDiasDaEtapa("compensado")).toBe(5);
+    expect(slaDiasDaEtapa("compensado", { compensado: 10 })).toBe(10);
   });
 
   it("Concluído nunca atrasa", () => {
@@ -105,7 +99,7 @@ describe("projetarAtrasoPorEtapa", () => {
     const proj = projetarAtrasoPorEtapa([
       { estagio_esteira: "triagem", dias_na_etapa: 5 }, // +4
       { estagio_esteira: "triagem", dias_na_etapa: 1 }, // 0
-      { estagio_esteira: "levantamento", dias_na_etapa: 10 }, // +7
+      { estagio_esteira: "contrato_emitido", dias_na_etapa: 10 }, // +7
       { estagio_esteira: "concluido", dias_na_etapa: 90 }, // 0
     ]);
 
@@ -114,9 +108,9 @@ describe("projetarAtrasoPorEtapa", () => {
     expect(triagem.atrasados).toBe(1);
     expect(triagem.atrasoAcumuladoDias).toBe(4);
 
-    const lev = proj.find((p) => p.estagio === "levantamento")!;
-    expect(lev.atrasados).toBe(1);
-    expect(lev.atrasoAcumuladoDias).toBe(7);
+    const contrato = proj.find((p) => p.estagio === "contrato_emitido")!;
+    expect(contrato.atrasados).toBe(1);
+    expect(contrato.atrasoAcumuladoDias).toBe(7);
 
     const conc = proj.find((p) => p.estagio === "concluido")!;
     expect(conc.atrasados).toBe(0);
@@ -133,7 +127,7 @@ describe("projetarAtrasoPorEtapa", () => {
 describe("visibleEsteiraStages (estágios configuráveis)", () => {
   const config = [
     { estagio: "triagem", label: "Triagem", ativo: true },
-    { estagio: "levantamento", label: "Levantamento", ativo: false },
+    { estagio: "contrato_emitido", label: "Contrato Emitido", ativo: false },
     { estagio: "concluido", label: "Concluído", ativo: true },
   ];
 
@@ -143,8 +137,8 @@ describe("visibleEsteiraStages (estágios configuráveis)", () => {
   });
 
   it("nunca esconde cliente: etapa inativa com cliente alocado continua visível", () => {
-    const stages = visibleEsteiraStages(config, ["levantamento"]);
-    expect(stages.map((s) => s.value)).toEqual(["triagem", "levantamento", "concluido"]);
+    const stages = visibleEsteiraStages(config, ["contrato_emitido"]);
+    expect(stages.map((s) => s.value)).toEqual(["triagem", "contrato_emitido", "concluido"]);
   });
 
   it("preserva a ordem recebida (quem chama já ordena por `ordem`)", () => {

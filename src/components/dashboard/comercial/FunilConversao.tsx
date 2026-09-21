@@ -17,7 +17,7 @@ interface Props {
 export function FunilConversao({ funnelData, navigate }: Props) {
   const linhas = taxasConversaoFunil(funnelData);
   const max = Math.max(...funnelData.map((f) => f.count), 1);
-  const total = funnelData.filter((f) => f.stage !== "cliente_ativo").reduce((s, f) => s + f.count, 0);
+  const total = funnelData.filter((f) => f.stage !== "ganho").reduce((s, f) => s + f.count, 0);
   const potencial = funnelData.reduce((s, f) => s + f.potencial, 0);
 
   return (
@@ -31,7 +31,7 @@ export function FunilConversao({ funnelData, navigate }: Props) {
       <ul className="divide-y divide-ink-06">
         {linhas.map(({ row: f, taxaProxima }, i) => {
           const isContrato = f.stage === "contrato_emitido";
-          const isCliente = f.stage === "cliente_ativo";
+          const isCliente = f.stage === "ganho";
           const largura = Math.max((f.count / max) * 100, f.count > 0 ? 4 : 0);
           return (
             <li key={f.stage}>

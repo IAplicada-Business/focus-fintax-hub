@@ -1,8 +1,9 @@
 export const EDITABLE_STAGES_COMERCIAL = [
   "qualificado",
-  "levantamento_teses",
-  "em_apresentacao",
+  "apresentacao",
+  "triagem",
   "contrato_emitido",
+  "contrato_assinado",
 ];
 
 export function canEditLead(role: string | null, stage: string): boolean {
