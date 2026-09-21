@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Save } from "lucide-react";
 import { toast } from "sonner";
@@ -17,9 +17,14 @@ import {
   type ClienteStatusCompensacao,
 } from "@/lib/client-operation";
 import {
+  isEstagioEsteira,
+  type EstagioEsteira,
+} from "@/lib/esteira-constants";
+import {
   listClienteResponsaveisElegiveis,
   updateClienteOperacao,
 } from "@/services/clientesService";
+import { useEsteiraSlaConfig } from "@/hooks/data/useEsteira";
 
 interface ClienteOperacional {
   id: string;
@@ -40,6 +45,7 @@ export function ClienteOperacaoEditor({
   onUpdated,
 }: Props) {
   const queryClient = useQueryClient();
+  const slaConfigQ = useEsteiraSlaConfig();
   const responsaveisQ = useQuery({
     queryKey: ["clientes", "responsaveis-elegiveis"],
     queryFn: listClienteResponsaveisElegiveis,
@@ -47,6 +53,7 @@ export function ClienteOperacaoEditor({
     staleTime: 5 * 60_000,
   });
   const [status, setStatus] = useState<ClienteStatusCompensacao | "">("");
+  const [estagio, setEstagio] = useState<EstagioEsteira | "">("");
   const [responsavelId, setResponsavelId] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -56,18 +63,38 @@ export function ClienteOperacaoEditor({
         ? cliente.status_compensacao
         : "",
     );
+    setEstagio(
+      isEstagioEsteira(cliente.estagio_esteira)
+        ? cliente.estagio_esteira
+        : "",
+    );
     setResponsavelId(cliente.responsavel_id ?? "");
   }, [
     cliente.id,
     cliente.status_compensacao,
+    cliente.estagio_esteira,
     cliente.responsavel_id,
   ]);
 
+  const etapas = useMemo(
+    () =>
+      [...(slaConfigQ.data ?? [])]
+        .sort((a, b) => a.ordem - b.ordem)
+        .filter(
+          (item) =>
+            (item.ativo || item.estagio === cliente.estagio_esteira) &&
+            isEstagioEsteira(item.estagio),
+        ),
+    [slaConfigQ.data, cliente.estagio_esteira],
+  );
+
   const statusChanged =
     !!status && status !== cliente.status_compensacao;
+  const stageChanged =
+    !!estagio && estagio !== cliente.estagio_esteira;
   const responsibleChanged =
     !!responsavelId && responsavelId !== (cliente.responsavel_id ?? "");
-  const changed = statusChanged || responsibleChanged;
+  const changed = statusChanged || stageChanged || responsibleChanged;
 
   const handleSave = async () => {
     if (!changed) return;
@@ -76,6 +103,7 @@ export function ClienteOperacaoEditor({
       const updated = await updateClienteOperacao({
         clienteId: cliente.id,
         statusCompensacao: statusChanged ? status : undefined,
+        estagio: stageChanged ? estagio : undefined,
         responsavelId: responsibleChanged ? responsavelId : undefined,
       });
       onUpdated(updated);
@@ -98,7 +126,7 @@ export function ClienteOperacaoEditor({
       <div>
         <p className="text-xs font-semibold">Operação</p>
         <p className="text-[10px] text-muted-foreground">
-          Status de compensação e responsável. A etapa avança na esteira.
+          Status, responsável e etapa operacional da empresa.
         </p>
       </div>
 
@@ -156,6 +184,31 @@ export function ClienteOperacaoEditor({
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-[11px]">Etapa atual da esteira</Label>
+        <Select
+          value={estagio || undefined}
+          onValueChange={(value) => {
+            if (isEstagioEsteira(value)) setEstagio(value);
+          }}
+          disabled={!editable || slaConfigQ.isPending}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="Etapa não configurada" />
+          </SelectTrigger>
+          <SelectContent>
+            {etapas.map((item) => (
+              <SelectItem key={item.estagio} value={item.estagio}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-[10px] text-muted-foreground">
+          A alteração é auditada e reinicia o SLA da etapa.
+        </p>
       </div>
 
       {editable && (

@@ -80,3 +80,28 @@ export function tiposRecuperacaoDistintos(
     label: TIPO_RECUPERACAO_LABEL[value],
   }));
 }
+
+export function totalProcessosACompensar(
+  processos: Array<{
+    status_processo?: string | null;
+    status_contrato?: string | null;
+    categoria?: string | null;
+    tese?: string | null;
+    nome_exibicao?: string | null;
+    valor_credito?: number | string | null;
+  }>,
+): number {
+  return processos
+    .filter((processo) => {
+      const reporto =
+        String(processo.categoria ?? "").toLowerCase() === "reporto" ||
+        String(processo.tese ?? "").toUpperCase() === "REPORTO" ||
+        String(processo.nome_exibicao ?? "").toUpperCase() === "REPORTO";
+      return (
+        processo.status_processo === "a_compensar" &&
+        processo.status_contrato === "assinado" &&
+        !reporto
+      );
+    })
+    .reduce((total, processo) => total + Number(processo.valor_credito || 0), 0);
+}

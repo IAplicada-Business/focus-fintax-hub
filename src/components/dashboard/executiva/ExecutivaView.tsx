@@ -162,7 +162,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
           compsRawPeriodo,
           data.teses,
           processosDoCliente,
-          "REPORTO",
+          ["REPORTO"],
         );
     const statusRows = data.statusRows.filter((row) => ids.has(row.cliente_id));
     const { teses } = data;

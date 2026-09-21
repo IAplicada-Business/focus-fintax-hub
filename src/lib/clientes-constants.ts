@@ -1,4 +1,7 @@
-import { STATUS_PROCESSO_PADRAO } from "@/lib/client-operation";
+import {
+  STATUS_PROCESSO_PADRAO,
+  STATUS_PROCESSO_REPORTO,
+} from "@/lib/client-operation";
 
 export const STATUS_CONTRATO = [
   { value: "assinado", label: "Assinado", color: "bg-green-100 text-green-800 border-green-200" },
@@ -18,7 +21,7 @@ export function getStatusContratoConfig(value: string) {
 }
 
 export function getStatusProcessoConfig(value: string) {
-  return STATUS_PROCESSO.find((s) => s.value === value) ?? {
+  return [...STATUS_PROCESSO, STATUS_PROCESSO_REPORTO].find((s) => s.value === value) ?? {
     value,
     label: `Legado: ${value || "sem classificação"}`,
   };
