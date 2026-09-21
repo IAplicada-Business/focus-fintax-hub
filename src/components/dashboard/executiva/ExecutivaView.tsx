@@ -17,7 +17,13 @@ import {
   type StatusCompensacao,
 } from "@/components/StatusCompensacaoFilter";
 import type { OperacionalDashboardData } from "@/services/operacionalDashboardService";
-import { carteiraPorTese, geracaoTesesPorMes, honorarioDe } from "@/lib/operacional-analytics";
+import {
+  carteiraPorTese,
+  compensacoesCanonicas,
+  geracaoTesesPorMes,
+  honorarioDe,
+  resumirFinanceiroPorCliente,
+} from "@/lib/operacional-analytics";
 import {
   filtrarIdsRecorteGerencial,
   normalizarStatusCompensacao,
@@ -25,6 +31,14 @@ import {
 import { compactCurrency } from "../dashboard-utils";
 import { BarList, KpiCard, LinkMore, Panel, InlineEmpty, CountChip } from "../ui/primitives";
 import { cn } from "@/lib/utils";
+import { TipoTeseFilter } from "@/components/TipoTeseFilter";
+import {
+  filtrarCreditosPorTipoTese,
+  filtrarIdsPorTipoTese,
+  filtrarProcessosPorTipoTese,
+  listarTiposTese,
+  type TipoTeseFiltro,
+} from "@/lib/tese-filter";
 
 interface Props {
   data: OperacionalDashboardData;
@@ -64,24 +78,55 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
     new Set(STATUS_COMPENSACAO_VALUES),
   );
   const [ramoFiltro, setRamoFiltro] = useState<RamoGerencialFiltro>("todas");
+  const [tipoTeseFiltro, setTipoTeseFiltro] = useState<TipoTeseFiltro>(null);
 
   const m = useMemo(() => {
     const statusMapCompleto = new Map(
       data.statusRows.map((row) => [row.cliente_id, normalizarStatusCompensacao(row)]),
     );
     const ramosMap = buildRamoFlagsPorCliente(data.processos);
-    const ids = filtrarIdsRecorteGerencial(
+    const idsGerenciais = filtrarIdsRecorteGerencial(
       data.clientes.map((cliente) => cliente.id),
       statusFiltro,
       ramoFiltro,
       statusMapCompleto,
       ramosMap,
     );
+    const ids = filtrarIdsPorTipoTese(
+      idsGerenciais,
+      tipoTeseFiltro,
+      data.processos,
+      data.creditos,
+      data.teses,
+    );
     const clientes = data.clientes.filter((cliente) => ids.has(cliente.id));
-    const totais = data.totais.filter((row) => ids.has(row.cliente_id));
-    const comps = data.comps.filter((row) => ids.has(row.cliente_id));
-    const creditos = data.creditos.filter((row) => ids.has(row.cliente_id));
-    const processos = data.processos.filter((row) => ids.has(row.cliente_id));
+    const totaisCalculados = resumirFinanceiroPorCliente(
+      ids,
+      data.compsRaw,
+      data.creditos,
+      data.teses,
+      data.processos,
+      tipoTeseFiltro,
+    );
+    const totaisBase = new Map(data.totais.map((total) => [total.cliente_id, total]));
+    const totais = totaisCalculados.map((total) =>
+      !tipoTeseFiltro && total.sem_base_financeira
+        ? { ...total, ...(totaisBase.get(total.cliente_id) ?? {}) }
+        : total,
+    );
+    const processosDoCliente = data.processos.filter((row) => ids.has(row.cliente_id));
+    const processos = filtrarProcessosPorTipoTese(processosDoCliente, tipoTeseFiltro);
+    const creditos = filtrarCreditosPorTipoTese(
+      data.creditos.filter((row) => ids.has(row.cliente_id)),
+      data.teses,
+      tipoTeseFiltro,
+    );
+    const comps = compensacoesCanonicas(
+      data.compsRaw.filter((row) => ids.has(row.cliente_id)),
+      data.teses,
+      processosDoCliente,
+      tipoTeseFiltro,
+    );
     const statusRows = data.statusRows.filter((row) => ids.has(row.cliente_id));
     const { teses } = data;
     const apurado = totais.reduce((s, t) => s + t.credito_apurado, 0);
@@ -148,8 +193,9 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       clientes: clientes.length,
       statusCounts: countByStatus(data.clientes.map((c) => c.id), statusMapCompleto),
       ramoCounts: countByRamo(data.clientes.map((c) => c.id), ramosMap),
+      tiposTese: listarTiposTese(data.processos, data.creditos, data.teses),
     };
-  }, [data, ramoFiltro, statusFiltro]);
+  }, [data, ramoFiltro, statusFiltro, tipoTeseFiltro]);
 
   const semTeseVisiveis = verTodosSemTese ? m.semTese : m.semTese.slice(0, MAX_SEM_TESE);
   const maxTeseApurado = Math.max(...m.porTese.map((t) => t.apurado), 1);
@@ -167,8 +213,13 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
           onChange={setRamoFiltro}
           counts={m.ramoCounts}
         />
+        <TipoTeseFilter
+          value={tipoTeseFiltro}
+          onChange={setTipoTeseFiltro}
+          options={m.tiposTese}
+        />
         <span className="text-[11px] text-ink-35">
-          {m.clientes} cliente{m.clientes === 1 ? "" : "s"} no recorte
+          {m.clientes} cliente{m.clientes === 1 ? "" : "s"} no recorte · tese: {tipoTeseFiltro ?? "elegíveis (REPORTO fora do saldo)"}
         </span>
       </div>
       <div className="animate-slide-up delay-1 grid grid-cols-2 xl:grid-cols-4 gap-4" role="region" aria-label="KPIs da carteira">
@@ -355,7 +406,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
         </div>
       </div>
       <p className="text-[10px] text-ink-35 px-1">
-        Totais seguem o recorte de status e o mesmo ramo da esteira; Administrativo agrupa Compensação + Ressarcimento. Régua de <Link to="/configuracoes/motor" className="underline">teses no cálculo</Link>.
+        Totais seguem status, ramo e tipo de tese. REPORTO aparece em processos, mas só entra nos valores quando selecionado explicitamente. Régua de <Link to="/configuracoes/motor" className="underline">teses no cálculo</Link>.
       </p>
     </div>
   );

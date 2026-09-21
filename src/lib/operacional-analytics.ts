@@ -17,6 +17,10 @@ import {
 } from "@/lib/clientes-constants";
 import { buildLinhasMapa, calcularTotais } from "@/lib/mapa-creditos";
 import { currentMonthKey, monthKeyBrt, shiftMonthKey } from "@/lib/month-key";
+import {
+  filtrarCompensacoesPorTipoTese,
+  type TipoTeseFiltro,
+} from "@/lib/tese-filter";
 
 const MS_DIA = 86_400_000;
 
@@ -78,6 +82,7 @@ export function resumirFinanceiroPorCliente(
   creditos: CreditoLike[],
   teses: TeseLike[],
   processos: ProcessoLike[],
+  tipoTese: TipoTeseFiltro = null,
 ): ResumoFinanceiroCliente[] {
   const ids = new Set(clienteIds);
   const compsAtivas = comps.filter((row) => ids.has(row.cliente_id));
@@ -134,15 +139,28 @@ export function resumirFinanceiroPorCliente(
         valor_compensado_manual: credito.valor_compensado_manual ?? null,
       })),
     });
-    // O mapa interno esconde REPORTO por padrão; o consolidado operacional
-    // usa exatamente esse mesmo recorte financeiro.
-    const totaisMapa = calcularTotais(
-      linhasMapa.filter((linha) => linha.tese_codigo !== "REPORTO"),
+    const linhasDoRecorte = tipoTese
+      ? linhasMapa.filter((linha) => linha.tese_codigo === tipoTese)
+      : linhasMapa.filter((linha) => linha.tese_codigo !== "REPORTO");
+    // Sem filtro, conserva a régua do mapa (`incluir_no_calculo`) e exclui
+    // REPORTO. Uma tese explicitamente escolhida é inspecionada isoladamente,
+    // mesmo quando não participa do cálculo padrão.
+    const totaisMapa = tipoTese
+      ? linhasDoRecorte.reduce(
+          (acc, linha) => ({
+            apurado: acc.apurado + Number(linha.valor_apurado_inicial || 0),
+            compensado: acc.compensado + Number(linha.total_compensado || 0),
+            saldo: acc.saldo + Number(linha.saldo_final || 0),
+          }),
+          { apurado: 0, compensado: 0, saldo: 0 },
+        )
+      : calcularTotais(linhasDoRecorte);
+    const compsCanonicas = compensacoesCanonicas(
+      compsCliente,
+      teses,
+      processosCliente,
+      tipoTese,
     );
-    const compsCanonicas = filterCompensadoCanonical(compsCliente, {
-      reportoTeseIds,
-      reportoProcessoIds,
-    });
     return {
       cliente_id: clienteId,
       credito_apurado: totaisMapa.apurado,
@@ -161,6 +179,7 @@ export function compensacoesCanonicas(
   comps: CompLike[],
   teses: TeseLike[],
   processos: ProcessoLike[],
+  tipoTese: TipoTeseFiltro = null,
 ): CompLike[] {
   const reportoTeseIds = new Set(
     teses.filter((t) => String(t.codigo || "").toUpperCase() === "REPORTO").map((t) => t.id),
@@ -170,8 +189,10 @@ export function compensacoesCanonicas(
       .filter(isReportoProcesso)
       .map((p) => p.id),
   );
+  const compsDoTipo = filtrarCompensacoesPorTipoTese(comps, processos, teses, tipoTese);
+  if (tipoTese === "REPORTO") return compsDoTipo;
   const porCliente = new Map<string, CompLike[]>();
-  for (const row of comps) {
+  for (const row of compsDoTipo) {
     const atuais = porCliente.get(row.cliente_id) ?? [];
     atuais.push(row);
     porCliente.set(row.cliente_id, atuais);

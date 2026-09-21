@@ -84,12 +84,12 @@ export function makeRamoFilterPredicate(
 ) {
   return (clienteId: string | null | undefined) => {
     if (ramo === "todas") return true;
-    if (!clienteId) return true;
-    const flags = ramosMap.get(clienteId);
-    // Legado sem tipo de recuperação permanece visível; a tela o declara como
-    // incompleto em vez de apagá-lo do recorte escolhido.
-    if (!flags || !Object.values(flags).some(Boolean)) return true;
-    return pertenceAoRamoGerencial(flags, ramo);
+    // Legado sem tipo permanece em Administrativo/Compensação, sem invadir
+    // Ressarcimento ou Judicial (mesma regra protegida pelo PR 135).
+    return pertenceAoRamoGerencial(
+      (clienteId ? ramosMap.get(clienteId) : undefined) ?? {},
+      ramo,
+    );
   };
 }
 

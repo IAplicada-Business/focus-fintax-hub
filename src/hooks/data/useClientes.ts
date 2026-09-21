@@ -3,7 +3,9 @@ import {
   deleteCliente,
   listClientes,
   listCompensacoesMensais,
+  listCreditosApurados,
   listProcessosTeses,
+  listTesesParaCalculo,
   updateClienteMotivoParada,
 } from "@/services/clientesService";
 import { toastError } from "@/lib/handle-error";
@@ -27,6 +29,20 @@ export function useCompensacoesMensais() {
   return useQuery({
     queryKey: ["clientes", "compensacoes"],
     queryFn: listCompensacoesMensais,
+  });
+}
+
+export function useCreditosApurados() {
+  return useQuery({
+    queryKey: ["clientes", "creditos"],
+    queryFn: listCreditosApurados,
+  });
+}
+
+export function useTesesParaCalculo() {
+  return useQuery({
+    queryKey: ["clientes", "teses"],
+    queryFn: listTesesParaCalculo,
   });
 }
 

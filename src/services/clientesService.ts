@@ -41,7 +41,7 @@ export async function updateClienteMotivoParada(id: string, motivoParada: string
 export async function listProcessosTeses() {
   const { data, error } = await supabase
     .from("processos_teses")
-    .select("id, cliente_id, valor_credito, status_contrato, status_processo, criado_em, atualizado_em, tese, nome_exibicao")
+    .select("id, cliente_id, valor_credito, status_contrato, status_processo, criado_em, atualizado_em, tese, nome_exibicao, categoria, tipo_recuperacao")
     .limit(5000);
   if (error) throw error;
   return data;
@@ -50,8 +50,26 @@ export async function listProcessosTeses() {
 export async function listCompensacoesMensais() {
   const { data, error } = await supabase
     .from("compensacoes_mensais")
-    .select("cliente_id, valor_compensado, processo_tese_id")
+    .select("cliente_id, mes_referencia, valor_compensado, honorario_valor, valor_nf_servico, tese_origem_id, processo_tese_id, tributo_enum, tributo, criado_em")
     .limit(5000);
+  if (error) throw error;
+  return data;
+}
+
+export async function listCreditosApurados() {
+  const { data, error } = await supabase
+    .from("creditos_apurados")
+    .select("cliente_id, tese_id, valor_apurado_inicial, valor_compensado_manual, incluir_no_calculo")
+    .limit(5000);
+  if (error) throw error;
+  return data;
+}
+
+export async function listTesesParaCalculo() {
+  const { data, error } = await supabase
+    .from("teses_tributarias")
+    .select("id, codigo, label, incluir_no_calculo")
+    .limit(500);
   if (error) throw error;
   return data;
 }

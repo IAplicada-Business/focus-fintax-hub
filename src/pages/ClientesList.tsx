@@ -38,8 +38,24 @@ import { SEGMENTO_LABELS } from "@/lib/pipeline-constants";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useClientes, useProcessosTeses, useCompensacoesMensais, useDeleteCliente } from "@/hooks/data/useClientes";
+import {
+  useClientes,
+  useCompensacoesMensais,
+  useCreditosApurados,
+  useDeleteCliente,
+  useProcessosTeses,
+  useTesesParaCalculo,
+} from "@/hooks/data/useClientes";
 import { useQueryClient } from "@tanstack/react-query";
+import { TipoTeseFilter } from "@/components/TipoTeseFilter";
+import {
+  codigoTipoTeseProcesso,
+  filtrarIdsPorTipoTese,
+  listarTiposTese,
+  type TipoTeseFiltro,
+} from "@/lib/tese-filter";
+import { isReportoProcesso } from "@/lib/clientes-constants";
+import { resumirFinanceiroPorCliente } from "@/lib/operacional-analytics";
 
 export default function ClientesList() {
   const navigate = useNavigate();
@@ -50,8 +66,10 @@ export default function ClientesList() {
   const { data: clientes = [], isLoading: loadingClientes } = useClientes();
   const { data: processos = [], isLoading: loadingProcessos } = useProcessosTeses();
   const { data: compensacoes = [], isLoading: loadingComp } = useCompensacoesMensais();
+  const { data: creditos = [], isLoading: loadingCreditos } = useCreditosApurados();
+  const { data: teses = [], isLoading: loadingTeses } = useTesesParaCalculo();
   const deleteMutation = useDeleteCliente();
-  const loading = loadingClientes || loadingProcessos || loadingComp;
+  const loading = loadingClientes || loadingProcessos || loadingComp || loadingCreditos || loadingTeses;
 
   const fetchAll = () => queryClient.invalidateQueries({ queryKey: ["clientes"] });
 
@@ -70,6 +88,7 @@ export default function ClientesList() {
     new Set(STATUS_COMPENSACAO_VALUES)
   );
   const [filterRamo, setFilterRamo] = useState<RamoGerencialFiltro>("todas");
+  const [filterTipoTese, setFilterTipoTese] = useState<TipoTeseFiltro>(null);
   const { statusMap: statusCompMap, ramosMap } = useStatusCompensacao();
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 25;
@@ -81,19 +100,29 @@ export default function ClientesList() {
       if (arr) arr.push(p);
       else processosByCliente.set(p.cliente_id, [p]);
     }
-    const compensadoByCliente = new Map<string, number>();
-    for (const c of compensacoes) {
-      compensadoByCliente.set(
-        c.cliente_id,
-        (compensadoByCliente.get(c.cliente_id) ?? 0) + Number(c.valor_compensado || 0),
-      );
-    }
+    const totais = new Map(
+      resumirFinanceiroPorCliente(
+        clientes.map((cliente) => cliente.id),
+        compensacoes,
+        creditos,
+        teses,
+        processos,
+        filterTipoTese,
+      ).map((total) => [total.cliente_id, total]),
+    );
     const now = Date.now();
     return clientes.map((c) => {
       const cp = processosByCliente.get(c.id) ?? [];
-      const assinados = cp.filter((p) => p.status_contrato === "assinado");
-      const totalCredito = assinados.reduce((s, p) => s + Number(p.valor_credito || 0), 0);
-      const totalCompensado = compensadoByCliente.get(c.id) ?? 0;
+      const assinados = cp.filter(
+        (p) =>
+          p.status_contrato === "assinado" &&
+          (filterTipoTese
+            ? codigoTipoTeseProcesso(p) === filterTipoTese
+            : !isReportoProcesso(p)),
+      );
+      const total = totais.get(c.id);
+      const totalCredito = total?.credito_apurado ?? 0;
+      const totalCompensado = total?.total_compensado ?? 0;
       const hasAlertAguardando = cp.some(
         (p) => p.status_contrato === "aguardando_assinatura" && (now - new Date(p.criado_em).getTime()) > 7 * 86400000,
       );
@@ -105,12 +134,12 @@ export default function ClientesList() {
         tesesAtivas: assinados.length,
         totalCredito,
         totalCompensado,
-        saldo: totalCredito - totalCompensado,
+        saldo: total?.saldo_restante ?? 0,
         hasAlertAguardando,
         hasAlertNaoProtocolado,
       };
     });
-  }, [clientes, processos, compensacoes]);
+  }, [clientes, processos, compensacoes, creditos, teses, filterTipoTese]);
 
   const filtered = useMemo(() => {
     let next = allStats;
@@ -123,8 +152,17 @@ export default function ClientesList() {
     else if (filterStatus !== "all") next = next.filter((c) => c.status === filterStatus);
     const statusCompPredicate = makeStatusFilterPredicate(filterStatusCompensacao, statusCompMap);
     const ramoPredicate = makeRamoFilterPredicate(filterRamo, ramosMap);
-    return next.filter((c) => statusCompPredicate(c.id) && ramoPredicate(c.id));
-  }, [allStats, search, filterSegmento, filterStatus, filterStatusCompensacao, filterRamo, statusCompMap, ramosMap]);
+    const idsTipoTese = filtrarIdsPorTipoTese(
+      next.map((cliente) => cliente.id),
+      filterTipoTese,
+      processos,
+      creditos,
+      teses,
+    );
+    return next.filter(
+      (c) => statusCompPredicate(c.id) && ramoPredicate(c.id) && idsTipoTese.has(c.id),
+    );
+  }, [allStats, search, filterSegmento, filterStatus, filterStatusCompensacao, filterRamo, filterTipoTese, statusCompMap, ramosMap, processos, creditos, teses]);
 
   const totalClientes = filtered.length;
   const totalCompensando = filtered.filter((c) => c.totalCompensado > 0).length;
@@ -139,9 +177,13 @@ export default function ClientesList() {
     () => countByRamo(allStats.map((c) => c.id), ramosMap),
     [allStats, ramosMap],
   );
+  const tiposTese = useMemo(
+    () => listarTiposTese(processos, creditos, teses),
+    [processos, creditos, teses],
+  );
 
   // Reset page on filter change
-  useEffect(() => setCurrentPage(1), [search, filterSegmento, filterStatus, filterStatusCompensacao, filterRamo]);
+  useEffect(() => setCurrentPage(1), [search, filterSegmento, filterStatus, filterStatusCompensacao, filterRamo, filterTipoTese]);
 
   // Pagination
   const totalItems = filtered.length;
@@ -152,7 +194,7 @@ export default function ClientesList() {
   );
 
   // Report data
-  const reportClientes = [...allStats].sort((a, b) => b.totalCredito - a.totalCredito);
+  const reportClientes = [...filtered].sort((a, b) => b.totalCredito - a.totalCredito);
   const reportDate = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
   // Breakdown por tese
@@ -165,17 +207,19 @@ export default function ClientesList() {
         (compensadoByProcesso.get(c.processo_tese_id) ?? 0) + Number(c.valor_compensado || 0),
       );
     }
-    const map: Record<string, { nome: string; clientes: Set<string>; identificado: number; compensado: number }> = {};
+    const map: Record<string, { nome: string; clientes: Set<string>; identificado: number; compensado: number; reporto: boolean }> = {};
     for (const p of processos) {
       if (p.status_contrato !== "assinado") continue;
-      const key = p.tese || p.nome_exibicao;
-      if (!map[key]) map[key] = { nome: p.nome_exibicao || p.tese, clientes: new Set(), identificado: 0, compensado: 0 };
+      const key = codigoTipoTeseProcesso(p) || p.tese || p.nome_exibicao;
+      if (filterTipoTese && key !== filterTipoTese) continue;
+      const reporto = isReportoProcesso(p);
+      if (!map[key]) map[key] = { nome: reporto ? "REPORTO" : p.nome_exibicao || p.tese, clientes: new Set(), identificado: 0, compensado: 0, reporto };
       map[key].clientes.add(p.cliente_id);
       map[key].identificado += Number(p.valor_credito || 0);
       map[key].compensado += compensadoByProcesso.get(p.id) ?? 0;
     }
     return Object.values(map).sort((a, b) => b.identificado - a.identificado);
-  }, [processos, compensacoes]);
+  }, [processos, compensacoes, filterTipoTese]);
 
   const getClienteHealth = (c: any) => {
     if (c.saldo <= 0) return 'amarelo';
@@ -349,6 +393,14 @@ export default function ClientesList() {
           onChange={setFilterRamo}
           counts={ramoCounts}
         />
+        <TipoTeseFilter
+          value={filterTipoTese}
+          onChange={setFilterTipoTese}
+          options={tiposTese}
+        />
+        <span className="self-center text-[11px] text-muted-foreground">
+          {totalClientes} cliente{totalClientes === 1 ? "" : "s"} · tese: {filterTipoTese ?? "elegíveis (REPORTO fora do saldo)"}
+        </span>
       </div>
 
       {/* Table */}
@@ -642,7 +694,10 @@ export default function ClientesList() {
                 <TableBody>
                   {teseBreakdown.map((t, i) => (
                     <TableRow key={i}>
-                      <TableCell className="font-medium text-sm">{t.nome}</TableCell>
+                      <TableCell className="font-medium text-sm">
+                        {t.nome}
+                        {t.reporto && <span className="ml-1 text-[10px] font-normal text-muted-foreground">(fora do saldo padrão)</span>}
+                      </TableCell>
                       <TableCell className="text-center">{t.clientes.size}</TableCell>
                       <TableCell className="text-right text-sm">{formatCurrencyBR(t.identificado)}</TableCell>
                       <TableCell className="text-right text-sm">{formatCurrencyBR(t.compensado)}</TableCell>
@@ -654,9 +709,9 @@ export default function ClientesList() {
                   <TableRow className="font-bold">
                     <TableCell>Total</TableCell>
                     <TableCell className="text-center">—</TableCell>
-                    <TableCell className="text-right">{formatCurrencyBR(teseBreakdown.reduce((s, t) => s + t.identificado, 0))}</TableCell>
-                    <TableCell className="text-right">{formatCurrencyBR(teseBreakdown.reduce((s, t) => s + t.compensado, 0))}</TableCell>
-                    <TableCell className="text-right">{formatCurrencyBR(teseBreakdown.reduce((s, t) => s + (t.identificado - t.compensado), 0))}</TableCell>
+                    <TableCell className="text-right">{formatCurrencyBR(globalCredito)}</TableCell>
+                    <TableCell className="text-right">{formatCurrencyBR(globalCompensado)}</TableCell>
+                    <TableCell className="text-right">{formatCurrencyBR(globalCredito - globalCompensado)}</TableCell>
                   </TableRow>
                 </TableFooter>
               </Table>
