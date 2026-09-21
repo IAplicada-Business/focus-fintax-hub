@@ -73,8 +73,8 @@ export function makeStatusFilterPredicate(
   const semFiltro = selected.size === 0 || selected.size === STATUS_COMPENSACAO_VALUES.length;
   return (clienteId: string | null | undefined) => {
     if (semFiltro) return true;
-    if (!clienteId) return selected.has("sem_operacao");
-    return selected.has(statusMap.get(clienteId) ?? "sem_operacao");
+    if (!clienteId || !statusMap.has(clienteId)) return true;
+    return selected.has(statusMap.get(clienteId)!);
   };
 }
 
@@ -84,8 +84,12 @@ export function makeRamoFilterPredicate(
 ) {
   return (clienteId: string | null | undefined) => {
     if (ramo === "todas") return true;
-    if (!clienteId) return false;
-    return pertenceAoRamoGerencial(ramosMap.get(clienteId) ?? {}, ramo);
+    if (!clienteId) return true;
+    const flags = ramosMap.get(clienteId);
+    // Legado sem tipo de recuperação permanece visível; a tela o declara como
+    // incompleto em vez de apagá-lo do recorte escolhido.
+    if (!flags || !Object.values(flags).some(Boolean)) return true;
+    return pertenceAoRamoGerencial(flags, ramo);
   };
 }
 

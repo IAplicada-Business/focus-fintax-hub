@@ -37,6 +37,13 @@ export function leadAtivo(l: Pick<LeadAnalitico, "status_funil">): boolean {
   return !ETAPAS_PERDIDAS.has(etapaUnificada(l.status_funil));
 }
 
+/** Coluna final do funil: leads realmente convertidos, não a carteira inteira. */
+export function clientesConvertidosNoFunil(
+  leads: Pick<LeadAnalitico, "status_funil">[],
+): number {
+  return leads.filter((lead) => etapaUnificada(lead.status_funil) === "cliente_ativo").length;
+}
+
 // ───────────────────────────────────────── Série semanal (novos × conversões)
 
 export interface PontoSemanal {

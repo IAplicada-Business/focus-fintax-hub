@@ -26,7 +26,6 @@ export interface LeadDashboard {
 export interface ComercialDashboardData {
   leads: LeadDashboard[];
   historico: HistoricoLeadLike[];
-  clientesAtivos: number;
   motor: { tesesAtivas: number; regimes: (string[] | null)[]; diagnosticos: number };
   conversas: InboxConversa[];
   slaConfig: PipelineSlaConfigRow[];
@@ -40,14 +39,13 @@ export interface ComercialDashboardData {
 export async function fetchComercialDashboard(): Promise<ComercialDashboardData> {
   const desdeHistorico = new Date(Date.now() - 120 * MS_DIA).toISOString();
 
-  const [leadsRes, relsRes, histRes, clientesRes, motorRes, diagRes, conversas, slaConfig] = await Promise.all([
+  const [leadsRes, relsRes, histRes, motorRes, diagRes, conversas, slaConfig] = await Promise.all([
     supabase
       .from("leads")
       .select("id, empresa, nome, whatsapp, status_funil, status_funil_atualizado_em, criado_em, segmento, regime_tributario, score_lead, origem")
       .limit(5000),
     supabase.from("relatorios_leads").select("lead_id, estimativa_total_maxima").limit(10000),
     supabase.from("lead_historico").select("lead_id, para_etapa, criado_em").gte("criado_em", desdeHistorico).limit(10000),
-    supabase.from("clientes").select("id", { count: "exact", head: true }).eq("status", "ativo"),
     supabase.from("motor_teses_config").select("regimes_elegiveis").eq("ativo", true),
     supabase.from("diagnosticos_leads").select("lead_id").limit(10000),
     listConversasInbox().catch(() => [] as InboxConversa[]),
@@ -85,7 +83,6 @@ export async function fetchComercialDashboard(): Promise<ComercialDashboardData>
   return {
     leads,
     historico,
-    clientesAtivos: clientesRes.count ?? 0,
     motor: {
       tesesAtivas: motorRes.data?.length ?? 0,
       regimes: (motorRes.data ?? []).map((t) => t.regimes_elegiveis),

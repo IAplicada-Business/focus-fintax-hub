@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useComercialDashboard } from "@/hooks/data/useComercialDashboard";
 import { useUpdatePipelineSlaMeta } from "@/hooks/data/usePipelineSla";
 import {
+  clientesConvertidosNoFunil,
   etapaUnificada,
   leadAtivo,
   leadsParados,
@@ -56,8 +57,9 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
   const m = useMemo(() => {
     if (!data) return null;
     const agora = Date.now();
-    const { leads, historico, clientesAtivos, conversas, slaConfig, motor } = data;
+    const { leads, historico, conversas, slaConfig, motor } = data;
     const ativos = leads.filter(leadAtivo);
+    const clientesConvertidos = clientesConvertidosNoFunil(leads);
     const emAndamento = ativos.filter((l) => etapaUnificada(l.status_funil) !== "cliente_ativo");
     const d7 = agora - 7 * MS_DIA;
     const d14 = agora - 14 * MS_DIA;
@@ -66,7 +68,7 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
     const novos7Ant = leads.filter((l) => t(l.criado_em) >= d14 && t(l.criado_em) < d7).length;
     const potencialAberto = emAndamento.reduce((s, l) => s + l.potencial, 0);
     const contratos = emAndamento.filter((l) => etapaUnificada(l.status_funil) === "contrato_emitido").length;
-    const taxaConversao = leads.length > 0 ? Math.min(Math.round((clientesAtivos / leads.length) * 100), 100) : 0;
+    const taxaConversao = leads.length > 0 ? Math.round((clientesConvertidos / leads.length) * 100) : 0;
 
     const serie = serieSemanalLeads(leads, historico, 12, agora);
     const projecao = projetarSerieSemanal(serie, 4);
@@ -78,19 +80,22 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
     const contagem: Record<string, { count: number; potencial: number }> = {};
     for (const s of FUNNEL_STAGES_COM) contagem[s.value] = { count: 0, potencial: 0 };
     for (const l of emAndamento) {
-      const raw = (l.status_funil ?? "").trim() || "novo";
-      // O funil comercial ainda separa "levantamento_teses" de "em_negociacao"; o legado cai na primeira.
-      const key = contagem[raw] ? raw : raw === "em_negociacao" ? "levantamento_teses" : null;
-      if (key) {
-        contagem[key].count += 1;
-        contagem[key].potencial += l.potencial;
-      }
+      const etapa = etapaUnificada(l.status_funil);
+      // A UI ainda chama esta coluna de levantamento; estágios legados
+      // desconhecidos permanecem visíveis em Novo em vez de sumirem do funil.
+      const key = etapa === "em_negociacao"
+        ? "levantamento_teses"
+        : contagem[etapa]
+          ? etapa
+          : "novo";
+      contagem[key].count += 1;
+      contagem[key].potencial += l.potencial;
     }
     const funnelData: FunnelRow[] = FUNNEL_STAGES_COM.map((s) => ({
       stage: s.value,
       label: s.label,
       color: s.color,
-      count: s.value === "cliente_ativo" ? clientesAtivos : contagem[s.value].count,
+      count: s.value === "cliente_ativo" ? clientesConvertidos : contagem[s.value].count,
       potencial: contagem[s.value].potencial,
     }));
 
