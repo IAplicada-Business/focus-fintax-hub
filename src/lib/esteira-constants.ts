@@ -1,3 +1,8 @@
+/**
+ * Esteira operacional do cliente. O funil comercial termina no handoff
+ * (`contrato_emitido` / `cliente_ativo`); daqui em diante a etapa avança só
+ * neste quadro, sem repetir aquisição.
+ */
 export const ESTEIRA_STAGES = [
   { value: "triagem", label: "Triagem" },
   { value: "levantamento", label: "Levantamento" },
@@ -97,6 +102,11 @@ export function isEstagioEsteira(value: string): value is EstagioEsteira {
 
 export function esteiraStageLabel(value: string): string {
   return ESTEIRA_ALL_STAGES.find((s) => s.value === value)?.label ?? value;
+}
+
+export function ordemEsteira(value: string): number {
+  const idx = ESTEIRA_STAGES.findIndex((s) => s.value === value);
+  return idx < 0 ? -1 : idx;
 }
 
 export function slaDiasDaEtapa(

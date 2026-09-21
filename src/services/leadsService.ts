@@ -65,7 +65,7 @@ export async function getLead(id: string) {
   const { data, error } = await supabase
     .from("leads")
     .select(
-      "id, nome, empresa, cnpj, email, whatsapp, regime_tributario, segmento, faturamento_faixa, origem, observacoes",
+      "id, nome, empresa, cnpj, email, whatsapp, regime_tributario, segmento, faturamento_faixa, origem, observacoes, status_funil",
     )
     .eq("id", id)
     .single();
