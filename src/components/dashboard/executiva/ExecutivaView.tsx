@@ -17,8 +17,13 @@ import {
   type StatusCompensacao,
 } from "@/components/StatusCompensacaoFilter";
 import type { OperacionalDashboardData } from "@/services/operacionalDashboardService";
-import { carteiraPorTese, geracaoTesesPorMes, honorarioDe } from "@/lib/operacional-analytics";
-import { compensacoesCanonicas, resumirFinanceiroPorCliente } from "@/lib/operacional-analytics";
+import {
+  carteiraPorTese,
+  compensacoesCanonicas,
+  geracaoTesesPorMes,
+  honorarioDe,
+  resumirFinanceiroPorCliente,
+} from "@/lib/operacional-analytics";
 import {
   filtrarIdsRecorteGerencial,
   normalizarStatusCompensacao,
