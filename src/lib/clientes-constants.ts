@@ -24,6 +24,7 @@ export function getStatusProcessoConfig(value: string) {
   return [...STATUS_PROCESSO, STATUS_PROCESSO_REPORTO].find((s) => s.value === value) ?? {
     value,
     label: `Legado: ${value || "sem classificação"}`,
+    color: "bg-gray-100 text-gray-600 border-gray-200",
   };
 }
 

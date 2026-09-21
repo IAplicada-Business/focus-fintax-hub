@@ -39,14 +39,15 @@ export function podeEditarFichaCliente(
 }
 
 export const STATUS_PROCESSO_PADRAO = [
-  { value: "a_compensar", label: "A compensar" },
-  { value: "compensando", label: "Compensando" },
-  { value: "compensado", label: "Compensado" },
+  { value: "a_compensar", label: "A compensar", color: "bg-gray-100 text-gray-700 border-gray-200" },
+  { value: "compensando", label: "Compensando", color: "bg-blue-100 text-blue-800 border-blue-200" },
+  { value: "compensado", label: "Compensado", color: "bg-green-100 text-green-800 border-green-200" },
 ] as const;
 
 export const STATUS_PROCESSO_REPORTO = {
   value: "pedido_feito_receita",
   label: "Pedido feito pela Receita",
+  color: "bg-yellow-100 text-yellow-800 border-yellow-200",
 } as const;
 
 export type StatusProcessoEditavel =
