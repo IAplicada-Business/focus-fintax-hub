@@ -39,6 +39,17 @@ import {
   listarTiposTese,
   type TipoTeseFiltro,
 } from "@/lib/tese-filter";
+import { DashboardPeriodFilter } from "@/components/DashboardPeriodFilter";
+import {
+  dashboardPeriodEndMonth,
+  dashboardPeriodLabel,
+  dashboardPeriodOptions,
+  defaultDashboardPeriod,
+  filterClientIdsByDashboardPeriod,
+  filterCompsByDashboardPeriod,
+  filterProcessosByDashboardPeriod,
+  type DashboardPeriod,
+} from "@/lib/dashboard-period";
 
 interface Props {
   data: OperacionalDashboardData;
@@ -79,6 +90,9 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
   );
   const [ramoFiltro, setRamoFiltro] = useState<RamoGerencialFiltro>("todas");
   const [tipoTeseFiltro, setTipoTeseFiltro] = useState<TipoTeseFiltro>(null);
+  const [periodo, setPeriodo] = useState<DashboardPeriod>(() =>
+    defaultDashboardPeriod(data.compsRaw),
+  );
 
   const m = useMemo(() => {
     const statusMapCompleto = new Map(
@@ -92,17 +106,27 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       statusMapCompleto,
       ramosMap,
     );
-    const ids = filtrarIdsPorTipoTese(
+    const idsTese = filtrarIdsPorTipoTese(
       idsGerenciais,
       tipoTeseFiltro,
       data.processos,
       data.creditos,
       data.teses,
     );
+    const ids = filterClientIdsByDashboardPeriod(
+      idsTese,
+      periodo,
+      data.compsRaw,
+      data.processos,
+    );
     const clientes = data.clientes.filter((cliente) => ids.has(cliente.id));
+    const compsRawPeriodo = filterCompsByDashboardPeriod(
+      data.compsRaw.filter((row) => ids.has(row.cliente_id)),
+      periodo,
+    );
     const totaisCalculados = resumirFinanceiroPorCliente(
       ids,
-      data.compsRaw,
+      compsRawPeriodo,
       data.creditos,
       data.teses,
       data.processos,
@@ -115,18 +139,29 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
         : total,
     );
     const processosDoCliente = data.processos.filter((row) => ids.has(row.cliente_id));
-    const processos = filtrarProcessosPorTipoTese(processosDoCliente, tipoTeseFiltro);
+    const processos = filterProcessosByDashboardPeriod(
+      filtrarProcessosPorTipoTese(processosDoCliente, tipoTeseFiltro),
+      periodo,
+    );
     const creditos = filtrarCreditosPorTipoTese(
       data.creditos.filter((row) => ids.has(row.cliente_id)),
       data.teses,
       tipoTeseFiltro,
     );
     const comps = compensacoesCanonicas(
-      data.compsRaw.filter((row) => ids.has(row.cliente_id)),
+      compsRawPeriodo,
       data.teses,
       processosDoCliente,
       tipoTeseFiltro,
     );
+    const compsReporto = tipoTeseFiltro
+      ? []
+      : compensacoesCanonicas(
+          compsRawPeriodo,
+          data.teses,
+          processosDoCliente,
+          "REPORTO",
+        );
     const statusRows = data.statusRows.filter((row) => ids.has(row.cliente_id));
     const { teses } = data;
     const apurado = totais.reduce((s, t) => s + t.credito_apurado, 0);
@@ -135,10 +170,23 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
     const honorarios = comps.reduce((s, c) => s + honorarioDe(c), 0);
     const pctUtilizado = apurado > 0 ? (compensado / apurado) * 100 : 0;
 
-    const porTese = carteiraPorTese(teses, creditos, comps, processos);
-    const geracao = geracaoTesesPorMes(processos, 6);
-    const desde30 = Date.now() - 30 * 86_400_000;
-    const teses30d = processos.filter((p) => p.criado_em && new Date(p.criado_em).getTime() >= desde30).length;
+    const porTese = carteiraPorTese(
+      teses,
+      creditos,
+      [...comps, ...compsReporto],
+      processos,
+      {
+        incluirForaDoCalculo: true,
+        processosParaVinculo: processosDoCliente,
+      },
+    );
+    const periodoOptions = dashboardPeriodOptions(data.compsRaw);
+    const fimMes = dashboardPeriodEndMonth(periodo, periodoOptions);
+    const mesesGeracao = periodo.mode === "year" ? 12 : 6;
+    const geracao = fimMes
+      ? geracaoTesesPorMes(processos, mesesGeracao, Date.now(), fimMes)
+      : [];
+    const tesesPeriodo = processos.length;
 
     const contagem = countByStatus(
       statusRows.map((row) => row.cliente_id),
@@ -183,7 +231,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       pctUtilizado,
       porTese,
       geracao,
-      teses30d,
+      tesesPeriodo,
       statusRowsOrd,
       totalStatus,
       porTributo,
@@ -194,8 +242,10 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       statusCounts: countByStatus(data.clientes.map((c) => c.id), statusMapCompleto),
       ramoCounts: countByRamo(data.clientes.map((c) => c.id), ramosMap),
       tiposTese: listarTiposTese(data.processos, data.creditos, data.teses),
+      periodoOptions,
+      periodoLabel: dashboardPeriodLabel(periodo),
     };
-  }, [data, ramoFiltro, statusFiltro, tipoTeseFiltro]);
+  }, [data, periodo, ramoFiltro, statusFiltro, tipoTeseFiltro]);
 
   const semTeseVisiveis = verTodosSemTese ? m.semTese : m.semTese.slice(0, MAX_SEM_TESE);
   const maxTeseApurado = Math.max(...m.porTese.map((t) => t.apurado), 1);
@@ -218,8 +268,13 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
           onChange={setTipoTeseFiltro}
           options={m.tiposTese}
         />
+        <DashboardPeriodFilter
+          value={periodo}
+          onChange={setPeriodo}
+          options={m.periodoOptions}
+        />
         <span className="text-[11px] text-ink-35">
-          {m.clientes} cliente{m.clientes === 1 ? "" : "s"} no recorte · tese: {tipoTeseFiltro ?? "elegíveis (REPORTO fora do saldo)"}
+          {m.clientes} cliente{m.clientes === 1 ? "" : "s"} no recorte · período: {m.periodoLabel} · tese: {tipoTeseFiltro ?? "elegíveis (REPORTO fora do saldo)"}
         </span>
       </div>
       <div className="animate-slide-up delay-1 grid grid-cols-2 xl:grid-cols-4 gap-4" role="region" aria-label="KPIs da carteira">
@@ -252,7 +307,12 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
                     {m.porTese.map((t) => (
                       <tr key={t.tese_id} className="hover:bg-ink-03 transition-colors">
                         <td className="px-5 py-2.5">
-                          <p className="font-semibold text-ink truncate max-w-[220px]">{t.label}</p>
+                          <p className="font-semibold text-ink truncate max-w-[220px]">
+                            {t.label}
+                            {String(t.codigo).toUpperCase() === "REPORTO" && (
+                              <span className="ml-1 text-[9px] font-normal text-ink-35">· fora do saldo padrão</span>
+                            )}
+                          </p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="font-mono-dm text-[10px] text-ink-35">{t.codigo}</span>
                             <span className="h-1 w-16 rounded-full bg-ink-06 overflow-hidden"><span className="block h-full rounded-full bg-gold" style={{ width: `${(t.apurado / maxTeseApurado) * 100}%` }} /></span>
@@ -279,7 +339,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
           </Panel>
         </div>
         <div className="xl:col-span-5 min-w-0">
-          <Panel eyebrow="Geração de teses" title="Processos cadastrados por mês" subtitle="Teses assinadas / cadastradas na carteira nos últimos 6 meses" action={<CountChip tom="gold">{m.teses30d} nos últimos 30d</CountChip>} className="h-full">
+        <Panel eyebrow="Geração de teses" title="Processos cadastrados por mês" subtitle={`Teses assinadas / cadastradas · ${m.periodoLabel}`} action={<CountChip tom="gold">{m.tesesPeriodo} no período</CountChip>} className="h-full">
             {m.geracao.every((g) => g.novos === 0) ? (
               <InlineEmpty>Nenhum processo cadastrado no período.</InlineEmpty>
             ) : (

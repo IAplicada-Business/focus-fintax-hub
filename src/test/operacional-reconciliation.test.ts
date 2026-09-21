@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  carteiraPorTese,
   compensacoesCanonicas,
   resumoEsteira,
   resumirFinanceiroPorCliente,
@@ -194,6 +195,40 @@ describe("reconciliação financeira da Visão Operacional", () => {
     });
     expect(listarTiposTese(PROCESSOS, creditos, TESES).map((option) => option.value))
       .toEqual(["INSUMOS", "SUBVENCAO", "REPORTO"]);
+  });
+
+  it("mostra valores de REPORTO na carteira por tese sem contaminar o saldo padrão", () => {
+    const creditos = [
+      { cliente_id: "a", tese_id: "t-insumos", valor_apurado_inicial: 1_000, incluir_no_calculo: true },
+      { cliente_id: "a", tese_id: "t-reporto", valor_apurado_inicial: 5_000, incluir_no_calculo: false },
+    ];
+    const [saldoPadrao] = resumirFinanceiroPorCliente(
+      ["a"],
+      [COMPS[0], COMPS[2]],
+      creditos,
+      TESES,
+      PROCESSOS,
+    );
+    const breakdown = carteiraPorTese(
+      TESES,
+      creditos,
+      [COMPS[0], COMPS[2]],
+      PROCESSOS,
+      { incluirForaDoCalculo: true },
+    );
+    const reporto = breakdown.find((row) => row.codigo === "REPORTO");
+
+    expect(saldoPadrao).toMatchObject({
+      credito_apurado: 1_000,
+      total_compensado: 100,
+      saldo_restante: 900,
+    });
+    expect(reporto).toMatchObject({
+      apurado: 5_000,
+      compensado: 50,
+      saldo: 4_950,
+      processos: 1,
+    });
   });
 
   it("soma exatamente os valores canônicos das fichas no mesmo recorte", () => {
