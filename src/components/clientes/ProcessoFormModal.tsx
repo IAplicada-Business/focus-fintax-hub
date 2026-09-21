@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,13 +27,17 @@ import {
   isStatusProcessoEditavel,
   statusProcessoEditaveis,
 } from "@/lib/client-operation";
+import type { Database } from "@/integrations/supabase/types";
+
+type ProcessoRow = Database["public"]["Tables"]["processos_teses"]["Row"];
+type ProcessoInsert = Database["public"]["Tables"]["processos_teses"]["Insert"];
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clienteId: string;
   existingTeses: string[];
-  processo?: any;
+  processo?: ProcessoRow | null;
   /** Pré-seleciona tese ao abrir para criação */
   presetTese?: string | null;
   onSuccess: () => void;
@@ -71,11 +75,15 @@ export function ProcessoFormModal({
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const motorQ = useMotorTesesAtivas();
-  const teses = (motorQ.data ?? []) as TeseOption[];
+  const teses = useMemo(
+    () => (motorQ.data ?? []) as TeseOption[],
+    [motorQ.data],
+  );
+  const refetchMotor = motorQ.refetch;
 
   useEffect(() => {
-    if (open) void motorQ.refetch();
-  }, [open]);
+    if (open) void refetchMotor();
+  }, [open, refetchMotor]);
 
   useEffect(() => {
     if (!open) return;
@@ -195,7 +203,7 @@ export function ProcessoFormModal({
       categoria: form.categoria,
       tipo_recuperacao: form.tipo_recuperacao,
       atualizado_em: new Date().toISOString(),
-    } as any;
+    } satisfies ProcessoInsert;
 
     const { error } = processo
       ? await supabase.from("processos_teses").update(payload).eq("id", processo.id)
@@ -212,11 +220,11 @@ export function ProcessoFormModal({
       if (teseId) {
         await supabase
           .from("compensacoes_mensais")
-          .update({ tese_origem_id: teseId } as any)
+          .update({ tese_origem_id: teseId })
           .eq("processo_tese_id", processo.id);
         await supabase
           .from("clientes")
-          .update({ tese_ativa_id: teseId } as any)
+          .update({ tese_ativa_id: teseId })
           .eq("id", clienteId);
       }
       logClienteHistorico(
@@ -284,7 +292,7 @@ export function ProcessoFormModal({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Ramo de recuperação</Label>
+            <Label>Ramo da tese</Label>
             <Select
               value={form.tipo_recuperacao}
               onValueChange={(v) => {
@@ -299,11 +307,11 @@ export function ProcessoFormModal({
               </SelectContent>
             </Select>
             <p className="text-[11px] text-muted-foreground">
-              Compensação, Ressarcimento ou Recuperação Judicial — um tipo por processo.
+              Como esta tese será conduzida: compensação, ressarcimento ou recuperação judicial.
             </p>
           </div>
           <div className="space-y-1.5">
-            <Label>Categoria</Label>
+            <Label>Tratamento financeiro</Label>
             <Select
               value={form.categoria}
               onValueChange={(v) => {
@@ -324,12 +332,12 @@ export function ProcessoFormModal({
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="compensacao">Compensação</SelectItem>
-                <SelectItem value="reporto">Possíveis futuros (Reporto)</SelectItem>
+                <SelectItem value="compensacao">Crédito no cálculo</SelectItem>
+                <SelectItem value="reporto">Possível futuro (REPORTO)</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-[11px] text-muted-foreground">
-              Possíveis futuros / Reporto ficam fora do cálculo automático (Insumos + Subvenção).
+              Define se o crédito entra nos totais ou fica separado como possibilidade futura.
             </p>
           </div>
           <div className="space-y-1.5">

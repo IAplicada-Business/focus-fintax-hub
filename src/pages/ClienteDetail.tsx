@@ -17,7 +17,6 @@ import {
   PanelRightOpen,
   PanelRightClose,
   Save,
-  KanbanSquare,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -53,9 +52,7 @@ import {
 } from "@/hooks/data/useClienteOperacional";
 import { useUpdateClienteMotivoParada } from "@/hooks/data/useClientes";
 import { useQueryClient } from "@tanstack/react-query";
-import { ClienteOperacaoEditor } from "@/components/clientes/ClienteOperacaoEditor";
 import { podeEditarFichaCliente } from "@/lib/client-operation";
-import { esteiraStageLabel } from "@/lib/esteira-constants";
 
 export default function ClienteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -504,15 +501,6 @@ export default function ClienteDetail() {
               </Link>
             )}
 
-            <ClienteOperacaoEditor
-              cliente={cliente}
-              editable={canEdit}
-              onUpdated={(updated) => {
-                setCliente(updated);
-                void fetchHistorico();
-              }}
-            />
-
             <div className="space-y-3 text-sm">
               <div>
                 <span className="text-muted-foreground">CNPJ:</span> {cliente.cnpj}
@@ -545,24 +533,6 @@ export default function ClienteDetail() {
               <div>
                 <span className="text-muted-foreground text-xs">Comp. outro escritório:</span>
                 <p className="text-xs">{cliente.compensacao_outro_escritorio || "—"}</p>
-              </div>
-              <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
-                <div className="flex items-center gap-1.5">
-                  <KanbanSquare className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-xs font-semibold">Etapa operacional</span>
-                </div>
-                <p className="text-sm font-medium">
-                  {esteiraStageLabel(cliente.estagio_esteira || "triagem")}
-                </p>
-                <Link
-                  to={`/esteira?tab=kanban&etapa=${encodeURIComponent(cliente.estagio_esteira || "triagem")}`}
-                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                >
-                  Mover na esteira <ExternalLink className="h-3 w-3" />
-                </Link>
-                <p className="text-[10px] leading-snug text-muted-foreground">
-                  A etapa é alterada somente no quadro operacional.
-                </p>
               </div>
               <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
                 <div className="flex items-center gap-1.5">

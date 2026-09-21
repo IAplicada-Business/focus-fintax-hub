@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -8,14 +8,10 @@ import {
   useMotorTesesAtivas,
   useTesesTributarias,
 } from "@/hooks/data/useClienteOperacional";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { CurrencyInput } from "@/components/ui/currency-input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Pencil, Plus, AlertTriangle, Trash2, Layers } from "lucide-react";
+import { CheckCircle2, ChevronRight, Pencil, Plus, AlertTriangle, Trash2, Layers } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,19 +32,17 @@ import {
   isReportoProcesso,
   processoTeseCatalogCodigo,
 } from "@/lib/clientes-constants";
-import { deleteCreditoApuradoForProcesso, syncCreditoApuradoFromProcesso } from "@/lib/sync-credito-apurado";
+import { deleteCreditoApuradoForProcesso } from "@/lib/sync-credito-apurado";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 import {
-  isTipoRecuperacao,
-  TIPOS_RECUPERACAO,
   TIPO_RECUPERACAO_BADGE,
   TIPO_RECUPERACAO_LABEL,
   type TipoRecuperacao,
 } from "@/lib/tipo-recuperacao";
-import {
-  totalProcessosACompensar,
-  tiposRecuperacaoDistintos,
-} from "@/lib/client-operation";
+import { totalProcessosACompensar } from "@/lib/client-operation";
+import type { Database } from "@/integrations/supabase/types";
+
+type ProcessoRow = Database["public"]["Tables"]["processos_teses"]["Row"];
 
 interface Props {
   clienteId: string;
@@ -74,17 +68,23 @@ export function ProcessosTesesTab({
   const creditosQ = useClienteCreditos(clienteId);
   const tesesQ = useTesesTributarias();
   const processosRemote = processosQ.data;
-  const [processos, setProcessos] = useState<any[]>([]);
+  const [processos, setProcessos] = useState<ProcessoRow[]>([]);
   const loading = processosQ.isPending && processosQ.data === undefined;
   const [modalOpen, setModalOpen] = useState(false);
-  const [editProcesso, setEditProcesso] = useState<any>(null);
+  const [editProcesso, setEditProcesso] = useState<ProcessoRow | null>(null);
   const [modalPreset, setModalPreset] = useState<string | null>(null);
+  const [selectedProcessoId, setSelectedProcessoId] = useState<string | null>(null);
   const opcoesTese = motorQ.data ?? [];
-  const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
-  const lastSignal = useRef(0);
+  const [lastSignal, setLastSignal] = useState(0);
 
   useEffect(() => {
-    if (processosRemote) setProcessos(processosRemote);
+    if (!processosRemote) return;
+    setProcessos(processosRemote);
+    setSelectedProcessoId((current) =>
+      current && processosRemote.some((processo) => processo.id === current)
+        ? current
+        : processosRemote[0]?.id ?? null,
+    );
   }, [processosRemote]);
 
   const refreshAll = async () => {
@@ -94,101 +94,17 @@ export function ProcessosTesesTab({
   };
 
   useEffect(() => {
-    if (!addTeseSignal || addTeseSignal === lastSignal.current) return;
-    lastSignal.current = addTeseSignal;
+    if (!addTeseSignal || addTeseSignal === lastSignal) return;
+    setLastSignal(addTeseSignal);
     setEditProcesso(null);
     setModalPreset(presetTese);
     setModalOpen(true);
-  }, [addTeseSignal, presetTese]);
+  }, [addTeseSignal, lastSignal, presetTese]);
 
   const openAdd = (teseCodigo?: string) => {
     setEditProcesso(null);
     setModalPreset(teseCodigo ?? null);
     setModalOpen(true);
-  };
-
-  const handleInlineUpdate = (id: string, field: string, value: string | number) => {
-    if (!editable) return;
-    let honorarioCalc: number | null = null;
-    const current = processos.find((p) => p.id === id);
-    setProcessos((prev) =>
-      prev.map((p) => {
-        if (p.id !== id) return p;
-        const next = { ...p, [field]: value };
-        if (field === "percentual_honorario" || field === "valor_credito") {
-          const perc = Number(field === "percentual_honorario" ? value : next.percentual_honorario || 0);
-          const credito = Number(field === "valor_credito" ? value : next.valor_credito || 0);
-          honorarioCalc = Math.round(credito * perc * 100) / 100;
-          next.valor_honorario = honorarioCalc;
-        }
-        return next;
-      }),
-    );
-    if (debounceTimers.current[id]) clearTimeout(debounceTimers.current[id]);
-    debounceTimers.current[id] = setTimeout(async () => {
-      const updateData: Record<string, any> = { [field]: value, atualizado_em: new Date().toISOString() };
-      if (honorarioCalc != null) updateData.valor_honorario = honorarioCalc;
-      const { error } = await supabase
-        .from("processos_teses")
-        .update(updateData as any)
-        .eq("id", id);
-      if (error) {
-        toast.error("Erro ao salvar.");
-        return;
-      }
-      if (field === "valor_credito" && current) {
-        try {
-          await syncCreditoApuradoFromProcesso({
-            clienteId,
-            tese: current.tese,
-            nomeExibicao: current.nome_exibicao,
-            valorCredito: Number(value) || 0,
-          });
-        } catch {
-          // Processo já gravado; o fallback do cabeçalho cobre até a próxima edição.
-        }
-      }
-      void refreshAll();
-    }, 800);
-  };
-
-  const handleTipoRecuperacaoChange = async (
-    id: string,
-    value: TipoRecuperacao,
-  ) => {
-    if (!editable) return;
-    const previous = processos.find((p) => p.id === id);
-    setProcessos((items) =>
-      items.map((item) =>
-        item.id === id ? { ...item, tipo_recuperacao: value } : item,
-      ),
-    );
-    const { error } = await supabase
-      .from("processos_teses")
-      .update({
-        tipo_recuperacao: value,
-        atualizado_em: new Date().toISOString(),
-      })
-      .eq("id", id);
-    if (error) {
-      setProcessos((items) =>
-        items.map((item) =>
-          item.id === id
-            ? { ...item, tipo_recuperacao: previous?.tipo_recuperacao }
-            : item,
-        ),
-      );
-      toast.error("Erro ao alterar tipo de recuperação.");
-      return;
-    }
-    await logClienteHistorico(
-      clienteId,
-      "tipo_recuperacao_mudado",
-      `Tipo de recuperação de "${previous?.nome_exibicao}" alterado`,
-      { tipo_recuperacao: previous?.tipo_recuperacao },
-      { tipo_recuperacao: value },
-    );
-    void refreshAll();
   };
 
   const assinados = processos.filter((p) => p.status_contrato === "assinado");
@@ -220,11 +136,43 @@ export function ProcessosTesesTab({
   const alertAguardando = processos.filter(
     (p) =>
       p.status_contrato === "aguardando_assinatura" &&
+      !!p.criado_em &&
       now - new Date(p.criado_em).getTime() > 7 * 86400000,
   );
   const existingCodes = processos.map((p) => p.tese);
   const tesesDisponiveis = opcoesTese.filter((t) => !existingCodes.includes(t.tese));
-  const tiposDaEmpresa = tiposRecuperacaoDistintos(processos);
+  const processoSelecionado =
+    processos.find((processo) => processo.id === selectedProcessoId) ??
+    processos[0] ??
+    null;
+
+  const handleDelete = async (processo: ProcessoRow) => {
+    const { error } = await supabase
+      .from("processos_teses")
+      .delete()
+      .eq("id", processo.id);
+    if (error) {
+      toast.error("Erro ao excluir.");
+      return;
+    }
+    try {
+      await deleteCreditoApuradoForProcesso({
+        clienteId,
+        tese: processo.tese,
+        nomeExibicao: processo.nome_exibicao,
+      });
+    } catch {
+      // Processo já removido; o refetch mostra o card sem essa tese.
+    }
+    toast.success("Tese excluída.");
+    void logClienteHistorico(
+      clienteId,
+      "processo_removido",
+      `Tese removida: ${processo.nome_exibicao}`,
+    );
+    setSelectedProcessoId(null);
+    await refreshAll();
+  };
 
   return (
     <div className="space-y-4">
@@ -253,27 +201,6 @@ export function ProcessosTesesTab({
             <p className="text-lg font-bold">{formatCurrencyBR(compensacoesTotal)}</p>
           </CardContent>
         </Card>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2">
-        <span className="text-xs font-medium text-muted-foreground">
-          Tipos de recuperação da empresa:
-        </span>
-        {tiposDaEmpresa.length > 0 ? (
-          tiposDaEmpresa.map((tipo) => (
-            <Badge
-              key={tipo.value}
-              variant="outline"
-              className={`text-[10px] ${TIPO_RECUPERACAO_BADGE[tipo.value]}`}
-            >
-              {tipo.label}
-            </Badge>
-          ))
-        ) : (
-          <span className="text-xs text-muted-foreground">
-            nenhuma tese classificada
-          </span>
-        )}
       </div>
 
       {alertAguardando.length > 0 && (
@@ -326,220 +253,62 @@ export function ProcessosTesesTab({
               </Button>
             </div>
           )}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tese</TableHead>
-                <TableHead>Tipo de recuperação</TableHead>
-                <TableHead>Valor Crédito</TableHead>
-                <TableHead>Contrato</TableHead>
-                <TableHead>% Hon.</TableHead>
-                <TableHead>Valor Hon.</TableHead>
-                <TableHead>Etapa da tese</TableHead>
-                <TableHead>Obs.</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground">
-                    Carregando...
-                  </TableCell>
-                </TableRow>
-              ) : (
-                processos.map((p) => {
-                  const sc = getStatusContratoConfig(p.status_contrato);
-                  const sp = getStatusProcessoConfig(p.status_processo);
-                  const tipoRec: TipoRecuperacao | null = isTipoRecuperacao(p.tipo_recuperacao)
-                    ? (p.tipo_recuperacao as TipoRecuperacao)
-                    : null;
-                  const codigoTese = String(processoTeseCatalogCodigo(p) || "");
-                  const isReporto = isReportoProcesso(p);
-                  const noCalculo = calculoPorCodigo.get(codigoTese);
+          {loading ? (
+            <div className="rounded-xl border py-12 text-center text-sm text-muted-foreground">
+              Carregando...
+            </div>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-[minmax(230px,0.75fr)_minmax(0,1.7fr)]">
+              <div
+                role="tablist"
+                aria-label="Teses do cliente"
+                className="space-y-1.5 rounded-xl border bg-muted/15 p-2"
+              >
+                {processos.map((processo) => {
+                  const active = processo.id === processoSelecionado?.id;
+                  const status = getStatusProcessoConfig(processo.status_processo);
                   return (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span>{p.nome_exibicao}</span>
-                          {tipoRec && tipoRec !== "compensacao" && (
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] ${TIPO_RECUPERACAO_BADGE[tipoRec]}`}
-                            >
-                              {TIPO_RECUPERACAO_LABEL[tipoRec]}
-                            </Badge>
-                          )}
-                          {isReporto && (
-                            <Badge
-                              variant="outline"
-                              className="border-slate-200 bg-slate-100 text-[10px] text-slate-700"
-                            >
-                              Possíveis futuros
-                            </Badge>
-                          )}
-                          {!isReporto && noCalculo === false && (
-                            <Badge
-                              variant="outline"
-                              className="border-amber-200 bg-amber-50 text-[10px] text-amber-800"
-                              title="Desmarcada no Mapa de Créditos — não entra no Crédito Apurado nem no Total Compensado do cabeçalho"
-                            >
-                              Fora do cálculo
-                            </Badge>
-                          )}
-                          {!isReporto && noCalculo === undefined && (
-                            <Badge
-                              variant="outline"
-                              className="border-slate-200 bg-slate-50 text-[10px] text-slate-600"
-                              title="O valor ao lado está só neste processo. Sem crédito no Mapa de Créditos, a tese não entra no Crédito Apurado nem no Total Compensado do cabeçalho."
-                            >
-                              Fora do Mapa de Créditos
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={tipoRec ?? undefined}
-                          onValueChange={(value) => {
-                            if (isTipoRecuperacao(value)) {
-                              void handleTipoRecuperacaoChange(p.id, value);
-                            }
-                          }}
-                          disabled={!editable}
-                        >
-                          <SelectTrigger className="h-7 w-44 text-xs">
-                            <SelectValue placeholder="Classificar" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {TIPOS_RECUPERACAO.map((tipo) => (
-                              <SelectItem key={tipo.value} value={tipo.value}>
-                                {tipo.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <CurrencyInput
-                          className="h-7 w-36 text-xs"
-                          value={p.valor_credito ?? ""}
-                          onValueChange={(v) =>
-                            handleInlineUpdate(p.id, "valor_credito", Number(v) || 0)
-                          }
-                          disabled={!editable}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={sc.color}>
-                          {sc.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="h-7 w-20 text-xs"
-                          value={p.percentual_honorario}
-                          onChange={(e) =>
-                            handleInlineUpdate(p.id, "percentual_honorario", Number(e.target.value))
-                          }
-                          disabled={!editable}
-                        />
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {formatCurrencyBR(Number(p.valor_honorario || 0))}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={sp.color}>
-                          {sp.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          className="h-7 w-32 text-xs"
-                          value={p.observacao || ""}
-                          onChange={(e) => handleInlineUpdate(p.id, "observacao", e.target.value)}
-                          placeholder="..."
-                          disabled={!editable}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {editable && <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => {
-                              setEditProcesso(p);
-                              setModalPreset(null);
-                              setModalOpen(true);
-                            }}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Esta ação não pode ser desfeita. A tese{" "}
-                                  <strong>{p.nome_exibicao}</strong> será removida permanentemente.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={async () => {
-                                    const { error } = await supabase
-                                      .from("processos_teses")
-                                      .delete()
-                                      .eq("id", p.id);
-                                    if (error) {
-                                      toast.error("Erro ao excluir.");
-                                      return;
-                                    }
-                                    try {
-                                      await deleteCreditoApuradoForProcesso({
-                                        clienteId,
-                                        tese: p.tese,
-                                        nomeExibicao: p.nome_exibicao,
-                                      });
-                                    } catch {
-                                      // Processo já removido; o refetch mostra o card sem essa tese.
-                                    }
-                                    toast.success("Tese excluída.");
-                                    logClienteHistorico(
-                                      clienteId,
-                                      "processo_removido",
-                                      `Tese removida: ${p.nome_exibicao}`,
-                                    );
-                                    refreshAll();
-                                  }}
-                                  className="bg-[#c8001e] text-white hover:bg-[#a30019]"
-                                >
-                                  Excluir
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>}
-                      </TableCell>
-                    </TableRow>
+                    <button
+                      key={processo.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setSelectedProcessoId(processo.id)}
+                      className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                        active
+                          ? "border-primary/30 bg-background shadow-sm"
+                          : "border-transparent hover:border-border hover:bg-background/70"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">{processo.nome_exibicao}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                          {status.label} · {formatCurrencyBR(Number(processo.valor_credito || 0))}
+                        </p>
+                      </div>
+                      <ChevronRight className={`h-4 w-4 shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                    </button>
                   );
-                })
+                })}
+              </div>
+
+              {processoSelecionado && (
+                <TeseDetailCard
+                  processo={processoSelecionado}
+                  noCalculo={calculoPorCodigo.get(
+                    String(processoTeseCatalogCodigo(processoSelecionado) || ""),
+                  )}
+                  editable={editable}
+                  onEdit={() => {
+                    setEditProcesso(processoSelecionado);
+                    setModalPreset(null);
+                    setModalOpen(true);
+                  }}
+                  onDelete={() => void handleDelete(processoSelecionado)}
+                />
               )}
-            </TableBody>
-          </Table>
+            </div>
+          )}
         </>
       )}
 
@@ -553,6 +322,153 @@ export function ProcessosTesesTab({
         onSuccess={refreshAll}
         editable={editable}
       />
+    </div>
+  );
+}
+
+export function TeseDetailCard({
+  processo,
+  noCalculo,
+  editable,
+  onEdit,
+  onDelete,
+}: {
+  processo: ProcessoRow;
+  noCalculo: boolean | undefined;
+  editable: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const contrato = getStatusContratoConfig(processo.status_contrato);
+  const etapa = getStatusProcessoConfig(processo.status_processo);
+  const tipo = processo.tipo_recuperacao as TipoRecuperacao;
+  const reporto = isReportoProcesso(processo);
+  const percentual = Number(processo.percentual_honorario || 0);
+  const percentualLabel = percentual <= 1 ? percentual * 100 : percentual;
+
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="space-y-5 p-0">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b bg-muted/15 px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-muted-foreground">
+              Tese selecionada
+            </p>
+            <h3 className="mt-1 text-base font-semibold leading-tight">{processo.nome_exibicao}</h3>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {tipo && TIPO_RECUPERACAO_LABEL[tipo] && (
+                <Badge variant="outline" className={TIPO_RECUPERACAO_BADGE[tipo]}>
+                  {TIPO_RECUPERACAO_LABEL[tipo]}
+                </Badge>
+              )}
+              {reporto ? (
+                <Badge variant="outline" className="border-slate-200 bg-slate-100 text-slate-700">
+                  Possíveis futuros
+                </Badge>
+              ) : noCalculo === true ? (
+                <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800">
+                  Incluída no cálculo
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">
+                  {noCalculo === false ? "Fora do cálculo" : "Fora do Mapa de Créditos"}
+                </Badge>
+              )}
+            </div>
+          </div>
+          {editable && (
+            <div className="flex gap-1">
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={onEdit}>
+                <Pencil className="h-3.5 w-3.5" />
+                Editar tese
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    aria-label="Excluir tese"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação não pode ser desfeita. A tese{" "}
+                      <strong>{processo.nome_exibicao}</strong> será removida permanentemente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={onDelete}
+                      className="bg-[#c8001e] text-white hover:bg-[#a30019]"
+                    >
+                      Excluir
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          )}
+        </div>
+
+        <div className="grid gap-4 px-5 sm:grid-cols-2">
+          <DetailSection title="Situação da tese">
+            <DetailRow label="Contrato">
+              <Badge variant="outline" className={contrato.color}>{contrato.label}</Badge>
+            </DetailRow>
+            <DetailRow label="Etapa">
+              <Badge variant="outline" className={etapa.color}>{etapa.label}</Badge>
+            </DetailRow>
+          </DetailSection>
+
+          <DetailSection title="Financeiro">
+            <DetailRow label="Crédito" value={formatCurrencyBR(Number(processo.valor_credito || 0))} />
+            <DetailRow label="Honorário" value={`${percentualLabel.toFixed(2).replace(".", ",")}%`} />
+            <DetailRow label="Valor honorário" value={formatCurrencyBR(Number(processo.valor_honorario || 0))} />
+          </DetailSection>
+        </div>
+
+        <div className="border-t px-5 py-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-muted-foreground">Observação</p>
+          <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+            {processo.observacao || "Nenhuma observação registrada."}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DetailSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="space-y-2">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.8px] text-muted-foreground">
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        {title}
+      </p>
+      <div className="space-y-2 rounded-lg border p-3">{children}</div>
+    </section>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  children,
+}: {
+  label: string;
+  value?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-6 items-center justify-between gap-3">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      {children ?? <span className="text-right text-sm font-medium">{value || "—"}</span>}
     </div>
   );
 }

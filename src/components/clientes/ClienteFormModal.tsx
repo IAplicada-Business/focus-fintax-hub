@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,12 +9,26 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SEGMENTO_LABELS } from "@/lib/pipeline-constants";
+import {
+  CLIENTE_STATUS_COMPENSACAO,
+  isClienteStatusCompensacao,
+  type ClienteStatusCompensacao,
+} from "@/lib/client-operation";
+import { isEstagioEsteira, type EstagioEsteira } from "@/lib/esteira-constants";
+import {
+  listClienteResponsaveisElegiveis,
+  updateClienteOperacao,
+} from "@/services/clientesService";
+import { useEsteiraSlaConfig } from "@/hooks/data/useEsteira";
+import type { Database } from "@/integrations/supabase/types";
+
+type ClienteRow = Database["public"]["Tables"]["clientes"]["Row"];
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
-  cliente?: any;
+  cliente?: ClienteRow;
 }
 
 const REGIMES = ["Lucro Real", "Lucro Presumido", "Simples Nacional"];
@@ -29,12 +44,22 @@ const emptyForm = {
   nao_enviar_mapa: false,
   email: "",
   faturamento_faixa: "",
-  compensando_fintax: false,
   compensacao_outro_escritorio: "",
   status: "ativo",
+  status_compensacao: "",
+  estagio_esteira: "",
+  responsavel_id: "",
 };
 
 export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Props) {
+  const queryClient = useQueryClient();
+  const slaConfigQ = useEsteiraSlaConfig();
+  const responsaveisQ = useQuery({
+    queryKey: ["clientes", "responsaveis-elegiveis"],
+    queryFn: listClienteResponsaveisElegiveis,
+    enabled: open && !!cliente,
+    staleTime: 5 * 60_000,
+  });
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const isEdit = !!cliente;
@@ -51,9 +76,15 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
         nao_enviar_mapa: cliente.nao_enviar_mapa ?? false,
         email: cliente.email || "",
         faturamento_faixa: cliente.faturamento_faixa || "",
-        compensando_fintax: !!cliente.compensando_fintax,
         compensacao_outro_escritorio: cliente.compensacao_outro_escritorio || "",
         status: cliente.status || "ativo",
+        status_compensacao: isClienteStatusCompensacao(cliente.status_compensacao)
+          ? cliente.status_compensacao
+          : "",
+        estagio_esteira: isEstagioEsteira(cliente.estagio_esteira)
+          ? cliente.estagio_esteira
+          : "",
+        responsavel_id: cliente.responsavel_id || "",
       });
     } else if (open && !cliente) {
       setForm(emptyForm);
@@ -61,6 +92,17 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
   }, [open, cliente]);
 
   const update = (field: string, value: string | boolean) => setForm((p) => ({ ...p, [field]: value }));
+  const etapas = useMemo(
+    () =>
+      [...(slaConfigQ.data ?? [])]
+        .sort((a, b) => a.ordem - b.ordem)
+        .filter(
+          (item) =>
+            (item.ativo || item.estagio === cliente?.estagio_esteira) &&
+            isEstagioEsteira(item.estagio),
+        ),
+    [slaConfigQ.data, cliente?.estagio_esteira],
+  );
 
   const handleSave = async () => {
     if (!form.empresa || !form.cnpj) {
@@ -78,7 +120,6 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
       nao_enviar_mapa: form.nao_enviar_mapa,
       email: form.email,
       faturamento_faixa: form.faturamento_faixa,
-      compensando_fintax: form.compensando_fintax,
       compensacao_outro_escritorio: form.compensacao_outro_escritorio,
       status: form.status,
     };
@@ -89,11 +130,47 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
     } else {
       ({ error } = await supabase.from("clientes").insert(payload));
     }
-    setSaving(false);
     if (error) {
+      setSaving(false);
       toast.error(isEdit ? "Erro ao atualizar cliente." : "Erro ao cadastrar cliente.");
       return;
     }
+    if (isEdit) {
+      const statusChanged =
+        isClienteStatusCompensacao(form.status_compensacao) &&
+        form.status_compensacao !== cliente.status_compensacao;
+      const stageChanged =
+        isEstagioEsteira(form.estagio_esteira) &&
+        form.estagio_esteira !== cliente.estagio_esteira;
+      const responsibleChanged =
+        !!form.responsavel_id &&
+        form.responsavel_id !== (cliente.responsavel_id ?? "");
+      if (statusChanged || stageChanged || responsibleChanged) {
+        try {
+          await updateClienteOperacao({
+            clienteId: cliente.id,
+            statusCompensacao: statusChanged
+              ? (form.status_compensacao as ClienteStatusCompensacao)
+              : undefined,
+            estagio: stageChanged
+              ? (form.estagio_esteira as EstagioEsteira)
+              : undefined,
+            responsavelId: responsibleChanged ? form.responsavel_id : undefined,
+          });
+        } catch {
+          setSaving(false);
+          toast.error("Os dados cadastrais foram salvos, mas a classificação operacional não pôde ser atualizada.");
+          return;
+        }
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["cliente", cliente.id] }),
+        queryClient.invalidateQueries({ queryKey: ["esteira"] }),
+        queryClient.invalidateQueries({ queryKey: ["clientes"] }),
+        queryClient.invalidateQueries({ queryKey: ["catalog", "status_compensacao"] }),
+      ]);
+    }
+    setSaving(false);
     toast.success(isEdit ? "Cliente atualizado com sucesso!" : "Cliente cadastrado com sucesso!");
     onSuccess();
     onOpenChange(false);
@@ -104,6 +181,11 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Editar Cliente" : "Cadastrar Cliente"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {isEdit
+              ? "Edite os dados cadastrais e a classificação geral do cliente."
+              : "Cadastre os dados da nova empresa."}
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-2">
           <div className="grid grid-cols-2 gap-3">
@@ -157,10 +239,81 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
               <Input value={form.email} onChange={(e) => update("email", e.target.value)} />
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Switch checked={form.compensando_fintax} onCheckedChange={(v) => update("compensando_fintax", v)} />
-            <Label>Compensando pela Fintax</Label>
-          </div>
+          {isEdit && (
+            <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+              <div>
+                <p className="text-sm font-semibold">Classificação do cliente</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Status geral, responsável e posição na esteira. A tese tem sua própria situação.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Status geral</Label>
+                  <Select
+                    value={form.status_compensacao}
+                    onValueChange={(value) => update("status_compensacao", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Classificação pendente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CLIENTE_STATUS_COMPENSACAO.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Responsável da empresa</Label>
+                  <Select
+                    value={form.responsavel_id}
+                    onValueChange={(value) => update("responsavel_id", value)}
+                    disabled={responsaveisQ.isPending}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sem responsável" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(responsaveisQ.data ?? []).map((responsavel) => (
+                        <SelectItem
+                          key={responsavel.user_id}
+                          value={responsavel.user_id}
+                        >
+                          {responsavel.full_name}
+                          {responsavel.cargo ? ` · ${responsavel.cargo}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Etapa atual da esteira</Label>
+                <Select
+                  value={form.estagio_esteira}
+                  onValueChange={(value) => update("estagio_esteira", value)}
+                  disabled={slaConfigQ.isPending}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Etapa não configurada" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {etapas.map((item) => (
+                      <SelectItem key={item.estagio} value={item.estagio}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Mudar a etapa reinicia o SLA e fica registrado no histórico.
+                </p>
+              </div>
+            </div>
+          )}
           {/* Opt-out do envio mensal do Mapa. Cliente pede pra parar, o time marca
               aqui, e mapa_envios_pendentes() deixa de incluí-lo. */}
           <div className="flex items-center gap-3">
