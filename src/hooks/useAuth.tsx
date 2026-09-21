@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
-import { getDefaultPermissions, type ScreenPermission } from "@/lib/screen-permissions";
+import { mergePermissions, type ScreenPermission } from "@/lib/screen-permissions";
 
 interface AuthContextType {
   user: User | null;
@@ -47,16 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("screen_key, can_access, read_only")
       .eq("user_id", userId);
 
-    const defaults = getDefaultPermissions(role ?? "cliente");
-
-    if (perms && perms.length > 0) {
-      // Merge: use DB values where they exist, fill missing screens from role defaults
-      const dbMap = new Map(perms.map((p) => [p.screen_key, p as ScreenPermission]));
-      const merged = defaults.map((d) => dbMap.get(d.screen_key) ?? d);
-      setPermissions(merged);
-    } else {
-      setPermissions(defaults);
-    }
+    // Telas gravadas mandam; o resto vem do padrão do papel.
+    setPermissions(mergePermissions(role, (perms ?? []) as ScreenPermission[]));
   };
 
   useEffect(() => {

@@ -133,6 +133,26 @@ export function getDefaultPermissions(role: string): ScreenPermission[] {
   return perms;
 }
 
+/**
+ * Junta o que está gravado em `user_permissions` com os padrões do papel.
+ *
+ * O banco guarda só as telas existentes na época em que o usuário foi salvo —
+ * quem foi cadastrado antes de Marketing/Esteira/Atendimento existirem tem
+ * 11 linhas, não 26. Sem completar com os padrões, essas telas ficavam fora
+ * da lista e não havia como marcá-las: a tela de permissões só conseguia
+ * alternar chaves já presentes no array.
+ *
+ * O resultado tem sempre uma linha por tela de SCREENS, na ordem canônica.
+ */
+export function mergePermissions(role: string | null | undefined, stored: ScreenPermission[]): ScreenPermission[] {
+  const defaults = getDefaultPermissions(role ?? "cliente");
+  const gravadas = new Map(stored.map((p) => [p.screen_key, p]));
+  return defaults.map((d) => {
+    const db = gravadas.get(d.screen_key);
+    return db ? { screen_key: d.screen_key, can_access: db.can_access, read_only: db.read_only } : d;
+  });
+}
+
 /** Map a route path to a screen key */
 export function routeToScreenKey(path: string): string | null {
   // O robô SDR é do Atendimento (comercial), apesar de morar sob /configuracoes.
