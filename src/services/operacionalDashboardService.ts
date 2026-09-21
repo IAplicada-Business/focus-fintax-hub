@@ -169,15 +169,21 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
       )
       .map((row) => row.cliente_id),
   );
-  const statusRows = statusTodos
-    .filter((row) => idsAtivos.has(row.cliente_id))
-    .map((row) => {
-      const reconciliada = {
-        ...row,
-        tem_compensacao_mes_corrente: clientesComCompensacaoMes.has(row.cliente_id),
-      };
-      return { ...reconciliada, status_principal: normalizarStatusCompensacao(reconciliada) };
-    });
+  const statusPorCliente = new Map(
+    statusTodos.filter((row) => idsAtivos.has(row.cliente_id)).map((row) => [row.cliente_id, row]),
+  );
+  // Cliente sem linha na view (view indisponível ou cadastro legado) não fica
+  // sem status: o movimento canônico do mês já prova que ele está compensando.
+  for (const clienteId of clientesComCompensacaoMes) {
+    if (!statusPorCliente.has(clienteId)) statusPorCliente.set(clienteId, { cliente_id: clienteId });
+  }
+  const statusRows = [...statusPorCliente.values()].map((row) => {
+    const reconciliada = {
+      ...row,
+      tem_compensacao_mes_corrente: clientesComCompensacaoMes.has(row.cliente_id),
+    };
+    return { ...reconciliada, status_principal: normalizarStatusCompensacao(reconciliada) };
+  });
   const totaisCanonicos = resumirFinanceiroPorCliente(idsAtivos, comps, creditos, teses, processos);
   const configStages = new Set(slaConfig.map((row) => row.estagio as string));
 

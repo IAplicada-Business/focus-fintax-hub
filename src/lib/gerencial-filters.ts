@@ -84,12 +84,13 @@ export function makeRamoFilterPredicate(
 ) {
   return (clienteId: string | null | undefined) => {
     if (ramo === "todas") return true;
-    if (!clienteId) return true;
-    const flags = ramosMap.get(clienteId);
-    // Legado sem tipo de recuperação permanece visível; a tela o declara como
-    // incompleto em vez de apagá-lo do recorte escolhido.
-    if (!flags || !Object.values(flags).some(Boolean)) return true;
-    return pertenceAoRamoGerencial(flags, ramo);
+    // Legado sem tipo de recuperação não é excluído: `ramosDoCliente` já trata
+    // ausência de processo como Compensação, então ele continua visível em
+    // Administrativo/Compensação sem poluir Ressarcimento ou Judicial.
+    return pertenceAoRamoGerencial(
+      (clienteId ? ramosMap.get(clienteId) : undefined) ?? {},
+      ramo,
+    );
   };
 }
 
