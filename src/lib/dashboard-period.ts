@@ -39,6 +39,61 @@ export function dashboardPeriodLabel(period: DashboardPeriod): string {
   return `${month}/${year}`;
 }
 
+/** Meses disponíveis para um ano, no formato MM (mais recente primeiro). */
+export function dashboardMonthsForYear(
+  options: DashboardPeriodOptions,
+  year: string,
+): string[] {
+  return options.months
+    .filter((key) => key.startsWith(`${year}-`))
+    .map((key) => key.slice(5, 7));
+}
+
+/**
+ * Troca o modo sem produzir um período inválido. Ao entrar em mês/ano,
+ * reaproveita o ano atual e cai na competência real mais recente disponível.
+ */
+export function changeDashboardPeriodMode(
+  period: DashboardPeriod,
+  mode: DashboardPeriod["mode"],
+  options: DashboardPeriodOptions,
+): DashboardPeriod {
+  if (mode === "accumulated") return { mode: "accumulated" };
+
+  const currentYear =
+    period.mode === "month"
+      ? period.month.slice(0, 4)
+      : period.mode === "year"
+        ? period.year
+        : options.years[0];
+
+  if (!currentYear) return { mode: "accumulated" };
+  if (mode === "year") return { mode: "year", year: currentYear };
+
+  const currentMonth = period.mode === "month" ? period.month.slice(5, 7) : null;
+  const months = dashboardMonthsForYear(options, currentYear);
+  const month = currentMonth && months.includes(currentMonth) ? currentMonth : months[0];
+  if (month) return { mode: "month", month: `${currentYear}-${month}` };
+
+  const latest = options.months[0];
+  return latest ? { mode: "month", month: latest } : { mode: "accumulated" };
+}
+
+/** Troca o ano e mantém o mês quando ele existe no novo ano. */
+export function changeDashboardPeriodYear(
+  period: DashboardPeriod,
+  year: string,
+  options: DashboardPeriodOptions,
+): DashboardPeriod {
+  if (period.mode === "year") return { mode: "year", year };
+  if (period.mode !== "month") return changeDashboardPeriodMode(period, "month", options);
+
+  const currentMonth = period.month.slice(5, 7);
+  const months = dashboardMonthsForYear(options, year);
+  const month = months.includes(currentMonth) ? currentMonth : months[0];
+  return month ? { mode: "month", month: `${year}-${month}` } : period;
+}
+
 export function matchesDashboardPeriod(
   month: string | null | undefined,
   period: DashboardPeriod,

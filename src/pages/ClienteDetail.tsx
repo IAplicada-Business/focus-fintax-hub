@@ -53,7 +53,6 @@ import {
 } from "@/hooks/data/useClienteOperacional";
 import { useUpdateClienteMotivoParada } from "@/hooks/data/useClientes";
 import { useQueryClient } from "@tanstack/react-query";
-import { ClienteOperacaoEditor } from "@/components/clientes/ClienteOperacaoEditor";
 import { podeEditarFichaCliente } from "@/lib/client-operation";
 import { esteiraStageLabel } from "@/lib/esteira-constants";
 
@@ -503,15 +502,6 @@ export default function ClienteDetail() {
                 </span>
               </Link>
             )}
-
-            <ClienteOperacaoEditor
-              cliente={cliente}
-              editable={canEdit}
-              onUpdated={(updated) => {
-                setCliente(updated);
-                void fetchHistorico();
-              }}
-            />
 
             <div className="space-y-3 text-sm">
               <div>

@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { DashboardPeriodFilter } from "@/components/DashboardPeriodFilter";
 import {
+  changeDashboardPeriodMode,
+  changeDashboardPeriodYear,
+  dashboardMonthsForYear,
   dashboardPeriodOptions,
   defaultDashboardPeriod,
   filterClientIdsByDashboardPeriod,
@@ -112,5 +117,48 @@ describe("recorte temporal compartilhado dos dashboards", () => {
         processos,
       ),
     ).toEqual(new Set(["a", "b"]));
+  });
+
+  it("separa mês e ano sem inventar competências sem dados", () => {
+    const options = {
+      months: ["2026-08", "2026-07", "2025-12"],
+      years: ["2026", "2025"],
+    };
+    const agosto = { mode: "month", month: "2026-08" } as const;
+
+    expect(dashboardMonthsForYear(options, "2026")).toEqual(["08", "07"]);
+    expect(changeDashboardPeriodYear(agosto, "2025", options)).toEqual({
+      mode: "month",
+      month: "2025-12",
+    });
+    expect(changeDashboardPeriodMode(agosto, "year", options)).toEqual({
+      mode: "year",
+      year: "2026",
+    });
+    expect(changeDashboardPeriodMode(agosto, "accumulated", options)).toEqual({
+      mode: "accumulated",
+    });
+  });
+
+  it("renderiza modo, mês e ano em campos separados", () => {
+    const onChange = vi.fn();
+    render(
+      <DashboardPeriodFilter
+        value={{ mode: "month", month: "2026-08" }}
+        onChange={onChange}
+        options={{
+          months: ["2026-08", "2026-07", "2025-12"],
+          years: ["2026", "2025"],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Tipo de período" })).toHaveTextContent("Por mês");
+    expect(screen.getByRole("combobox", { name: "Mês do dashboard" })).toHaveTextContent("Ago");
+    expect(screen.getByRole("combobox", { name: "Ano do dashboard" })).toHaveTextContent("2026");
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Ano do dashboard" }));
+    fireEvent.click(screen.getByRole("option", { name: "2025" }));
+    expect(onChange).toHaveBeenCalledWith({ mode: "month", month: "2025-12" });
   });
 });
