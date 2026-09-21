@@ -44,9 +44,11 @@ export interface RealocacaoSugerida {
  * Sugestão de etapa pra realocação em massa (Fase 1 — decisão 03/09/2026).
  * Só sugere pra quem ainda está em Triagem; quem já foi movido mantém a etapa.
  * Regra a partir do status consolidado (`v_clientes_status_compensacao`):
- *   compensando | reporto | prevista | ressarcimento | judicial → em_compensacao
+ *   compensando | reporto | prevista → em_compensacao
  *   encerrado → concluido
  *   sem_operacao (ou desconhecido) → triagem (fica, com SLA reiniciado)
+ * `ressarcimento`/`judicial` abaixo são aliases legados enquanto ambientes
+ * ainda não aplicaram a migration que separa status de ramo.
  * Quem revisa o preview pode sobrescrever qualquer linha.
  */
 export function sugerirEstagioRealocacao(

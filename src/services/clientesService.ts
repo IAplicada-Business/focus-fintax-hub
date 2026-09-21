@@ -1,4 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
+import {
+  normalizarStatusCompensacao,
+  type StatusCompensacaoRow,
+} from "@/lib/gerencial-filters";
 import type { Database } from "@/integrations/supabase/types";
 
 type Cliente = Database["public"]["Tables"]["clientes"]["Row"];
@@ -88,16 +92,20 @@ export async function getClienteCreditos(clienteId: string) {
 export async function getClienteStatusCompensacao(clienteId: string) {
   const { data, error } = await (supabase as any)
     .from("v_clientes_status_compensacao")
-    .select("status_principal, tem_reporto, tem_tese_ativa, ultima_competencia_compensada")
+    .select("status_principal, tem_reporto, tem_tese_ativa, tem_compensacao_mes_corrente, todos_encerrados, ultima_competencia_compensada")
     .eq("cliente_id", clienteId)
     .maybeSingle();
   if (error) throw error;
-  return data as {
+  if (!data) return null;
+  return {
+    ...data,
+    status_principal: normalizarStatusCompensacao(data as StatusCompensacaoRow),
+  } as {
     status_principal: string | null;
     tem_reporto: boolean | null;
     tem_tese_ativa: boolean | null;
     ultima_competencia_compensada: string | null;
-  } | null;
+  };
 }
 
 export async function listTesesTributarias() {
@@ -118,9 +126,27 @@ export async function listMotorTesesAtivas() {
 }
 
 export async function listStatusCompensacaoRows() {
-  const { data, error } = await (supabase as any)
-    .from("v_clientes_status_compensacao")
-    .select("cliente_id, status_principal");
-  if (error) throw error;
-  return (data ?? []) as { cliente_id: string; status_principal: string }[];
+  const db = supabase as any;
+  const [statusRes, processosRes] = await Promise.all([
+    db
+      .from("v_clientes_status_compensacao")
+      .select("cliente_id, status_principal, tem_compensacao_mes_corrente, tem_tese_ativa, todos_encerrados, tem_reporto"),
+    supabase
+      .from("processos_teses")
+      .select("cliente_id, tipo_recuperacao, status_contrato, status_processo"),
+  ]);
+  if (statusRes.error) throw statusRes.error;
+  if (processosRes.error) throw processosRes.error;
+
+  const processosPorCliente = new Map<string, typeof processosRes.data>();
+  for (const processo of processosRes.data ?? []) {
+    const atuais = processosPorCliente.get(processo.cliente_id) ?? [];
+    atuais.push(processo);
+    processosPorCliente.set(processo.cliente_id, atuais);
+  }
+  return (statusRes.data ?? []).map((row: Record<string, unknown>) => ({
+    ...row,
+    status_principal: normalizarStatusCompensacao(row as unknown as StatusCompensacaoRow),
+    processos: processosPorCliente.get(row.cliente_id as string) ?? [],
+  }));
 }

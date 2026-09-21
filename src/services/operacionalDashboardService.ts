@@ -2,6 +2,10 @@ import { supabase } from "@/integrations/supabase/client";
 import type { AcaoLike, CompLike, CreditoLike, HistoricoEsteiraLike, ProcessoLike, TeseLike } from "@/lib/operacional-analytics";
 import { listEsteiraClientes, type EsteiraCliente } from "@/services/esteiraService";
 import { listEsteiraSlaConfig, type EsteiraSlaConfigRow } from "@/services/esteiraSlaConfigService";
+import {
+  normalizarStatusCompensacao,
+  type StatusCompensacaoRow,
+} from "@/lib/gerencial-filters";
 
 const MS_DIA = 86_400_000;
 
@@ -34,7 +38,7 @@ export interface OperacionalDashboardData {
   teses: TeseLike[];
   processos: ProcessoLike[];
   totais: TotaisCliente[];
-  statusRows: { cliente_id: string; status_principal: string }[];
+  statusRows: StatusCompensacaoRow[];
   esteira: EsteiraCliente[];
   slaConfig: EsteiraSlaConfigRow[];
   esteiraHistorico: HistoricoEsteiraLike[];
@@ -80,10 +84,13 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
     db.from("teses_tributarias").select("id, codigo, label, incluir_no_calculo").limit(200),
     supabase
       .from("processos_teses")
-      .select("id, cliente_id, tese, nome_exibicao, criado_em, valor_credito, status_contrato, categoria")
+      .select("id, cliente_id, tese, nome_exibicao, criado_em, valor_credito, status_contrato, status_processo, categoria, tipo_recuperacao")
       .limit(10000),
     db.from("v_cliente_totais_calculo").select("cliente_id, credito_apurado, total_compensado, saldo_restante").limit(5000),
-    db.from("v_clientes_status_compensacao").select("cliente_id, status_principal").limit(5000),
+    db
+      .from("v_clientes_status_compensacao")
+      .select("cliente_id, status_principal, tem_compensacao_mes_corrente, tem_tese_ativa, todos_encerrados, tem_reporto")
+      .limit(5000),
     listEsteiraClientes().catch(() => [] as EsteiraCliente[]),
     listEsteiraSlaConfig(),
     supabase
@@ -120,7 +127,10 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
       total_compensado: Number(t.total_compensado ?? 0),
       saldo_restante: Number(t.saldo_restante ?? 0),
     })),
-    statusRows: (statusRes.data ?? []) as { cliente_id: string; status_principal: string }[],
+    statusRows: ((statusRes.data ?? []) as StatusCompensacaoRow[]).map((row) => ({
+      ...row,
+      status_principal: normalizarStatusCompensacao(row),
+    })),
     esteira,
     slaConfig,
     esteiraHistorico: (histRes.data ?? []) as HistoricoEsteiraLike[],

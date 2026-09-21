@@ -6,6 +6,7 @@ import {
   ordenarPorSla,
   pertenceAFaixa,
   pertenceAoRamo,
+  pertenceAoRamoGerencial,
   proximaAcao,
   proximaEtapa,
   ramosDoCliente,
@@ -41,6 +42,12 @@ describe("ramos", () => {
     expect(pertenceAoRamo(c, "recuperacao_judicial")).toBe(true);
     expect(pertenceAoRamo(c, "ressarcimento")).toBe(false);
     expect(pertenceAoRamo(c, "todas")).toBe(true);
+  });
+
+  it("agrupador administrativo usa os mesmos ramos da esteira", () => {
+    expect(pertenceAoRamoGerencial({ tem_ramo_compensacao: true }, "administrativo")).toBe(true);
+    expect(pertenceAoRamoGerencial({ tem_ramo_ressarcimento: true }, "administrativo")).toBe(true);
+    expect(pertenceAoRamoGerencial({ tem_ramo_judicial: true }, "administrativo")).toBe(false);
   });
 });
 

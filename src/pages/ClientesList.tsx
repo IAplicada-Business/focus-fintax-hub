@@ -21,13 +21,17 @@ import { ImportControleModal } from "@/components/clientes/ImportControleModal";
 import { ImportFluxoCaixaModal } from "@/components/clientes/ImportFluxoCaixaModal";
 import {
   StatusCompensacaoFilter,
+  TipoRecuperacaoFilter,
   useStatusCompensacao,
   makeStatusFilterPredicate,
+  makeRamoFilterPredicate,
   countByStatus,
+  countByRamo,
   STATUS_COMPENSACAO_VALUES,
   STATUS_COMPENSACAO_LABELS,
   STATUS_COMPENSACAO_COLORS,
   type StatusCompensacao,
+  type RamoGerencialFiltro,
 } from "@/components/StatusCompensacaoFilter";
 import { formatCurrencyBR } from "@/lib/clientes-constants";
 import { SEGMENTO_LABELS } from "@/lib/pipeline-constants";
@@ -65,7 +69,8 @@ export default function ClientesList() {
   const [filterStatusCompensacao, setFilterStatusCompensacao] = useState<Set<StatusCompensacao>>(
     new Set(STATUS_COMPENSACAO_VALUES)
   );
-  const { statusMap: statusCompMap } = useStatusCompensacao();
+  const [filterRamo, setFilterRamo] = useState<RamoGerencialFiltro>("todas");
+  const { statusMap: statusCompMap, ramosMap } = useStatusCompensacao();
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 25;
 
@@ -107,11 +112,6 @@ export default function ClientesList() {
     });
   }, [clientes, processos, compensacoes]);
 
-  const totalClientes = clientes.length;
-  const totalCompensando = allStats.filter((c) => c.totalCompensado > 0).length;
-  const globalCredito = allStats.reduce((s, c) => s + c.totalCredito, 0);
-  const globalCompensado = allStats.reduce((s, c) => s + c.totalCompensado, 0);
-
   const filtered = useMemo(() => {
     let next = allStats;
     if (search) {
@@ -122,16 +122,26 @@ export default function ClientesList() {
     if (filterStatus === "compensando") next = next.filter((c) => c.totalCompensado > 0);
     else if (filterStatus !== "all") next = next.filter((c) => c.status === filterStatus);
     const statusCompPredicate = makeStatusFilterPredicate(filterStatusCompensacao, statusCompMap);
-    return next.filter((c) => statusCompPredicate(c.id));
-  }, [allStats, search, filterSegmento, filterStatus, filterStatusCompensacao, statusCompMap]);
+    const ramoPredicate = makeRamoFilterPredicate(filterRamo, ramosMap);
+    return next.filter((c) => statusCompPredicate(c.id) && ramoPredicate(c.id));
+  }, [allStats, search, filterSegmento, filterStatus, filterStatusCompensacao, filterRamo, statusCompMap, ramosMap]);
+
+  const totalClientes = filtered.length;
+  const totalCompensando = filtered.filter((c) => c.totalCompensado > 0).length;
+  const globalCredito = filtered.reduce((s, c) => s + c.totalCredito, 0);
+  const globalCompensado = filtered.reduce((s, c) => s + c.totalCompensado, 0);
 
   const statusCompCounts = useMemo(
     () => countByStatus(allStats.map((c) => c.id), statusCompMap),
     [allStats, statusCompMap]
   );
+  const ramoCounts = useMemo(
+    () => countByRamo(allStats.map((c) => c.id), ramosMap),
+    [allStats, ramosMap],
+  );
 
   // Reset page on filter change
-  useEffect(() => setCurrentPage(1), [search, filterSegmento, filterStatus, filterStatusCompensacao]);
+  useEffect(() => setCurrentPage(1), [search, filterSegmento, filterStatus, filterStatusCompensacao, filterRamo]);
 
   // Pagination
   const totalItems = filtered.length;
@@ -333,6 +343,11 @@ export default function ClientesList() {
           selectedStatuses={filterStatusCompensacao}
           onChange={setFilterStatusCompensacao}
           counts={statusCompCounts}
+        />
+        <TipoRecuperacaoFilter
+          ramo={filterRamo}
+          onChange={setFilterRamo}
+          counts={ramoCounts}
         />
       </div>
 
