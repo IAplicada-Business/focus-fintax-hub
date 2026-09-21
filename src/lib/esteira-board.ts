@@ -2,19 +2,10 @@ import { slaInfo, type ClienteSlaLike, type SlaInfo } from "@/lib/esteira-acompa
 import { isEstagioEsteira } from "@/lib/esteira-constants";
 
 /**
- * Lógica pura do quadro (kanban) da Esteira Administrativa — compartilhada
- * entre a tela /esteira e o painel "Onde os clientes estão" do dashboard.
+ * Lógica pura do quadro (kanban) da Esteira Administrativa, na tela /esteira.
  */
 
 export const ESTEIRA_COLAPSO_KEY = "esteira.colapsadas";
-export const DASH_ESTEIRA_VIEW_KEY = "dash.esteira.view";
-
-export type DashEsteiraView = "etapas" | "kanban";
-
-/** Sem preferência salva, o dashboard abre no resumo compacto. */
-export function parseDashEsteiraView(value: string | null | undefined): DashEsteiraView {
-  return value === "kanban" ? "kanban" : "etapas";
-}
 
 export interface EsteiraBoardStage {
   value: string;

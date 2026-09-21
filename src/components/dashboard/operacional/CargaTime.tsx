@@ -8,6 +8,11 @@ import { cn } from "@/lib/utils";
 export function CargaTime({ carga }: { carga: CargaResponsavel[] }) {
   const navigate = useNavigate();
   const max = Math.max(...carga.map((c) => c.clientes), 1);
+  // Carteira inteira sem dono vira uma tabela de uma linha só, com quatro
+  // colunas que repetem o mesmo número: nesse estado o que importa é distribuir.
+  const semDono = carga.length > 0 && carga.every((c) => !c.responsavel_id);
+  const totalSemDono = carga.reduce((s, c) => s + c.clientes, 0);
+
   return (
     <Panel
       eyebrow="Time"
@@ -19,6 +24,24 @@ export function CargaTime({ carga }: { carga: CargaResponsavel[] }) {
     >
       {carga.length === 0 ? (
         <InlineEmpty>Nenhum cliente na esteira.</InlineEmpty>
+      ) : semDono ? (
+        <div className="flex h-full flex-col items-center justify-center gap-3 px-5 py-10 text-center">
+          <p className="font-display text-3xl font-extrabold tabular-nums text-navy">{totalSemDono}</p>
+          <div>
+            <p className="text-sm font-semibold text-navy">Clientes sem responsável</p>
+            <p className="mx-auto mt-1 max-w-[320px] text-xs leading-snug text-ink-35">
+              Nenhum cliente da esteira tem dono. Distribua a carteira para o SLA e a fila de
+              cobrança passarem a medir trabalho real.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/esteira/organizar")}
+            className="rounded-full bg-navy px-4 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-navy/90"
+          >
+            Distribuir carteira
+          </button>
+        </div>
       ) : (
         <table className="w-full text-xs">
           <thead>
