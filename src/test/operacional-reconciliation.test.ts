@@ -120,6 +120,15 @@ describe("reconciliação financeira da Visão Operacional", () => {
     expect([...ids]).toEqual(["legacy"]);
   });
 
+  it("cliente sem tipo não invade ressarcimento nem judicial", () => {
+    const semTipo = (ramo: "compensacao" | "ressarcimento" | "recuperacao_judicial") =>
+      filtrarIdsRecorteGerencial(["legacy"], new Set(), ramo, new Map(), new Map());
+
+    expect([...semTipo("compensacao")]).toEqual(["legacy"]);
+    expect([...semTipo("ressarcimento")]).toEqual([]);
+    expect([...semTipo("recuperacao_judicial")]).toEqual([]);
+  });
+
   it("movimento no mês prevalece sobre REPORTO no status operacional", () => {
     expect(normalizarStatusCompensacao({
       cliente_id: "a",
