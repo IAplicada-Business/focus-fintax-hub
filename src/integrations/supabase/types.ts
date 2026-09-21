@@ -414,6 +414,7 @@ export type Database = {
           responsavel_id: string | null
           segmento: string | null
           status: string | null
+          status_compensacao: string | null
           status_operacional:
             | Database["public"]["Enums"]["status_cliente"]
             | null
@@ -445,6 +446,7 @@ export type Database = {
           responsavel_id?: string | null
           segmento?: string | null
           status?: string | null
+          status_compensacao?: string | null
           status_operacional?:
             | Database["public"]["Enums"]["status_cliente"]
             | null
@@ -476,6 +478,7 @@ export type Database = {
           responsavel_id?: string | null
           segmento?: string | null
           status?: string | null
+          status_compensacao?: string | null
           status_operacional?:
             | Database["public"]["Enums"]["status_cliente"]
             | null
@@ -2566,6 +2569,24 @@ export type Database = {
         }
         Returns: undefined
       }
+      cliente_atualizar_operacao: {
+        Args: {
+          p_atualizar_responsavel?: boolean
+          p_cliente_id: string
+          p_estagio?: Database["public"]["Enums"]["estagio_esteira"]
+          p_responsavel_id?: string
+          p_status_compensacao?: string
+        }
+        Returns: Database["public"]["Tables"]["clientes"]["Row"]
+      }
+      cliente_responsaveis_elegiveis: {
+        Args: never
+        Returns: {
+          cargo: string
+          full_name: string
+          user_id: string
+        }[]
+      }
       esteira_aplicar_realocacao: {
         Args: { p_itens: Json; p_motivo?: string }
         Returns: number
@@ -2582,6 +2603,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      pode_editar_clientes: {
+        Args: { p_user_id: string }
         Returns: boolean
       }
       mapa_envios_pendentes: { Args: { p_limite?: number }; Returns: Json }

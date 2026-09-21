@@ -11,7 +11,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   STATUS_CONTRATO,
-  STATUS_PROCESSO,
   isReportoProcesso,
   normalizeTeseCatalogCodigo,
 } from "@/lib/clientes-constants";
@@ -24,6 +23,10 @@ import {
   resolveTipoRecuperacao,
   type TipoRecuperacao,
 } from "@/lib/tipo-recuperacao";
+import {
+  isStatusProcessoEditavel,
+  statusProcessoEditaveis,
+} from "@/lib/client-operation";
 
 interface Props {
   open: boolean;
@@ -34,6 +37,7 @@ interface Props {
   /** Pré-seleciona tese ao abrir para criação */
   presetTese?: string | null;
   onSuccess: () => void;
+  editable?: boolean;
 }
 
 interface TeseOption {
@@ -48,7 +52,7 @@ const EMPTY_FORM = {
   valor_credito: "",
   percentual_honorario: "",
   status_contrato: "aguardando_assinatura",
-  status_processo: "a_iniciar",
+  status_processo: "a_compensar",
   observacao: "",
   categoria: "compensacao",
   tipo_recuperacao: "compensacao" as TipoRecuperacao,
@@ -62,6 +66,7 @@ export function ProcessoFormModal({
   processo,
   presetTese,
   onSuccess,
+  editable = true,
 }: Props) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -83,7 +88,7 @@ export function ProcessoFormModal({
         status_contrato: processo.status_contrato,
         status_processo: processo.status_processo,
         observacao: processo.observacao || "",
-        categoria: processo.categoria === "reporto" ? "reporto" : "compensacao",
+        categoria: isReportoProcesso(processo) ? "reporto" : "compensacao",
         tipo_recuperacao: isTipoRecuperacao(processo.tipo_recuperacao)
           ? processo.tipo_recuperacao
           : "compensacao",
@@ -132,7 +137,7 @@ export function ProcessoFormModal({
       ...p,
       tese: value,
       nome_exibicao: nome,
-      categoria: isReporto ? "reporto" : p.categoria,
+      categoria: isReporto ? "reporto" : "compensacao",
       tipo_recuperacao: resolveTipoRecuperacao(t?.tipo_recuperacao_padrao, value, nome),
     }));
   };
@@ -143,7 +148,14 @@ export function ProcessoFormModal({
     return !!(n && takenNorm.has(n));
   };
 
+  const formIsReporto = isReportoProcesso({
+    tese: form.tese,
+    nome_exibicao: form.nome_exibicao,
+    categoria: form.categoria,
+  });
+
   const handleSave = async () => {
+    if (!editable) return;
     if (!form.tese) { toast.error("Selecione uma tese."); return; }
     if (teseJaUsada(form.tese)) {
       toast.error("Já existe um processo com essa tese neste cliente.");
@@ -162,6 +174,11 @@ export function ProcessoFormModal({
         );
         if (!ok) return;
       }
+    }
+
+    if (!isStatusProcessoEditavel(form.status_processo, formIsReporto)) {
+      toast.error("Escolha um status de processo disponível.");
+      return;
     }
 
     setSaving(true);
@@ -268,7 +285,24 @@ export function ProcessoFormModal({
           </div>
           <div className="space-y-1.5">
             <Label>Categoria</Label>
-            <Select value={form.categoria} onValueChange={(v) => update("categoria", v)}>
+            <Select
+              value={form.categoria}
+              onValueChange={(v) => {
+                setForm((current) => ({
+                  ...current,
+                  categoria: v,
+                  status_processo:
+                    !isReportoProcesso({
+                      tese: current.tese,
+                      nome_exibicao: current.nome_exibicao,
+                      categoria: v,
+                    }) &&
+                    current.status_processo === "pedido_feito_receita"
+                      ? "a_compensar"
+                      : current.status_processo,
+                }));
+              }}
+            >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="compensacao">Compensação</SelectItem>
@@ -301,7 +335,21 @@ export function ProcessoFormModal({
             <Select value={form.status_processo} onValueChange={(v) => update("status_processo", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {STATUS_PROCESSO.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                {!isStatusProcessoEditavel(
+                  form.status_processo,
+                  formIsReporto,
+                ) && (
+                  <SelectItem value={form.status_processo || "__legacy__"} disabled>
+                    Legado: {form.status_processo || "sem classificação"}
+                  </SelectItem>
+                )}
+                {statusProcessoEditaveis(
+                  formIsReporto,
+                ).map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

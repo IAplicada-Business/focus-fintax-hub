@@ -1,19 +1,12 @@
+import { STATUS_PROCESSO_PADRAO } from "@/lib/client-operation";
+
 export const STATUS_CONTRATO = [
   { value: "assinado", label: "Assinado", color: "bg-green-100 text-green-800 border-green-200" },
   { value: "aguardando_assinatura", label: "Aguardando", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
   { value: "nao_vai_fazer", label: "Não vai fazer", color: "bg-gray-100 text-gray-600 border-gray-200" },
 ] as const;
 
-export const STATUS_PROCESSO = [
-  { value: "compensando", label: "Compensando", color: "bg-blue-100 text-blue-800 border-blue-200" },
-  { value: "pedido_feito_receita", label: "Pedido feito Receita", color: "bg-orange-100 text-orange-800 border-orange-200" },
-  { value: "nao_protocolado", label: "Não protocolado", color: "bg-red-100 text-red-800 border-red-200" },
-  { value: "a_iniciar", label: "A iniciar", color: "bg-gray-100 text-gray-600 border-gray-200" },
-  { value: "compensado", label: "Compensado", color: "bg-green-100 text-green-800 border-green-200" },
-  { value: "a_compensar", label: "A compensar", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
-  { value: "protocolado", label: "Protocolado", color: "bg-purple-100 text-purple-800 border-purple-200" },
-  { value: "desistiu", label: "Desistiu", color: "bg-gray-200 text-gray-700 border-gray-300" },
-] as const;
+export const STATUS_PROCESSO = STATUS_PROCESSO_PADRAO;
 
 export const STATUS_PAGAMENTO = [
   { value: "pago", label: "Pago", color: "bg-green-100 text-green-800" },
@@ -25,7 +18,10 @@ export function getStatusContratoConfig(value: string) {
 }
 
 export function getStatusProcessoConfig(value: string) {
-  return STATUS_PROCESSO.find((s) => s.value === value) ?? STATUS_PROCESSO[3];
+  return STATUS_PROCESSO.find((s) => s.value === value) ?? {
+    value,
+    label: `Legado: ${value || "sem classificação"}`,
+  };
 }
 
 export function getStatusPagamentoConfig(value: string) {

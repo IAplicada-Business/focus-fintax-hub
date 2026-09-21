@@ -37,7 +37,7 @@ describe("regressão com o formato observado no banco ao vivo", () => {
     ]);
   });
 
-  it("preserva os 94 clientes em triagem sem inventar compensando pela flag manual", () => {
+  it("preserva os 94 clientes em triagem e reclassifica legado como qualidade de dados", () => {
     const statusMap = new Map(
       statusRows.map((row) => [row.cliente_id, normalizarStatusCompensacao(row)]),
     );
@@ -55,10 +55,10 @@ describe("regressão com o formato observado no banco ao vivo", () => {
     expect(etapas[0].clientes).toBe(94);
     expect(contagem).toEqual({
       compensando: 0,
-      prevista: 25,
+      prevista: 0,
       reporto: 40,
       encerrado: 0,
-      sem_operacao: 29,
+      sem_operacao: 54,
     });
   });
 

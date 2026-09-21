@@ -34,20 +34,26 @@ import {
   getStatusContratoConfig,
   isReportoProcesso,
   processoTeseCatalogCodigo,
-  STATUS_PROCESSO,
 } from "@/lib/clientes-constants";
 import { deleteCreditoApuradoForProcesso, syncCreditoApuradoFromProcesso } from "@/lib/sync-credito-apurado";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 import {
   isTipoRecuperacao,
+  TIPOS_RECUPERACAO,
   TIPO_RECUPERACAO_BADGE,
   TIPO_RECUPERACAO_LABEL,
   type TipoRecuperacao,
 } from "@/lib/tipo-recuperacao";
+import {
+  isStatusProcessoEditavel,
+  statusProcessoEditaveis,
+  tiposRecuperacaoDistintos,
+} from "@/lib/client-operation";
 
 interface Props {
   clienteId: string;
   compensacoesTotal: number;
+  editable: boolean;
   /** Incrementar para abrir o modal de adicionar tese */
   addTeseSignal?: number;
   presetTese?: string | null;
@@ -57,6 +63,7 @@ interface Props {
 export function ProcessosTesesTab({
   clienteId,
   compensacoesTotal,
+  editable,
   addTeseSignal = 0,
   presetTese = null,
   onProcessosChanged,
@@ -101,6 +108,7 @@ export function ProcessosTesesTab({
   };
 
   const handleInlineUpdate = (id: string, field: string, value: string | number) => {
+    if (!editable) return;
     let honorarioCalc: number | null = null;
     const current = processos.find((p) => p.id === id);
     setProcessos((prev) =>
@@ -145,19 +153,64 @@ export function ProcessosTesesTab({
   };
 
   const handleStatusProcessoChange = async (id: string, value: string) => {
+    if (!editable) return;
     const prev = processos.find((p) => p.id === id);
     const oldStatus = prev?.status_processo;
     setProcessos((ps) => ps.map((p) => (p.id === id ? { ...p, status_processo: value } : p)));
-    await supabase
+    const { error } = await supabase
       .from("processos_teses")
       .update({ status_processo: value, atualizado_em: new Date().toISOString() })
       .eq("id", id);
-    logClienteHistorico(
+    if (error) {
+      setProcessos((ps) => ps.map((p) => (p.id === id ? { ...p, status_processo: oldStatus } : p)));
+      toast.error(error.message || "Erro ao alterar status.");
+      return;
+    }
+    await logClienteHistorico(
       clienteId,
       "status_mudado",
       `Status de "${prev?.nome_exibicao}" alterado`,
       { status_processo: oldStatus },
       { status_processo: value },
+    );
+    void refreshAll();
+  };
+
+  const handleTipoRecuperacaoChange = async (
+    id: string,
+    value: TipoRecuperacao,
+  ) => {
+    if (!editable) return;
+    const previous = processos.find((p) => p.id === id);
+    setProcessos((items) =>
+      items.map((item) =>
+        item.id === id ? { ...item, tipo_recuperacao: value } : item,
+      ),
+    );
+    const { error } = await supabase
+      .from("processos_teses")
+      .update({
+        tipo_recuperacao: value,
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("id", id);
+    if (error) {
+      setProcessos((items) =>
+        items.map((item) =>
+          item.id === id
+            ? { ...item, tipo_recuperacao: previous?.tipo_recuperacao }
+            : item,
+        ),
+      );
+      toast.error("Erro ao alterar tipo de recuperação.");
+      return;
+    }
+    await logClienteHistorico(
+      clienteId,
+      "tipo_recuperacao_mudado",
+      `Tipo de recuperação de "${previous?.nome_exibicao}" alterado`,
+      { tipo_recuperacao: previous?.tipo_recuperacao },
+      { tipo_recuperacao: value },
     );
     void refreshAll();
   };
@@ -203,6 +256,7 @@ export function ProcessosTesesTab({
 
   const existingCodes = processos.map((p) => p.tese);
   const tesesDisponiveis = opcoesTese.filter((t) => !existingCodes.includes(t.tese));
+  const tiposDaEmpresa = tiposRecuperacaoDistintos(processos);
 
   return (
     <div className="space-y-4">
@@ -233,6 +287,27 @@ export function ProcessosTesesTab({
         </Card>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2">
+        <span className="text-xs font-medium text-muted-foreground">
+          Tipos de recuperação da empresa:
+        </span>
+        {tiposDaEmpresa.length > 0 ? (
+          tiposDaEmpresa.map((tipo) => (
+            <Badge
+              key={tipo.value}
+              variant="outline"
+              className={`text-[10px] ${TIPO_RECUPERACAO_BADGE[tipo.value]}`}
+            >
+              {tipo.label}
+            </Badge>
+          ))
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            nenhuma tese classificada
+          </span>
+        )}
+      </div>
+
       {alertAguardando.length > 0 && (
         <div className="flex items-center gap-2 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
           <AlertTriangle className="h-4 w-4" />
@@ -256,7 +331,7 @@ export function ProcessosTesesTab({
             Escolha uma tese abaixo para começar o processo deste cliente. Você pode ajustar valor,
             contrato e honorários depois.
           </p>
-          {tesesDisponiveis.length > 0 ? (
+          {editable && tesesDisponiveis.length > 0 ? (
             <div className="mx-auto mt-5 flex max-w-2xl flex-wrap justify-center gap-2">
               {tesesDisponiveis.map((t) => (
                 <Button
@@ -272,26 +347,29 @@ export function ProcessosTesesTab({
                 </Button>
               ))}
             </div>
-          ) : (
+          ) : editable ? (
             <Button type="button" size="sm" className="mt-5" onClick={() => openAdd()}>
               <Plus className="mr-1 h-4 w-4" /> Adicionar tese
             </Button>
-          )}
+          ) : null}
         </div>
       ) : (
         <>
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              onClick={() => openAdd()}
-            >
-              <Plus className="mr-1 h-4 w-4" /> Adicionar tese
-            </Button>
-          </div>
+          {editable && (
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={() => openAdd()}
+              >
+                <Plus className="mr-1 h-4 w-4" /> Adicionar tese
+              </Button>
+            </div>
+          )}
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Tese</TableHead>
+                <TableHead>Tipo de recuperação</TableHead>
                 <TableHead>Valor Crédito</TableHead>
                 <TableHead>Contrato</TableHead>
                 <TableHead>% Hon.</TableHead>
@@ -304,7 +382,7 @@ export function ProcessosTesesTab({
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground">
                     Carregando...
                   </TableCell>
                 </TableRow>
@@ -359,12 +437,35 @@ export function ProcessosTesesTab({
                         </div>
                       </TableCell>
                       <TableCell>
+                        <Select
+                          value={tipoRec ?? undefined}
+                          onValueChange={(value) => {
+                            if (isTipoRecuperacao(value)) {
+                              void handleTipoRecuperacaoChange(p.id, value);
+                            }
+                          }}
+                          disabled={!editable}
+                        >
+                          <SelectTrigger className="h-7 w-44 text-xs">
+                            <SelectValue placeholder="Classificar" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TIPOS_RECUPERACAO.map((tipo) => (
+                              <SelectItem key={tipo.value} value={tipo.value}>
+                                {tipo.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
                         <CurrencyInput
                           className="h-7 w-36 text-xs"
                           value={p.valor_credito ?? ""}
                           onValueChange={(v) =>
                             handleInlineUpdate(p.id, "valor_credito", Number(v) || 0)
                           }
+                          disabled={!editable}
                         />
                       </TableCell>
                       <TableCell>
@@ -381,6 +482,7 @@ export function ProcessosTesesTab({
                           onChange={(e) =>
                             handleInlineUpdate(p.id, "percentual_honorario", Number(e.target.value))
                           }
+                          disabled={!editable}
                         />
                       </TableCell>
                       <TableCell className="text-sm">
@@ -390,12 +492,18 @@ export function ProcessosTesesTab({
                         <Select
                           value={p.status_processo}
                           onValueChange={(v) => handleStatusProcessoChange(p.id, v)}
+                          disabled={!editable}
                         >
                           <SelectTrigger className="h-7 w-36 text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {STATUS_PROCESSO.map((s) => (
+                            {!isStatusProcessoEditavel(p.status_processo, isReporto) && (
+                              <SelectItem value={p.status_processo || "__legacy__"} disabled>
+                                Legado: {p.status_processo || "sem classificação"}
+                              </SelectItem>
+                            )}
+                            {statusProcessoEditaveis(isReporto).map((s) => (
                               <SelectItem key={s.value} value={s.value}>
                                 {s.label}
                               </SelectItem>
@@ -409,10 +517,11 @@ export function ProcessosTesesTab({
                           value={p.observacao || ""}
                           onChange={(e) => handleInlineUpdate(p.id, "observacao", e.target.value)}
                           placeholder="..."
+                          disabled={!editable}
                         />
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
+                        {editable && <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -479,7 +588,7 @@ export function ProcessosTesesTab({
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
-                        </div>
+                        </div>}
                       </TableCell>
                     </TableRow>
                   );
@@ -498,6 +607,7 @@ export function ProcessosTesesTab({
         processo={editProcesso}
         presetTese={modalPreset}
         onSuccess={refreshAll}
+        editable={editable}
       />
     </div>
   );

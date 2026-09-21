@@ -120,17 +120,17 @@ describe("reconciliação do recorte Executivo × Clientes", () => {
     expect(executivo.reduce((sum, row) => sum + row.saldo_restante, 0)).toBe(2_200);
   });
 
-  it("status e ramo se combinam sem judicial/ressarcimento virarem status", () => {
+  it("qualidade de dados e ramo se combinam sem judicial/ressarcimento virarem status", () => {
     const idsClientes = filtrarIdsRecorteGerencial(
       clientes,
-      new Set(["prevista"]),
+      new Set(["sem_operacao"]),
       "recuperacao_judicial",
       statusMap,
       ramosMap,
     );
     expect([...idsClientes]).toEqual(["judicial"]);
-    expect(statusMap.get("ressarcimento")).toBe("prevista");
-    expect(statusMap.get("judicial")).toBe("prevista");
+    expect(statusMap.get("ressarcimento")).toBe("sem_operacao");
+    expect(statusMap.get("judicial")).toBe("sem_operacao");
   });
 });
 

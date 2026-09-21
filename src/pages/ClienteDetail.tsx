@@ -52,6 +52,8 @@ import {
 } from "@/hooks/data/useClienteOperacional";
 import { useUpdateClienteMotivoParada } from "@/hooks/data/useClientes";
 import { useQueryClient } from "@tanstack/react-query";
+import { ClienteOperacaoEditor } from "@/components/clientes/ClienteOperacaoEditor";
+import { podeEditarFichaCliente } from "@/lib/client-operation";
 
 export default function ClienteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -66,6 +68,7 @@ export default function ClienteDetail() {
   const [obsSaved, setObsSaved] = useState(false);
   const [motivoParada, setMotivoParada] = useState("");
   const updateMotivoParada = useUpdateClienteMotivoParada();
+  const canEdit = podeEditarFichaCliente(userRole, permissions);
 
   const { data: compensacoesCached = [] } = useClienteCompensacoes(id);
   const { data: processosCached = [] } = useClienteProcessos(id);
@@ -158,11 +161,6 @@ export default function ClienteDetail() {
   }, [id, cliente?.empresa]);
 
   useEffect(() => {
-    if (userRole === "comercial") {
-      toast.error("Acesso restrito");
-      navigate("/clientes");
-      return;
-    }
     if (!id) return;
     supabase
       .from("clientes")
@@ -178,7 +176,7 @@ export default function ClienteDetail() {
         setMotivoParada(data.motivo_parada || "");
         setLoading(false);
       });
-  }, [id, navigate, userRole]);
+  }, [id, navigate]);
 
   const handleObsChange = (value: string) => {
     setCliente((prev: any) => ({ ...prev, observacoes: value }));
@@ -373,7 +371,7 @@ export default function ClienteDetail() {
         {id && (
           <ClienteHeaderQuadrantes
             clienteId={id}
-            onAddTese={requestAddTese}
+            onAddTese={canEdit ? requestAddTese : undefined}
           />
         )}
         {(() => {
@@ -412,6 +410,7 @@ export default function ClienteDetail() {
                 <ProcessosTesesTab
                   clienteId={id!}
                   compensacoesTotal={compensacoesTotal}
+                  editable={canEdit}
                   addTeseSignal={addTeseSignal}
                   presetTese={addTesePreset}
                   onProcessosChanged={() => { void fetchHistorico(); }}
@@ -445,28 +444,32 @@ export default function ClienteDetail() {
           </SheetHeader>
 
           <div className="h-[calc(100vh-5.5rem)] space-y-4 overflow-y-auto p-5">
-            <div className="flex gap-1">
-              <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => setEditOpen(true)}>
-                <Pencil className="h-3.5 w-3.5" /> Editar
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1 text-destructive hover:text-destructive"
-                onClick={() => setDeleteOpen(true)}
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Excluir
-              </Button>
-            </div>
+            {canEdit && (
+              <div className="flex gap-1">
+                <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => setEditOpen(true)}>
+                  <Pencil className="h-3.5 w-3.5" /> Editar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 text-destructive hover:text-destructive"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Excluir
+                </Button>
+              </div>
+            )}
 
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start gap-2 text-muted-foreground"
-              onClick={() => setLatatexOpen(true)}
-            >
-              <Upload className="h-4 w-4" /> Importar dados Laratex
-            </Button>
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start gap-2 text-muted-foreground"
+                onClick={() => setLatatexOpen(true)}
+              >
+                <Upload className="h-4 w-4" /> Importar dados Laratex
+              </Button>
+            )}
 
             <Button
               variant="outline"
@@ -499,6 +502,15 @@ export default function ClienteDetail() {
               </Link>
             )}
 
+            <ClienteOperacaoEditor
+              cliente={cliente}
+              editable={canEdit}
+              onUpdated={(updated) => {
+                setCliente(updated);
+                void fetchHistorico();
+              }}
+            />
+
             <div className="space-y-3 text-sm">
               <div>
                 <span className="text-muted-foreground">CNPJ:</span> {cliente.cnpj}
@@ -511,7 +523,7 @@ export default function ClienteDetail() {
                 {SEGMENTO_LABELS[cliente.segmento] || cliente.segmento || "—"}
               </div>
               <div>
-                <span className="text-muted-foreground">Responsável:</span> {cliente.nome_contato || "—"}
+                <span className="text-muted-foreground">Contato:</span> {cliente.nome_contato || "—"}
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">Telefone:</span>
@@ -540,6 +552,7 @@ export default function ClienteDetail() {
                 <textarea
                   value={motivoParada}
                   onChange={(e) => setMotivoParada(e.target.value)}
+                  disabled={!canEdit}
                   className="min-h-[72px] w-full resize-y rounded-md border border-amber-200 bg-background p-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Ex.: aguardando documentos do cliente"
                   aria-label="Motivo da parada"
@@ -547,25 +560,28 @@ export default function ClienteDetail() {
                 <p className="text-[10px] leading-snug text-amber-800/80">
                   Este texto aparece na esteira e no pulso semanal.
                 </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-7 w-full gap-1.5 text-xs"
-                  disabled={
-                    updateMotivoParada.isPending ||
-                    (motivoParada.trim() || null) === (cliente.motivo_parada?.trim() || null)
-                  }
-                  onClick={handleMotivoParadaSave}
-                >
-                  <Save className="h-3.5 w-3.5" />
-                  {updateMotivoParada.isPending ? "Salvando..." : "Salvar motivo"}
-                </Button>
+                {canEdit && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 w-full gap-1.5 text-xs"
+                    disabled={
+                      updateMotivoParada.isPending ||
+                      (motivoParada.trim() || null) === (cliente.motivo_parada?.trim() || null)
+                    }
+                    onClick={handleMotivoParadaSave}
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    {updateMotivoParada.isPending ? "Salvando..." : "Salvar motivo"}
+                  </Button>
+                )}
               </div>
               <div className="relative">
                 <span className="text-muted-foreground text-xs">Observações:</span>
                 <textarea
                   value={cliente.observacoes || ""}
                   onChange={(e) => handleObsChange(e.target.value)}
+                  disabled={!canEdit}
                   className="mt-1 min-h-[80px] w-full resize-none rounded-lg border border-border bg-background p-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Observações internas sobre o cliente..."
                 />
