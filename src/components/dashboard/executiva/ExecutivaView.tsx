@@ -345,7 +345,9 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
             {m.geracao.every((g) => g.novos === 0) ? (
               <InlineEmpty>Nenhum processo cadastrado no período.</InlineEmpty>
             ) : (
-              <div className="h-[220px]">
+              // h-full acompanha o painel vizinho em vez de deixar o resto do
+              // card vazio; o mínimo mantém o gráfico legível quando a linha é baixa.
+              <div className="h-full min-h-[220px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={m.geracao} margin={{ top: 16, right: 8, left: -12, bottom: 0 }} barCategoryGap="30%">
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-12)" vertical={false} />
@@ -364,7 +366,9 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
         </div>
       </div>
 
-      <div className="animate-slide-up delay-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
+      {/* items-start: lista e gráfico têm alturas próprias; esticar o mais curto
+          até o vizinho só criava um vão morto dentro do card. */}
+      <div className="animate-slide-up delay-3 grid grid-cols-1 items-start xl:grid-cols-2 gap-4">
         <Panel eyebrow="Status" title="Distribuição por status de compensação" subtitle={`${m.totalStatus} clientes · status derivado da carteira`} action={<LinkMore onClick={() => navigate("/clientes")}>Ver carteira</LinkMore>}>
           {m.totalStatus === 0 ? (
             <InlineEmpty>Sem clientes com status calculado.</InlineEmpty>
@@ -403,7 +407,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
         </Panel>
       </div>
 
-      <div className="animate-slide-up delay-4 grid grid-cols-1 xl:grid-cols-12 gap-4">
+      <div className="animate-slide-up delay-4 grid grid-cols-1 items-start xl:grid-cols-12 gap-4">
         <div className="xl:col-span-7 min-w-0">
           <Panel eyebrow="Concentração" title="Top 10 clientes por crédito apurado" subtitle={m.top.length ? `Os ${m.top.length} maiores concentram ${m.topShare.toFixed(0)}% do crédito` : "Relevância de cada cliente"} action={<LinkMore onClick={() => navigate("/clientes")}>Ver todos</LinkMore>} flush>
             {m.top.length === 0 ? (
@@ -442,7 +446,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
           </Panel>
         </div>
         <div className="xl:col-span-5 min-w-0">
-          <Panel eyebrow="Atenção" title="Sem tese em uso" subtitle="Clientes ativos sem tese ativa definida" action={<CountChip tom={m.semTese.length > 0 ? "amber" : "green"}>{m.semTese.length}</CountChip>} flush className="h-full">
+          <Panel eyebrow="Atenção" title="Sem tese em uso" subtitle="Clientes ativos sem tese ativa definida" action={<CountChip tom={m.semTese.length > 0 ? "amber" : "green"}>{m.semTese.length}</CountChip>} flush>
             {m.semTese.length === 0 ? (
               <InlineEmpty>Todos os ativos têm tese em uso.</InlineEmpty>
             ) : (
