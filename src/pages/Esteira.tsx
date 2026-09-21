@@ -11,17 +11,20 @@ import { EsteiraCobranca } from "@/components/esteira/EsteiraCobranca";
 import { SkeletonTable } from "@/components/dashboard/SkeletonTable";
 import { Button } from "@/components/ui/button";
 import { visibleEsteiraStages } from "@/lib/esteira-constants";
+import { defaultEsteiraSlaConfig } from "@/services/esteiraSlaConfigService";
 import { RAMO_FILTROS, pertenceAoRamo, ramosDoCliente, type RamoFiltro } from "@/lib/esteira-acompanhamento";
 import { cn } from "@/lib/utils";
 
 type EsteiraTab = "acompanhamento" | "kanban" | "cobranca";
 
-const TAB_KEY = "esteira.tab";
+// v2: a preferência antiga guardava "acompanhamento" para admin/pmo e deixava
+// o quadro invisível para sempre; a chave nova reabre todo mundo no Kanban.
+const TAB_KEY = "esteira.tab.v2";
 const RAMO_KEY = "esteira.ramo";
 
 const TABS: { value: EsteiraTab; label: string; icon: typeof ListChecks; hint: string }[] = [
+  { value: "kanban", label: "Kanban", icon: KanbanSquare, hint: "Quadro — arrastar entre etapas" },
   { value: "acompanhamento", label: "Tabela", icon: TableProperties, hint: "Tabela — quem monitora" },
-  { value: "kanban", label: "Kanban", icon: KanbanSquare, hint: "Arrastar — quem opera" },
   { value: "cobranca", label: "Cobrança", icon: BellRing, hint: "Fim de dia — quem cobrar" },
 ];
 
@@ -42,7 +45,9 @@ export default function Esteira() {
   const { data: clientes, isLoading } = useEsteiraClientes();
   const { data: slaConfig } = useEsteiraSlaConfig();
 
-  // Aba inicial: ?tab= > preferência salva > papel (PMO/admin monitora, o resto opera).
+  // Aba inicial: ?tab= > preferência salva > Kanban. O quadro é o formato
+  // padrão da esteira para todo papel de operações — inclusive admin/pmo, que
+  // antes caíam na tabela e não achavam o Kanban.
   const [tab, setTab] = useState<EsteiraTab>(() => {
     const fromUrl = searchParams.get("tab");
     if (isTab(fromUrl)) return fromUrl;
@@ -52,7 +57,7 @@ export default function Esteira() {
     } catch {
       /* storage indisponível */
     }
-    return userRole === "admin" || userRole === "pmo" ? "acompanhamento" : "kanban";
+    return "kanban";
   });
 
   const [ramo, setRamo] = useState<RamoFiltro>(() => {
@@ -82,14 +87,22 @@ export default function Esteira() {
     if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
   }, [tab, ramo, searchParams, setSearchParams]);
 
+  // `?etapa=` vem do painel "Onde os clientes estão" (dashboard operacional);
+  // sem isso o link "clique para abrir a etapa" abria o quadro sem destino.
+  const etapaFoco = searchParams.get("etapa");
+
+  // A config do banco é opcional: se a query ainda não voltou (ou a RLS de
+  // `esteira_sla_config` barrou o papel), o quadro abre com os defaults locais
+  // em vez de ficar preso no skeleton.
+  const config = useMemo(() => slaConfig ?? defaultEsteiraSlaConfig(), [slaConfig]);
+
   const stages = useMemo(() => {
-    if (!slaConfig) return undefined;
-    const slaPorEtapa = new Map(slaConfig.map((c) => [c.estagio as string, c.sla_dias]));
+    const slaPorEtapa = new Map(config.map((c) => [c.estagio as string, c.sla_dias]));
     return visibleEsteiraStages(
-      slaConfig,
+      config,
       (clientes ?? []).map((c) => c.estagio_esteira || "triagem"),
     ).map((s) => ({ ...s, sla_dias: slaPorEtapa.get(s.value) ?? null }));
-  }, [slaConfig, clientes]);
+  }, [config, clientes]);
 
   const contagemRamo = useMemo(() => {
     const m: Record<RamoFiltro, number> = { todas: 0, compensacao: 0, ressarcimento: 0, recuperacao_judicial: 0 };
@@ -171,43 +184,47 @@ export default function Esteira() {
           })}
         </div>
 
-        {/* Alternador de visão: tabela (Acompanhamento), quadro (Kanban) e Cobrança. */}
-        <div role="tablist" aria-label="Formato da esteira" className="flex rounded-full border border-ink-06 bg-white p-1 shadow-soft">
-          {TABS.map((t) => {
-            const ativo = tab === t.value;
-            return (
-              <button
-                key={t.value}
-                type="button"
-                role="tab"
-                aria-selected={ativo}
-                title={t.hint}
-                onClick={() => setTab(t.value)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs whitespace-nowrap transition-colors",
-                  ativo ? "bg-navy text-white font-semibold shadow-sm" : "font-medium text-ink-60 hover:text-navy",
-                )}
-              >
-                <t.icon className="h-3.5 w-3.5" />
-                {t.label}
-              </button>
-            );
-          })}
+        {/* Alternador de visão: quadro (Kanban), tabela (Acompanhamento) e Cobrança. */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-35">Visão</span>
+          <div role="tablist" aria-label="Formato da esteira" className="flex rounded-full border border-ink-06 bg-white p-1 shadow-soft">
+            {TABS.map((t) => {
+              const ativo = tab === t.value;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={ativo}
+                  title={t.hint}
+                  onClick={() => setTab(t.value)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] whitespace-nowrap transition-colors",
+                    ativo ? "bg-navy text-white font-semibold shadow-sm" : "font-medium text-ink-60 hover:bg-ink-03 hover:text-navy",
+                  )}
+                >
+                  <t.icon className="h-4 w-4" />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {isLoading || !slaConfig ? (
+      {isLoading ? (
         <SkeletonTable />
       ) : tab === "kanban" ? (
         <EsteiraKanban
           clientes={clientesDoRamo}
           stages={stages}
+          focusStage={etapaFoco}
           onClienteClick={(id) => navigate(`/clientes/${id}`)}
         />
       ) : tab === "cobranca" ? (
-        <EsteiraCobranca clientes={clientesDoRamo} slaConfig={slaConfig} />
+        <EsteiraCobranca clientes={clientesDoRamo} slaConfig={config} />
       ) : (
-        <EsteiraAcompanhamento clientes={clientesDoRamo} slaConfig={slaConfig} />
+        <EsteiraAcompanhamento clientes={clientesDoRamo} slaConfig={config} />
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { AlertTriangle, Building2, ChevronsLeft, ChevronsRight, Clock, UserX } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
@@ -34,6 +34,8 @@ interface Props {
    * de `esteira_sla_config` (ordem/ativo editáveis).
    */
   stages?: readonly EsteiraKanbanStage[];
+  /** Etapa vinda de `?etapa=` (dashboard): abre expandida, destacada e à vista. */
+  focusStage?: string | null;
   /** Altura do quadro; a tela cheia usa flex-1 e o dashboard passa uma fixa. */
   className?: string;
 }
@@ -43,14 +45,32 @@ interface Props {
  * dividem a largura disponível, qualquer etapa pode ser recolhida (escolha
  * salva) e os cards trazem SLA, ramos, responsável e teses.
  */
-export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGES, className }: Props) {
+export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGES, focusStage, className }: Props) {
   const [colapsadas, setColapsadas] = useState<Set<string>>(() => lerColapsadas(typeof localStorage !== "undefined" ? localStorage : null, ESTEIRA_COLAPSO_KEY));
   const [optimisticMoves, setOptimisticMoves] = useState<Record<string, string>>({});
   const updateEstagio = useUpdateEstagioEsteira();
+  const focusRef = useRef<HTMLDivElement | null>(null);
+  const jaRolou = useRef(false);
 
   useEffect(() => {
     salvarColapsadas(colapsadas, typeof localStorage !== "undefined" ? localStorage : null, ESTEIRA_COLAPSO_KEY);
   }, [colapsadas]);
+
+  // Uma etapa recolhida em visita anterior engoliria o destino do link do
+  // dashboard ("clique para abrir a etapa"); expande e traz pra vista uma vez.
+  useEffect(() => {
+    if (!focusStage) return;
+    setColapsadas((prev) => {
+      if (!prev.has(focusStage)) return prev;
+      const next = new Set(prev);
+      next.delete(focusStage);
+      return next;
+    });
+    if (focusRef.current && !jaRolou.current) {
+      jaRolou.current = true;
+      focusRef.current.scrollIntoView({ block: "nearest", inline: "center" });
+    }
+  }, [focusStage, colapsadas]);
 
   const toggleCollapse = (stage: string) => {
     setColapsadas((prev) => {
@@ -88,6 +108,20 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
     }
   };
 
+  // Sem coluna nenhuma o quadro seria uma faixa vazia — sem isso o usuário vê
+  // a tela "sem kanban" e não tem como saber que é config de etapa.
+  if (stages.length === 0) {
+    return (
+      <div role="region" aria-label="Esteira administrativa" className={cn("flex-1 min-h-0 flex items-center justify-center", className)}>
+        <EmptyState
+          icon={<Building2 className="w-5 h-5 text-ink-35" />}
+          title="Nenhuma etapa ativa na esteira"
+          subtitle="Ative pelo menos uma etapa em Configurar SLA para o quadro aparecer"
+        />
+      </div>
+    );
+  }
+
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
       <div role="region" aria-label="Esteira administrativa" className={cn("flex-1 min-h-0 flex gap-3 overflow-x-auto pb-3 -mx-1 px-1", className)}>
@@ -96,6 +130,7 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
           const resumo = resumoEtapaEsteira(stageClientes, stage.sla_dias);
           const isCollapsed = colapsadas.has(stage.value);
           const terminal = stage.value === "concluido" || stage.value === "devolutiva_cliente";
+          const emFoco = focusStage === stage.value;
 
           if (isCollapsed) {
             return (
@@ -118,13 +153,17 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
             <Droppable key={stage.value} droppableId={stage.value}>
               {(provided, snapshot) => (
                 <div
-                  ref={provided.innerRef}
+                  ref={(node: HTMLDivElement | null) => {
+                    provided.innerRef(node);
+                    if (emFoco) focusRef.current = node;
+                  }}
                   {...provided.droppableProps}
                   role="list"
                   aria-label={`${stage.label} — ${resumo.total} clientes`}
                   className={cn(
                     "flex-1 min-w-[250px] max-w-[420px] rounded-2xl border flex flex-col transition-colors",
                     snapshot.isDraggingOver ? "bg-gold/[0.06] border-gold/50" : terminal ? "bg-ink-03 border-ink-06" : "bg-white/60 border-ink-06",
+                    emFoco && !snapshot.isDraggingOver && "ring-2 ring-gold/45 border-gold/50",
                   )}
                 >
                   <div className="px-3 pt-3 pb-2 border-b border-ink-06">

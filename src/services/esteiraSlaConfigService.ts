@@ -33,15 +33,23 @@ export function configToSlaMap(rows: EsteiraSlaConfigRow[]): EsteiraSlaMap {
 }
 
 export async function listEsteiraSlaConfig(): Promise<EsteiraSlaConfigRow[]> {
-  const { data, error } = await (supabase as any)
-    .from("esteira_sla_config")
-    .select("estagio, label, sla_dias, ordem, ativo, atualizado_em")
-    .order("ordem", { ascending: true });
-
-  if (error || !data?.length) {
-    if (error) {
-      console.warn("esteira_sla_config indisponível — usando defaults", error.message);
+  // Nunca rejeita: quem consome (a tela /esteira) renderiza o quadro a partir
+  // do retorno, então uma falha de rede aqui não pode virar tela em branco.
+  let data: EsteiraSlaConfigRow[] | null = null;
+  try {
+    const res = await (supabase as any)
+      .from("esteira_sla_config")
+      .select("estagio, label, sla_dias, ordem, ativo, atualizado_em")
+      .order("ordem", { ascending: true });
+    if (res.error) {
+      console.warn("esteira_sla_config indisponível — usando defaults", res.error.message);
     }
+    data = res.data ?? null;
+  } catch (err) {
+    console.warn("esteira_sla_config indisponível — usando defaults", err);
+  }
+
+  if (!data?.length) {
     return defaultEsteiraSlaConfig();
   }
 
