@@ -20,6 +20,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { canEditLead } from "@/lib/role-permissions";
 import type { PipelineLead } from "@/pages/Pipeline";
 import { ConvertClientModal } from "./ConvertClientModal";
+import { funilEntraNaEsteira } from "@/lib/handoff-funil-esteira";
+import { entregarLeadNaEsteira } from "@/services/handoffService";
 import AtendimentoTab from "./AtendimentoTab";
 import { useNavigate } from "react-router-dom";
 
@@ -60,6 +62,7 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
   const [obs, setObs] = useState("");
   const [historico, setHistorico] = useState<HistoricoEntry[]>([]);
   const [showConvert, setShowConvert] = useState(false);
+  const [convertParaEtapa, setConvertParaEtapa] = useState("cliente_ativo");
   const [showException, setShowException] = useState(false);
   const [exceptionReason, setExceptionReason] = useState("");
   const [exceptionSaving, setExceptionSaving] = useState(false);
@@ -206,7 +209,8 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
 
   const handleStageChange = async (newStage: string) => {
     if (!lead) return;
-    if (newStage === "cliente_ativo") {
+    if (funilEntraNaEsteira(newStage)) {
+      setConvertParaEtapa(newStage);
       setShowConvert(true);
       return;
     }
@@ -233,35 +237,22 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
   const handleExceptionApproval = async () => {
     if (!lead || !exceptionReason.trim()) return;
     setExceptionSaving(true);
-    const { data: cliente, error } = await supabase.from("clientes").insert({
-      lead_id: lead.id,
-      empresa: lead.empresa,
-      cnpj: lead.cnpj,
-      nome_contato: lead.nome,
-      email: lead.email,
-      whatsapp: lead.whatsapp,
-      segmento: lead.segmento,
-      regime_tributario: lead.regime_tributario,
-      faturamento_faixa: lead.faturamento_faixa,
-      status: "ativo",
-    }).select("id").single();
-
-    if (error || !cliente) {
-      toast.error("Erro ao converter lead", { description: error?.message });
+    try {
+      const result = await entregarLeadNaEsteira({
+        lead,
+        deEtapa: lead.status_funil,
+        paraEtapa: "cliente_ativo",
+        usuarioId: user?.id,
+        anotacao: `⚠ EXCEÇÃO: ${exceptionReason.trim()}`,
+      });
+      toast.success("Lead aprovado por exceção e enviado para a esteira", {
+        description: result.descricao,
+      });
+    } catch (error) {
+      toastError(error, "Erro ao converter lead");
       setExceptionSaving(false);
       return;
     }
-
-    await supabase.from("leads").update({ status_funil: "cliente_ativo", status_funil_atualizado_em: new Date().toISOString() }).eq("id", lead.id);
-    await supabase.from("lead_historico").insert({
-      lead_id: lead.id,
-      de_etapa: lead.status_funil,
-      para_etapa: "cliente_ativo",
-      anotacao: `⚠ EXCEÇÃO: ${exceptionReason.trim()}`,
-      criado_por: user?.id,
-    });
-
-    toast.success("Lead aprovado por exceção e convertido em cliente!");
     setExceptionSaving(false);
     setShowException(false);
     setExceptionReason("");
@@ -748,7 +739,12 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <ConvertClientModal lead={showConvert ? lead : null} onClose={() => setShowConvert(false)} onRefresh={() => { onRefresh(); onClose(); }} />
+      <ConvertClientModal
+        lead={showConvert ? lead : null}
+        paraEtapa={convertParaEtapa}
+        onClose={() => setShowConvert(false)}
+        onRefresh={() => { onRefresh(); onClose(); }}
+      />
     </>
   );
 }

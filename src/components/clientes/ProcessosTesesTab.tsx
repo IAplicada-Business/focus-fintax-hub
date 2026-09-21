@@ -32,6 +32,7 @@ import { ProcessoFormModal } from "./ProcessoFormModal";
 import {
   formatCurrencyBR,
   getStatusContratoConfig,
+  getStatusProcessoConfig,
   isReportoProcesso,
   processoTeseCatalogCodigo,
 } from "@/lib/clientes-constants";
@@ -45,8 +46,6 @@ import {
   type TipoRecuperacao,
 } from "@/lib/tipo-recuperacao";
 import {
-  isStatusProcessoEditavel,
-  statusProcessoEditaveis,
   tiposRecuperacaoDistintos,
 } from "@/lib/client-operation";
 
@@ -150,30 +149,6 @@ export function ProcessosTesesTab({
       }
       void refreshAll();
     }, 800);
-  };
-
-  const handleStatusProcessoChange = async (id: string, value: string) => {
-    if (!editable) return;
-    const prev = processos.find((p) => p.id === id);
-    const oldStatus = prev?.status_processo;
-    setProcessos((ps) => ps.map((p) => (p.id === id ? { ...p, status_processo: value } : p)));
-    const { error } = await supabase
-      .from("processos_teses")
-      .update({ status_processo: value, atualizado_em: new Date().toISOString() })
-      .eq("id", id);
-    if (error) {
-      setProcessos((ps) => ps.map((p) => (p.id === id ? { ...p, status_processo: oldStatus } : p)));
-      toast.error(error.message || "Erro ao alterar status.");
-      return;
-    }
-    await logClienteHistorico(
-      clienteId,
-      "status_mudado",
-      `Status de "${prev?.nome_exibicao}" alterado`,
-      { status_processo: oldStatus },
-      { status_processo: value },
-    );
-    void refreshAll();
   };
 
   const handleTipoRecuperacaoChange = async (
@@ -374,7 +349,7 @@ export function ProcessosTesesTab({
                 <TableHead>Contrato</TableHead>
                 <TableHead>% Hon.</TableHead>
                 <TableHead>Valor Hon.</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Etapa da tese</TableHead>
                 <TableHead>Obs.</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
@@ -389,6 +364,7 @@ export function ProcessosTesesTab({
               ) : (
                 processos.map((p) => {
                   const sc = getStatusContratoConfig(p.status_contrato);
+                  const sp = getStatusProcessoConfig(p.status_processo);
                   const tipoRec: TipoRecuperacao | null = isTipoRecuperacao(p.tipo_recuperacao)
                     ? (p.tipo_recuperacao as TipoRecuperacao)
                     : null;
@@ -489,27 +465,9 @@ export function ProcessosTesesTab({
                         {formatCurrencyBR(Number(p.valor_honorario || 0))}
                       </TableCell>
                       <TableCell>
-                        <Select
-                          value={p.status_processo}
-                          onValueChange={(v) => handleStatusProcessoChange(p.id, v)}
-                          disabled={!editable}
-                        >
-                          <SelectTrigger className="h-7 w-36 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {!isStatusProcessoEditavel(p.status_processo, isReporto) && (
-                              <SelectItem value={p.status_processo || "__legacy__"} disabled>
-                                Legado: {p.status_processo || "sem classificação"}
-                              </SelectItem>
-                            )}
-                            {statusProcessoEditaveis(isReporto).map((s) => (
-                              <SelectItem key={s.value} value={s.value}>
-                                {s.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Badge variant="outline" className={sp.color}>
+                          {sp.label}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <Input

@@ -6,7 +6,8 @@ import type {
   TeseLike,
 } from "@/lib/operacional-analytics";
 
-export type TipoTeseFiltro = string | null;
+/** Seleção de teses. Array vazio = todas. */
+export type TipoTeseFiltro = string[];
 
 export interface TipoTeseOpcao {
   value: string;
@@ -15,6 +16,18 @@ export interface TipoTeseOpcao {
 }
 
 const normalizar = (value: string | null | undefined) => String(value ?? "").trim();
+
+export function teseFiltroAtivo(filtro: TipoTeseFiltro | null | undefined): boolean {
+  return (filtro?.length ?? 0) > 0;
+}
+
+export function normalizarTipoTeseFiltro(
+  filtro: TipoTeseFiltro | string | null | undefined,
+): TipoTeseFiltro {
+  if (Array.isArray(filtro)) return filtro;
+  if (typeof filtro === "string" && filtro.trim()) return [filtro.trim().toUpperCase()];
+  return [];
+}
 
 export function codigoTipoTeseProcesso(
   processo: Pick<ProcessoLike, "categoria" | "tese" | "nome_exibicao">,
@@ -57,18 +70,21 @@ export function idsClientesPorTipoTese(
   return out;
 }
 
-/** Sem seleção mantém todos os clientes ativos; a exclusão de REPORTO é financeira. */
+/** Sem seleção mantém todos os clientes; com seleção, quem tiver qualquer tese marcada. */
 export function filtrarIdsPorTipoTese(
   ids: Iterable<string>,
-  tipoTese: TipoTeseFiltro,
+  tipoTese: TipoTeseFiltro | string | null | undefined,
   processos: ProcessoLike[],
   creditos: CreditoLike[],
   teses: TeseLike[],
 ): Set<string> {
   const todos = new Set(ids);
-  if (!tipoTese) return todos;
-  const comTese = idsClientesPorTipoTese(processos, creditos, teses).get(tipoTese);
-  return new Set([...todos].filter((id) => comTese?.has(id)));
+  const filtro = normalizarTipoTeseFiltro(tipoTese);
+  if (!teseFiltroAtivo(filtro)) return todos;
+  const porTese = idsClientesPorTipoTese(processos, creditos, teses);
+  return new Set(
+    [...todos].filter((id) => filtro.some((codigo) => porTese.get(codigo)?.has(id))),
+  );
 }
 
 export function listarTiposTese(
@@ -106,23 +122,52 @@ export function listarTiposTese(
     });
 }
 
+export function codigoNoFiltroTese(
+  codigo: string | null | undefined,
+  tipoTese: TipoTeseFiltro | string | null | undefined,
+): boolean {
+  const filtro = normalizarTipoTeseFiltro(tipoTese);
+  const code = normalizar(codigo).toUpperCase();
+  if (!code) return false;
+  if (!teseFiltroAtivo(filtro)) return code !== "REPORTO";
+  return filtro.includes(code);
+}
+
+/** Rótulo curto do filtro para cabeçalhos de recorte. */
+export function rotuloFiltroTese(
+  tipoTese: TipoTeseFiltro | string | null | undefined,
+  options: Array<{ value: string; label: string }> = [],
+): string {
+  const filtro = normalizarTipoTeseFiltro(tipoTese);
+  if (!teseFiltroAtivo(filtro)) return "todas";
+  if (filtro.length === 1) {
+    return options.find((option) => option.value === filtro[0])?.label ?? filtro[0];
+  }
+  return `${filtro.length} teses`;
+}
+
 export function filtrarProcessosPorTipoTese(
   processos: ProcessoLike[],
-  tipoTese: TipoTeseFiltro,
+  tipoTese: TipoTeseFiltro | string | null | undefined,
 ): ProcessoLike[] {
-  if (!tipoTese) return processos;
-  return processos.filter((processo) => codigoTipoTeseProcesso(processo) === tipoTese);
+  const filtro = normalizarTipoTeseFiltro(tipoTese);
+  if (!teseFiltroAtivo(filtro)) return processos;
+  return processos.filter((processo) => {
+    const codigo = codigoTipoTeseProcesso(processo);
+    return !!codigo && filtro.includes(codigo);
+  });
 }
 
 export function filtrarCreditosPorTipoTese(
   creditos: CreditoLike[],
   teses: TeseLike[],
-  tipoTese: TipoTeseFiltro,
+  tipoTese: TipoTeseFiltro | string | null | undefined,
 ): CreditoLike[] {
-  if (!tipoTese) return creditos;
+  const filtro = normalizarTipoTeseFiltro(tipoTese);
+  if (!teseFiltroAtivo(filtro)) return creditos;
   const ids = new Set(
     teses
-      .filter((tese) => normalizar(tese.codigo).toUpperCase() === tipoTese)
+      .filter((tese) => filtro.includes(normalizar(tese.codigo).toUpperCase()))
       .map((tese) => tese.id),
   );
   return creditos.filter((credito) => ids.has(credito.tese_id));
@@ -132,17 +177,21 @@ export function filtrarCompensacoesPorTipoTese(
   comps: CompLike[],
   processos: ProcessoLike[],
   teses: TeseLike[],
-  tipoTese: TipoTeseFiltro,
+  tipoTese: TipoTeseFiltro | string | null | undefined,
 ): CompLike[] {
-  if (!tipoTese) return comps;
+  const filtro = normalizarTipoTeseFiltro(tipoTese);
+  if (!teseFiltroAtivo(filtro)) return comps;
   const teseIds = new Set(
     teses
-      .filter((tese) => normalizar(tese.codigo).toUpperCase() === tipoTese)
+      .filter((tese) => filtro.includes(normalizar(tese.codigo).toUpperCase()))
       .map((tese) => tese.id),
   );
   const processoIds = new Set(
     processos
-      .filter((processo) => codigoTipoTeseProcesso(processo) === tipoTese)
+      .filter((processo) => {
+        const codigo = codigoTipoTeseProcesso(processo);
+        return !!codigo && filtro.includes(codigo);
+      })
       .map((processo) => processo.id),
   );
   return comps.filter(

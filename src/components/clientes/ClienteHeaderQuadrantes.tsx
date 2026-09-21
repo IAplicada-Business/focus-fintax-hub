@@ -15,7 +15,6 @@ import {
   splitCreditosCalculo,
   sumCompensadoCanonical,
 } from "@/lib/clientes-constants";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   STATUS_COMPENSACAO_LABELS,
   STATUS_COMPENSACAO_COLORS,
@@ -35,6 +34,8 @@ import {
   useMotorTesesAtivas,
   useTesesTributarias,
 } from "@/hooks/data/useClienteOperacional";
+import { TipoTeseFilter } from "@/components/TipoTeseFilter";
+import { teseFiltroAtivo, type TipoTeseFiltro } from "@/lib/tese-filter";
 
 interface Props {
   clienteId: string;
@@ -74,8 +75,6 @@ interface Dados {
   possiveisFuturos: number;
 }
 
-const TODAS_AS_TESES = "todas";
-
 const EMPTY: Dados = {
   totalApurado: 0,
   tesesAtivas: 0,
@@ -101,7 +100,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
   const [mesInicio, setMesInicio] = useState("");
   const [mesFim, setMesFim] = useState("");
   const [trocaOpen, setTrocaOpen] = useState(false);
-  const [teseFiltro, setTeseFiltro] = useState<string>(TODAS_AS_TESES);
+  const [tesesFiltro, setTesesFiltro] = useState<TipoTeseFiltro>([]);
 
   useEffect(() => {
     if (!refreshToken) return;
@@ -221,8 +220,18 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
     [creditos, compsNoPeriodo, teses, processoIdsByTese, reportoTeseIds, reportoProcessoIds],
   );
 
-  const multiTese = porTese.length > 1;
-  const teseAtual = porTese.find((t) => t.teseId === teseFiltro) ?? null;
+  const tesesFiltroValidas = useMemo(() => {
+    const idsDisponiveis = new Set(porTese.map((t) => t.teseId));
+    return tesesFiltro.filter((id) => idsDisponiveis.has(id));
+  }, [porTese, tesesFiltro]);
+  const tesesSelecionadas = teseFiltroAtivo(tesesFiltroValidas)
+    ? porTese.filter((t) => tesesFiltroValidas.includes(t.teseId))
+    : porTese;
+  const filtroTesesAtivo = teseFiltroAtivo(tesesFiltroValidas);
+  const teseOptions = useMemo(
+    () => porTese.map((t) => ({ value: t.teseId, label: t.label, clientes: 0 })),
+    [porTese],
+  );
   const totalCompensadoLancado = useMemo(
     () => sumCompensadoCanonical(compsNoPeriodo, { reportoTeseIds, reportoProcessoIds }),
     [compsNoPeriodo, reportoTeseIds, reportoProcessoIds],
@@ -232,8 +241,12 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
   // o apurado de uma tese com o compensado de outra.
   // Consolidado do card = mesmos lançamentos do rodapé "Já Compensado"
   // (sem Reporto). Apurado segue teses marcadas no cálculo.
-  const apuradoExibido = teseAtual ? teseAtual.apurado : dadosBase.totalApurado;
-  const compensadoExibido = teseAtual ? teseAtual.compensado : totalCompensadoLancado;
+  const apuradoExibido = filtroTesesAtivo
+    ? tesesSelecionadas.reduce((total, tese) => total + tese.apurado, 0)
+    : dadosBase.totalApurado;
+  const compensadoExibido = filtroTesesAtivo
+    ? tesesSelecionadas.reduce((total, tese) => total + tese.compensado, 0)
+    : totalCompensadoLancado;
 
   // Saldo = apurado ao vivo − compensado da aba. Nunca view.saldo_restante
   // (essa coluna da view subtrai GREATEST com snapshot legado).
@@ -288,46 +301,18 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
             </button>
           )}
         </div>
-        {multiTese && (
+        {porTese.length > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Tese</span>
-            <Select value={teseFiltro} onValueChange={setTeseFiltro}>
-              <SelectTrigger className="h-8 w-[220px] text-xs" aria-label="Filtrar cards por tese">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={TODAS_AS_TESES}>Todas as teses (consolidado)</SelectItem>
-                {porTese.map((t) => (
-                  <SelectItem key={t.teseId} value={t.teseId}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <TipoTeseFilter
+              value={tesesFiltroValidas}
+              onChange={setTesesFiltro}
+              options={teseOptions}
+              className="h-8 max-w-[260px] text-xs"
+            />
           </div>
         )}
-        <p className="text-[11px] text-ink-35 sm:ml-auto">
-          {teseAtual
-            ? `Cards filtrados por ${teseAtual.label}`
-            : "Apurado: teses no cálculo. Compensado: todos os lançamentos (exceto Reporto)."}
-        </p>
       </div>
-
-      {multiTese && !teseAtual && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {porTese.map((t) => (
-            <button
-              key={t.teseId}
-              type="button"
-              onClick={() => setTeseFiltro(t.teseId)}
-              className="rounded-full border border-[var(--ink-06)] px-2.5 py-1 text-[10px] text-ink-35 transition-colors hover:border-primary hover:text-foreground"
-            >
-              <strong className="text-foreground">{t.label}</strong>{" "}
-              {formatCurrencyBR(t.apurado)} apurado · {formatCurrencyBR(t.saldo)} saldo
-            </button>
-          ))}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,1fr)]">
         <div className="card-base grid grid-cols-1 divide-y divide-[var(--ink-06)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
@@ -337,8 +322,10 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
             valor={formatCurrencyBR(apuradoExibido)}
             cor="var(--navy)"
             rodape={
-              teseAtual
-                ? teseAtual.label
+              filtroTesesAtivo
+                ? tesesSelecionadas.length === 1
+                  ? tesesSelecionadas[0].label
+                  : `${tesesSelecionadas.length} teses selecionadas`
                 : dadosBase.tesesAtivas > 0
                   ? `${dadosBase.tesesAtivas} tese${dadosBase.tesesAtivas > 1 ? "s" : ""} no cálculo`
                   : "Sem créditos no cálculo"
@@ -378,7 +365,9 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-1.5">
               <TrendingDown className="h-3.5 w-3.5 text-ink-35" />
-              <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Status</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">
+                Status operacional
+              </p>
             </div>
             {processosCount > 0 && (
               isClienteStatusCompensacao(dadosBase.statusPrincipal) ? (
@@ -477,6 +466,9 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
                 </div>
               )}
               <div className="mt-auto border-t border-[var(--ink-06)] pt-2">
+                <p className="mb-1.5 text-[10px] leading-snug text-muted-foreground">
+                  Calculado pelas etapas e lançamentos das teses.
+                </p>
                 <p className="mb-1.5 text-[10px] leading-snug text-muted-foreground">
                   Tese em uso:{" "}
                   <strong className="text-foreground">{teseAtivaLabel || "não definida"}</strong>

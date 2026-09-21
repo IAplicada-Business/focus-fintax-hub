@@ -15,15 +15,14 @@ import {
 } from "@/lib/esteira-acompanhamento";
 
 const CONFIG = [
-  { estagio: "nova_abordagem", label: "Nova abordagem", ordem: 1, ativo: true },
-  { estagio: "triagem", label: "Triagem", ordem: 2, ativo: true },
-  { estagio: "levantamento", label: "Levantamento", ordem: 3, ativo: false },
-  { estagio: "emitir_contrato", label: "Emitir Contrato", ordem: 4, ativo: true },
-  { estagio: "receber_assinado", label: "Receber Assinado", ordem: 5, ativo: true },
-  { estagio: "em_compensacao", label: "Em Compensação", ordem: 6, ativo: true },
-  { estagio: "encaminhar_financeiro", label: "Encaminhar Financeiro", ordem: 7, ativo: true },
-  { estagio: "concluido", label: "Concluído", ordem: 8, ativo: true },
-  { estagio: "devolutiva_cliente", label: "Devolutiva ao cliente", ordem: 9, ativo: true },
+  { estagio: "triagem", label: "Triagem", ordem: 1, ativo: true },
+  { estagio: "levantamento", label: "Levantamento", ordem: 2, ativo: false },
+  { estagio: "emitir_contrato", label: "Emitir Contrato", ordem: 3, ativo: true },
+  { estagio: "receber_assinado", label: "Receber Assinado", ordem: 4, ativo: true },
+  { estagio: "em_compensacao", label: "Em Compensação", ordem: 5, ativo: true },
+  { estagio: "encaminhar_financeiro", label: "Encaminhar Financeiro", ordem: 6, ativo: true },
+  { estagio: "concluido", label: "Concluído", ordem: 7, ativo: true },
+  { estagio: "devolutiva_cliente", label: "Devolutiva ao cliente", ordem: 8, ativo: true },
 ];
 
 const hoje = new Date();

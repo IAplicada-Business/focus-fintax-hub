@@ -1,3 +1,8 @@
+/**
+ * Funil comercial de aquisição. Contratos e operação depois do fechamento
+ * vivem na esteira (`estagio_esteira`) — ver `estagioEsteiraDoFunil`.
+ * Handoff: `contrato_emitido` e `cliente_ativo` criam/atualizam o cliente.
+ */
 export const PIPELINE_STAGES = [
   { value: "novo", label: "Novo" },
   { value: "qualificado", label: "Qualificado" },

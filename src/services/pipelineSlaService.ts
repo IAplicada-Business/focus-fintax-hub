@@ -7,6 +7,9 @@ import {
   type LeadFunilLike,
   type PipelineSlaConfigRow,
 } from "@/lib/pipeline-sla";
+import { funilEntraNaEsteira } from "@/lib/handoff-funil-esteira";
+import { entregarLeadNaEsteira } from "@/services/handoffService";
+import { getLead } from "@/services/leadsService";
 
 /** Metas por etapa do funil; defaults locais se a tabela ainda não existir. */
 export async function listPipelineSlaConfig(): Promise<PipelineSlaConfigRow[]> {
@@ -84,6 +87,17 @@ export async function moverLeadFunil(params: {
   usuarioId?: string | null;
 }): Promise<void> {
   const { leadId, deEtapa, paraEtapa, usuarioId } = params;
+  if (funilEntraNaEsteira(paraEtapa)) {
+    const lead = await getLead(leadId);
+    await entregarLeadNaEsteira({
+      lead,
+      deEtapa: deEtapa ?? lead.status_funil ?? null,
+      paraEtapa,
+      usuarioId,
+    });
+    return;
+  }
+
   const { error } = await supabase
     .from("leads")
     .update({ status_funil: paraEtapa, status_funil_atualizado_em: new Date().toISOString() })

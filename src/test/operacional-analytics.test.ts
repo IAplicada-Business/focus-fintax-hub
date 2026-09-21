@@ -153,10 +153,9 @@ describe("geracaoTesesPorMes", () => {
 });
 
 const CONFIG = [
-  { estagio: "triagem", label: "Triagem", sla_dias: 1, ordem: 2, ativo: true },
-  { estagio: "nova_abordagem", label: "Nova abordagem", sla_dias: 5, ordem: 1, ativo: true },
-  { estagio: "em_compensacao", label: "Em Compensação", sla_dias: 30, ordem: 3, ativo: true },
-  { estagio: "concluido", label: "Concluído", sla_dias: null, ordem: 4, ativo: false },
+  { estagio: "triagem", label: "Triagem", sla_dias: 1, ordem: 1, ativo: true },
+  { estagio: "em_compensacao", label: "Em Compensação", sla_dias: 30, ordem: 2, ativo: true },
+  { estagio: "concluido", label: "Concluído", sla_dias: null, ordem: 3, ativo: false },
 ];
 
 const CLIENTES: EsteiraClienteLike[] = [
@@ -169,8 +168,8 @@ const CLIENTES: EsteiraClienteLike[] = [
 describe("resumoEsteira", () => {
   it("segue a ordem da config, conta atrasados e esconde inativa vazia", () => {
     const r = resumoEsteira(CLIENTES, CONFIG);
-    expect(r.map((e) => e.estagio)).toEqual(["nova_abordagem", "triagem", "em_compensacao", "concluido"]);
-    expect(r[1]).toMatchObject({ clientes: 2, atrasados: 1, atrasoAcumulado: 2, diasMedios: 2 });
+    expect(r.map((e) => e.estagio)).toEqual(["triagem", "em_compensacao", "concluido"]);
+    expect(r[0]).toMatchObject({ clientes: 2, atrasados: 1, atrasoAcumulado: 2, diasMedios: 2 });
     expect(resumoEsteira(CLIENTES.slice(0, 3), CONFIG).map((e) => e.estagio)).not.toContain("concluido");
   });
 });

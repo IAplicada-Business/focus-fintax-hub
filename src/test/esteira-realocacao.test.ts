@@ -1,25 +1,28 @@
 import { describe, it, expect } from "vitest";
 import {
   ESTEIRA_SLA_DIAS,
+  ESTEIRA_ALL_STAGES,
   ESTEIRA_STAGES,
   ESTEIRA_STAGES_TERMINAIS,
+  esteiraStageLabel,
   isClienteAtrasadoSla,
+  isEstagioEsteira,
   sugerirEstagioRealocacao,
 } from "@/lib/esteira-constants";
 
-describe("etapas novas da Fase 1 (nova_abordagem / devolutiva_cliente)", () => {
-  it("existem no enum do app, com nova_abordagem antes de triagem e devolutiva no fim", () => {
+describe("separação entre funil comercial e esteira operacional", () => {
+  it("não oferece nova_abordagem como destino operacional", () => {
     const values = ESTEIRA_STAGES.map((s) => s.value);
-    expect(values[0]).toBe("nova_abordagem");
+    expect(values[0]).toBe("triagem");
     expect(values[values.length - 1]).toBe("devolutiva_cliente");
-    expect(values.indexOf("nova_abordagem")).toBeLessThan(values.indexOf("triagem"));
+    expect(values).not.toContain("nova_abordagem");
   });
 
-  it("nova abordagem tem SLA; devolutiva é terminal e nunca atrasa", () => {
+  it("preserva nova_abordagem apenas para histórico e mantém devolutiva terminal", () => {
+    expect(ESTEIRA_ALL_STAGES.map((s) => s.value)).toContain("nova_abordagem");
+    expect(isEstagioEsteira("nova_abordagem")).toBe(true);
+    expect(esteiraStageLabel("nova_abordagem")).toContain("legado comercial");
     expect(ESTEIRA_SLA_DIAS.nova_abordagem).toBe(5);
-    expect(ESTEIRA_SLA_DIAS.devolutiva_cliente).toBeNull();
-    expect(isClienteAtrasadoSla("nova_abordagem", 5)).toBe(false);
-    expect(isClienteAtrasadoSla("nova_abordagem", 6)).toBe(true);
     expect(isClienteAtrasadoSla("devolutiva_cliente", 999)).toBe(false);
     expect(ESTEIRA_STAGES_TERMINAIS).toEqual(["concluido", "devolutiva_cliente"]);
   });

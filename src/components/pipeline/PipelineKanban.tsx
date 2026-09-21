@@ -24,6 +24,7 @@ import type { InboxConversa } from "@/services/atendimentoService";
 import type { PipelineLead } from "@/pages/Pipeline";
 import { useAuth } from "@/hooks/useAuth";
 import { ConvertClientModal } from "./ConvertClientModal";
+import { funilEntraNaEsteira } from "@/lib/handoff-funil-esteira";
 import { canEditLead, canDragInPipeline } from "@/lib/role-permissions";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,7 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const [convertLead, setConvertLead] = useState<PipelineLead | null>(null);
+  const [convertParaEtapa, setConvertParaEtapa] = useState("cliente_ativo");
   const [optimisticMoves, setOptimisticMoves] = useState<Record<string, string>>({});
   const dragEnabled = canDragInPipeline(userRole);
   const colunaRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -113,7 +115,8 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
     const newStage = result.destination.droppableId;
     const atual = grouped[newStage]?.some((l) => l.id === lead.id);
     if (atual) return;
-    if (newStage === "cliente_ativo") {
+    if (funilEntraNaEsteira(newStage)) {
+      setConvertParaEtapa(newStage);
       setConvertLead(lead);
       return;
     }
@@ -231,7 +234,12 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
         </div>
       </DragDropContext>
 
-      <ConvertClientModal lead={convertLead} onClose={() => setConvertLead(null)} onRefresh={onRefresh} />
+      <ConvertClientModal
+        lead={convertLead}
+        paraEtapa={convertParaEtapa}
+        onClose={() => setConvertLead(null)}
+        onRefresh={onRefresh}
+      />
     </>
   );
 }

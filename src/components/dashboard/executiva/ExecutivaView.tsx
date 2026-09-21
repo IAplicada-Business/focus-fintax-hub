@@ -37,6 +37,8 @@ import {
   filtrarIdsPorTipoTese,
   filtrarProcessosPorTipoTese,
   listarTiposTese,
+  rotuloFiltroTese,
+  teseFiltroAtivo,
   type TipoTeseFiltro,
 } from "@/lib/tese-filter";
 import { DashboardPeriodFilter } from "@/components/DashboardPeriodFilter";
@@ -89,7 +91,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
     new Set(STATUS_COMPENSACAO_VALUES),
   );
   const [ramoFiltro, setRamoFiltro] = useState<RamoGerencialFiltro>("todas");
-  const [tipoTeseFiltro, setTipoTeseFiltro] = useState<TipoTeseFiltro>(null);
+  const [tipoTeseFiltro, setTipoTeseFiltro] = useState<TipoTeseFiltro>([]);
   const [periodo, setPeriodo] = useState<DashboardPeriod>(() =>
     defaultDashboardPeriod(data.compsRaw),
   );
@@ -134,7 +136,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
     );
     const totaisBase = new Map(data.totais.map((total) => [total.cliente_id, total]));
     const totais = totaisCalculados.map((total) =>
-      !tipoTeseFiltro && total.sem_base_financeira
+      !teseFiltroAtivo(tipoTeseFiltro) && total.sem_base_financeira
         ? { ...total, ...(totaisBase.get(total.cliente_id) ?? {}) }
         : total,
     );
@@ -154,7 +156,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       processosDoCliente,
       tipoTeseFiltro,
     );
-    const compsReporto = tipoTeseFiltro
+    const compsReporto = teseFiltroAtivo(tipoTeseFiltro)
       ? []
       : compensacoesCanonicas(
           compsRawPeriodo,
@@ -274,7 +276,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
           options={m.periodoOptions}
         />
         <span className="text-[11px] text-ink-35">
-          {m.clientes} cliente{m.clientes === 1 ? "" : "s"} no recorte · período: {m.periodoLabel} · tese: {tipoTeseFiltro ?? "elegíveis (REPORTO fora do saldo)"}
+          {m.clientes} cliente{m.clientes === 1 ? "" : "s"} no recorte · período: {m.periodoLabel} · tese: {rotuloFiltroTese(tipoTeseFiltro, m.tiposTese)}
         </span>
       </div>
       <div className="animate-slide-up delay-1 grid grid-cols-2 xl:grid-cols-4 gap-4" role="region" aria-label="KPIs da carteira">
