@@ -10,8 +10,8 @@ import {
   formatCurrencyBR,
   formatCompetenciaPT,
   isReportoCompensacao,
+  isReportoProcesso,
   mergeCreditosComProcessosFallback,
-  normalizeTeseCatalogCodigo,
   splitCreditosCalculo,
   sumCompensadoCanonical,
 } from "@/lib/clientes-constants";
@@ -141,7 +141,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
     () =>
       new Set(
         processos
-          .filter((p) => normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao) === "REPORTO")
+          .filter(isReportoProcesso)
           .map((p) => p.id),
       ),
     [processos],

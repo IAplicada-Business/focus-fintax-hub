@@ -3,7 +3,7 @@ import { Link, type NavigateFunction } from "react-router-dom";
 import { Activity, ArrowRight, FileText, GitBranch, TrendingUp, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_COMPENSACAO_COLORS, STATUS_COMPENSACAO_LABELS, type StatusCompensacao } from "@/components/StatusCompensacaoFilter";
-import { formatCurrencyBR } from "@/lib/clientes-constants";
+import { formatCurrencyBR, processoTeseCatalogCodigo } from "@/lib/clientes-constants";
 import type { OperacionalDashboardData } from "@/services/operacionalDashboardService";
 import { acoesPorTipo, acoesPorUsuario, movimentosEsteira } from "@/lib/operacional-analytics";
 import { compactCurrency } from "../dashboard-utils";
@@ -51,7 +51,16 @@ export const ResumoSemanalTab = memo(function ResumoSemanalTab({ data, navigate 
     const teseLabel = new Map(teses.map((x) => [String(x.codigo ?? "").toUpperCase(), x.label ?? x.codigo ?? ""]));
     const processosNovos = processos
       .filter((p) => t(p.criado_em) >= desde)
-      .map((p) => ({ id: p.id, empresa: nome.get(p.cliente_id) ?? "—", cliente_id: p.cliente_id, nome: p.nome_exibicao || teseLabel.get(String(p.tese).toUpperCase()) || p.tese, criado_em: p.criado_em }))
+      .map((p) => {
+        const codigo = processoTeseCatalogCodigo(p);
+        return {
+          id: p.id,
+          empresa: nome.get(p.cliente_id) ?? "—",
+          cliente_id: p.cliente_id,
+          nome: p.nome_exibicao || teseLabel.get(String(codigo || "")) || p.tese,
+          criado_em: p.criado_em,
+        };
+      })
       .sort((a, b) => String(b.criado_em).localeCompare(String(a.criado_em)));
 
     const intimacoesNovas = intimacoes.filter((i) => t(i.created_at) >= desde).length;

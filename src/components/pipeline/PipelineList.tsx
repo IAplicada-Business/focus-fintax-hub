@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { PIPELINE_STAGES, STAGE_COLORS, SEGMENTO_LABELS, SCORE_CONFIG, getScoreLabel, formatCurrency, daysSince } from "@/lib/pipeline-constants";
 import { SEGMENTOS, REGIMES } from "@/lib/lead-constants";
+import { etapaDoLead } from "@/lib/pipeline-board";
 import type { PipelineLead } from "@/pages/Pipeline";
 
 interface Props {
@@ -34,7 +35,9 @@ export function PipelineList({ leads, onLeadClick }: Props) {
     }
     if (segFilter !== "all") result = result.filter((l) => l.segmento === segFilter);
     if (regimeFilter !== "all") result = result.filter((l) => l.regime_tributario === regimeFilter);
-    if (stageFilter !== "all") result = result.filter((l) => l.status_funil === stageFilter);
+    if (stageFilter !== "all") {
+      result = result.filter((lead) => etapaDoLead(lead.status_funil) === stageFilter);
+    }
     if (origemFilter !== "all") result = result.filter((l) => l.origem === origemFilter);
 
     result.sort((a, b) => {

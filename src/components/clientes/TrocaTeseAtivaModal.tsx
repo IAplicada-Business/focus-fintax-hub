@@ -14,8 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import {
+  buildProcessoIdsByTese,
   formatCurrencyBR,
-  normalizeTeseCatalogCodigo,
+  processoTeseCatalogCodigo,
   statusUtilizacaoFromSaldo,
   sumCompensadoForTese,
 } from "@/lib/clientes-constants";
@@ -74,10 +75,13 @@ export function TrocaTeseAtivaModal({
           supabase
             .from("compensacoes_mensais")
             .select(
-              "valor_compensado, tese_origem_id, processo_tese_id, mes_referencia, tributo, tributo_enum, processos_teses:processo_tese_id(tese, nome_exibicao)"
+              "valor_compensado, tese_origem_id, processo_tese_id, mes_referencia, tributo, tributo_enum, processos_teses:processo_tese_id(tese, nome_exibicao, categoria)"
             )
             .eq("cliente_id", clienteId),
-          supabase.from("processos_teses").select("id, tese, nome_exibicao").eq("cliente_id", clienteId),
+          supabase
+            .from("processos_teses")
+            .select("id, tese, nome_exibicao, categoria")
+            .eq("cliente_id", clienteId),
           (supabase as any)
             .from("creditos_apurados")
             .select("tese_id, valor_compensado_manual")
@@ -93,14 +97,17 @@ export function TrocaTeseAtivaModal({
       );
       const catalogById = new Map(catalog.map((t) => [t.id, t]));
 
-      const processoIdsByTese = new Map<string, Set<string>>();
-      for (const p of (procs as { id: string; tese: string | null; nome_exibicao?: string | null }[]) || []) {
-        const cod = normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao || "");
-        if (!cod) continue;
-        const key = String(cod).toUpperCase();
-        if (!processoIdsByTese.has(key)) processoIdsByTese.set(key, new Set());
-        processoIdsByTese.get(key)!.add(p.id);
-      }
+      const processos = (procs as {
+        id: string;
+        tese: string | null;
+        nome_exibicao?: string | null;
+        categoria?: string | null;
+      }[]) || [];
+      const processoIdsByTese = buildProcessoIdsByTese(processos);
+      const reportoProcessoIds = processoIdsByTese.get("REPORTO") ?? new Set<string>();
+      const reportoTeseIds = new Set(
+        catalog.filter((t) => String(t.codigo || "").toUpperCase() === "REPORTO").map((t) => t.id),
+      );
 
       const manualByTese = new Map<string, number>();
       for (const c of (creditos as { tese_id: string; valor_compensado_manual: number | null }[]) || []) {
@@ -115,6 +122,8 @@ export function TrocaTeseAtivaModal({
           teseCodigo: codigo,
           teseId: r.tese_id,
           processoIds: processoIdsByTese.get(codigo),
+          reportoTeseIds,
+          reportoProcessoIds,
         });
         const manual = manualByTese.get(r.tese_id);
         const compensado = Math.max(
@@ -147,8 +156,8 @@ export function TrocaTeseAtivaModal({
         pushRow(r);
       }
 
-      for (const p of (procs as { tese: string | null; nome_exibicao?: string | null }[]) || []) {
-        const codigo = normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao || "");
+      for (const p of processos) {
+        const codigo = processoTeseCatalogCodigo(p);
         if (!codigo || codigo === "REPORTO") continue;
         const cat = catalogByCodigo.get(String(codigo).toUpperCase());
         if (!cat || seen.has(cat.id)) continue;

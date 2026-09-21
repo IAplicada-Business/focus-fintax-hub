@@ -29,6 +29,7 @@ import { BatchDeleteBar } from "@/components/BatchDeleteBar";
 import { useRowSelection } from "@/hooks/useRowSelection";
 import { deleteCompensacoes } from "@/services/clientesService";
 import { logClienteHistorico } from "@/lib/cliente-historico";
+import { currentMonthKey } from "@/lib/month-key";
 
 // -----------------------------------------------------------------------------
 // Constantes
@@ -327,10 +328,9 @@ export default function CompensacoesLinear() {
   const handleAddRow = async () => {
     if (!clienteId) return;
     // Escolhe mês corrente ou o filtrado
-    const hoje = new Date();
     const primeiroDoMes = competenciaFilter !== "all"
       ? `${competenciaFilter}-01`
-      : `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-01`;
+      : `${currentMonthKey()}-01`;
 
     const { data: cli } = await supabase
       .from("clientes")

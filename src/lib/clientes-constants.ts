@@ -52,6 +52,7 @@ export function formatCompetenciaPT(mesRef: string | null | undefined): string {
 }
 
 export type CompensacaoSumRow = {
+  cliente_id?: string | null;
   valor_compensado?: number | null;
   tese_origem_id?: string | null;
   processo_tese_id?: string | null;
@@ -66,6 +67,19 @@ export type CompensacaoSumRow = {
   processos_teses?: { tese?: string | null; categoria?: string | null; nome_exibicao?: string | null } | null;
 };
 
+export type ReportoProcessoLike = {
+  tese?: string | null;
+  categoria?: string | null;
+  nome_exibicao?: string | null;
+};
+
+/** Classificador canônico de REPORTO para processos legados e atuais. */
+export function isReportoProcesso(processo: ReportoProcessoLike | null | undefined): boolean {
+  if (!processo) return false;
+  if (String(processo.categoria || "").trim().toLowerCase() === "reporto") return true;
+  return normalizeTeseCatalogCodigo(processo.tese, processo.nome_exibicao || "") === "REPORTO";
+}
+
 /** REPORTO / possíveis futuros — fora do Total Compensado (mesmo com tese_origem_id nulo). */
 export function isReportoCompensacao(
   c: CompensacaoSumRow,
@@ -74,10 +88,7 @@ export function isReportoCompensacao(
     reportoProcessoIds?: Set<string>;
   },
 ): boolean {
-  const tese = (c.processos_teses?.tese || "").toUpperCase();
-  const cat = (c.processos_teses?.categoria || "").toLowerCase();
-  const nome = (c.processos_teses?.nome_exibicao || "").toUpperCase();
-  if (tese === "REPORTO" || cat === "reporto" || nome.includes("REPORTO")) return true;
+  if (isReportoProcesso(c.processos_teses)) return true;
   if (c.tese_origem_id && opts?.reportoTeseIds?.has(c.tese_origem_id)) return true;
   if (c.processo_tese_id && opts?.reportoProcessoIds?.has(c.processo_tese_id)) return true;
   return false;
@@ -127,6 +138,14 @@ export function normalizeTeseCatalogCodigo(
   const upper = raw.toUpperCase().replace(/[\s-]+/g, "_");
   if ((TESE_CATALOG_CODIGOS as readonly string[]).includes(upper)) return upper;
   return upper || null;
+}
+
+/** Chave canônica de catálogo para indexar qualquer processo. */
+export function processoTeseCatalogCodigo(
+  processo: ReportoProcessoLike,
+): TeseCatalogCodigo | string | null {
+  if (isReportoProcesso(processo)) return "REPORTO";
+  return normalizeTeseCatalogCodigo(processo.tese, processo.nome_exibicao || "");
 }
 
 /**
@@ -181,10 +200,10 @@ export function isOrphanDuplicateOfLinked(
  * sem Reporto; órfãs duplicadas (mesmo mês+tributo+valor de uma linkada) fora.
  * NÃO descarta órfãs só porque o mês já tem outra linha linkada (bug Maravista).
  */
-export function filterCompensadoCanonical(
-  rows: CompensacaoSumRow[],
+export function filterCompensadoCanonical<T extends CompensacaoSumRow>(
+  rows: T[],
   opts?: { reportoTeseIds?: Set<string>; reportoProcessoIds?: Set<string> },
-): CompensacaoSumRow[] {
+): T[] {
   const linked = rows.filter((c) => !!c.tese_origem_id);
   return rows.filter((c) => {
     if (isReportoCompensacao(c, opts)) return false;
@@ -448,11 +467,16 @@ export function sumCompensadoNoCalculo(rows: TeseBreakdownRow[]): number {
 
 /** Agrupa processos pelo código do catálogo (slug do Motor → INSUMOS / SUBVENCAO). */
 export function buildProcessoIdsByTese(
-  processos: { id: string; tese?: string | null; nome_exibicao?: string | null }[],
+  processos: {
+    id: string;
+    tese?: string | null;
+    nome_exibicao?: string | null;
+    categoria?: string | null;
+  }[],
 ): Map<string, Set<string>> {
   const map = new Map<string, Set<string>>();
   for (const p of processos) {
-    const cod = normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao || "");
+    const cod = processoTeseCatalogCodigo(p);
     if (!cod) continue;
     const key = String(cod).toUpperCase();
     if (!map.has(key)) map.set(key, new Set());

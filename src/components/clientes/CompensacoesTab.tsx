@@ -34,6 +34,8 @@ import {
   formatCompetenciaPT,
   getStatusPagamentoConfig,
   isReportoCompensacao,
+  isReportoProcesso,
+  processoTeseCatalogCodigo,
   sumCompensadoCanonical,
   filterCompsForTese,
   STATUS_PAGAMENTO,
@@ -157,7 +159,7 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
       teses.filter((t) => (t.codigo || "").toUpperCase() === "REPORTO").map((t) => t.id),
     );
     const reportoProcessoIds = new Set(
-      processos.filter((p: { tese?: string }) => p.tese === "REPORTO").map((p: { id: string }) => p.id),
+      processos.filter(isReportoProcesso).map((p) => p.id),
     );
     onTotalChange?.(sumCompensadoCanonical(compensacoes, { reportoTeseIds, reportoProcessoIds }));
   }, [compensacoes, processos, teses, onTotalChange]);
@@ -177,7 +179,7 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
       .map(([, id]) => id),
   );
   const reportoProcessoIds = new Set(
-    processos.filter((p) => p.tese === "REPORTO").map((p) => p.id),
+    processos.filter(isReportoProcesso).map((p) => p.id),
   );
   // Total da tabela = mesmo critério do card Total Compensado
   const totalFiltered = sumCompensadoCanonical(filtered, { reportoTeseIds, reportoProcessoIds });
@@ -319,9 +321,9 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
   };
 
   const tesesMapaOptions = processos
-    .filter((p) => String(p.tese || "").toUpperCase() !== "REPORTO")
+    .filter((p) => !isReportoProcesso(p))
     .reduce<{ codigo: string; label: string }[]>((acc, p) => {
-      const codigo = String(p.tese || "").toUpperCase();
+      const codigo = String(processoTeseCatalogCodigo(p) || "");
       if (!codigo || acc.some((t) => t.codigo === codigo)) return acc;
       acc.push({ codigo, label: p.nome_exibicao || p.tese });
       return acc;
@@ -333,7 +335,7 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
 
   const mesProcessos = processos.filter((p) => {
     if (!mapaMes) return false;
-    const codigo = String(p.tese || "").toUpperCase();
+    const codigo = String(processoTeseCatalogCodigo(p) || "");
     if (!codigo || codigo === "REPORTO") return false;
     if (mapaTese !== "all" && codigo !== mapaTese) return false;
     return compsForProcesso(p).some((c) => String(c.mes_referencia || "").startsWith(mapaMes));

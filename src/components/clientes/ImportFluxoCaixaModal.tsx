@@ -8,7 +8,11 @@ import { Upload, CheckCircle2, AlertTriangle, Loader2, XCircle } from "lucide-re
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { parseAbasFluxo, type ImportFluxoResultado, type TributoEnum } from "@/lib/import-fluxo-parser";
-import { inferTeseCodigoFromTributo } from "@/lib/clientes-constants";
+import { normalizarRazao } from "@/lib/import-controle-parser";
+import {
+  inferTeseCodigoFromTributo,
+  processoTeseCatalogCodigo,
+} from "@/lib/clientes-constants";
 
 interface Props {
   open: boolean;
@@ -20,13 +24,6 @@ const fmt = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 const soDigitos = (s: string | null | undefined) => String(s ?? "").replace(/\D/g, "");
-const normChave = (s: string | null | undefined) =>
-  String(s ?? "")
-    .toUpperCase()
-    .replace(/[\n\t]+/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/[.,;]+$/g, "")
-    .trim();
 
 // Nome de exibição pro processo criado automaticamente quando a tese é
 // inferida do tributo e o cliente ainda não tem um processo cadastrado
@@ -73,7 +70,7 @@ export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props)
 
   // Pré-match cliente por CNPJ → razão social
   const cnpjIdx = new Map(clientesDb.filter((c) => c.cnpj).map((c) => [soDigitos(c.cnpj), c.id]));
-  const razaoIdx = new Map(clientesDb.map((c) => [normChave(c.empresa), c.id]));
+  const razaoIdx = new Map(clientesDb.map((c) => [normalizarRazao(c.empresa ?? ""), c.id]));
 
   const preview = resultado?.compensacoes.map((c) => {
     const byCnpj = c.cnpj_norm ? cnpjIdx.get(c.cnpj_norm) : undefined;
@@ -115,13 +112,22 @@ export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props)
     // genérico). Busca ou cria o processo do cliente para a tese inferida —
     // mesmo padrão do ImportCompensacoesModal.
     const { data: procsExistentes } = clienteIds.length
-      ? await supabase.from("processos_teses").select("id, cliente_id, tese").in("cliente_id", clienteIds)
+      ? await supabase
+          .from("processos_teses")
+          .select("id, cliente_id, tese, nome_exibicao, categoria")
+          .in("cliente_id", clienteIds)
       : { data: [] as any[] };
-    const processoIdByClienteTese = new Map<string, string>(
-      ((procsExistentes as { id: string; cliente_id: string; tese: string | null }[]) || [])
-        .filter((p) => p.tese)
-        .map((p) => [`${p.cliente_id}|${String(p.tese).toUpperCase()}`, p.id]),
-    );
+    const processoIdByClienteTese = new Map<string, string>();
+    for (const processo of (procsExistentes as {
+      id: string;
+      cliente_id: string;
+      tese: string | null;
+      nome_exibicao?: string | null;
+      categoria?: string | null;
+    }[]) || []) {
+      const codigo = processoTeseCatalogCodigo(processo);
+      if (codigo) processoIdByClienteTese.set(`${processo.cliente_id}|${codigo}`, processo.id);
+    }
 
     let linhasInseridas = 0;
     let dcompsInseridas = 0;

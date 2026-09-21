@@ -1,4 +1,5 @@
 import {
+  buildProcessoIdsByTese,
   statusUtilizacaoFromSaldo,
   sumCompensadoForTese,
   type CompensacaoSumRow,
@@ -61,8 +62,13 @@ export interface MapaRawInput {
   mapa: LinhaMapa[];
   /** Linhas de compensacoes_mensais do cliente. */
   compensacoes: CompensacaoSumRow[];
-  /** processos_teses do cliente (id + código da tese). */
-  processos: { id: string; tese: string | null }[];
+  /** processos_teses do cliente (slug livre + metadados de classificação). */
+  processos: {
+    id: string;
+    tese: string | null;
+    nome_exibicao?: string | null;
+    categoria?: string | null;
+  }[];
   /** creditos_apurados do cliente (override manual do compensado). */
   creditos: { tese_id: string; valor_compensado_manual: number | null }[];
 }
@@ -74,13 +80,7 @@ export interface MapaRawInput {
  * Já devolve ordenado pela ordem canônica das teses.
  */
 export function buildLinhasMapa(input: MapaRawInput): LinhaMapa[] {
-  const processoIdsByTese = new Map<string, Set<string>>();
-  for (const p of input.processos || []) {
-    const cod = String(p.tese || "").toUpperCase();
-    if (!cod) continue;
-    if (!processoIdsByTese.has(cod)) processoIdsByTese.set(cod, new Set());
-    processoIdsByTese.get(cod)!.add(p.id);
-  }
+  const processoIdsByTese = buildProcessoIdsByTese(input.processos || []);
   const reportoTeseIds = new Set(
     (input.mapa || [])
       .filter((row) => String(row.tese_codigo || "").toUpperCase() === "REPORTO")

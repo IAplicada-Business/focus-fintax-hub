@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { EsteiraTimeline } from "@/components/clientes/EsteiraTimeline";
-import { normalizeTeseCatalogCodigo, sumCompensadoCanonical } from "@/lib/clientes-constants";
+import { isReportoProcesso, sumCompensadoCanonical } from "@/lib/clientes-constants";
 import {
   useClienteCompensacoes,
   useClienteProcessos,
@@ -77,7 +77,7 @@ export default function ClienteDetail() {
     );
     const reportoProcessoIds = new Set(
       processosCached
-        .filter((p) => normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao) === "REPORTO")
+        .filter(isReportoProcesso)
         .map((p) => p.id),
     );
     return sumCompensadoCanonical(compensacoesCached as any[], { reportoTeseIds, reportoProcessoIds });
@@ -205,7 +205,10 @@ export default function ClienteDetail() {
         motivoParada: normalized,
       });
       setMotivoParada(saved || "");
-      setCliente((prev) => ({ ...prev, motivo_parada: saved }));
+      setCliente((prev: Record<string, unknown> | null) => ({
+        ...(prev ?? {}),
+        motivo_parada: saved,
+      }));
     } catch {
       // O hook apresenta o erro e mantém o texto para nova tentativa.
     }

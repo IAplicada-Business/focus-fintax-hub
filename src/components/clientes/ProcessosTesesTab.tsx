@@ -29,7 +29,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { ProcessoFormModal } from "./ProcessoFormModal";
-import { formatCurrencyBR, getStatusContratoConfig, STATUS_PROCESSO } from "@/lib/clientes-constants";
+import {
+  formatCurrencyBR,
+  getStatusContratoConfig,
+  isReportoProcesso,
+  processoTeseCatalogCodigo,
+  STATUS_PROCESSO,
+} from "@/lib/clientes-constants";
 import { deleteCreditoApuradoForProcesso, syncCreditoApuradoFromProcesso } from "@/lib/sync-credito-apurado";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 import {
@@ -308,8 +314,8 @@ export function ProcessosTesesTab({
                   const tipoRec: TipoRecuperacao | null = isTipoRecuperacao(p.tipo_recuperacao)
                     ? (p.tipo_recuperacao as TipoRecuperacao)
                     : null;
-                  const codigoTese = String(p.tese || "").toUpperCase();
-                  const isReporto = codigoTese === "REPORTO" || p.categoria === "reporto";
+                  const codigoTese = String(processoTeseCatalogCodigo(p) || "");
+                  const isReporto = isReportoProcesso(p);
                   const noCalculo = calculoPorCodigo.get(codigoTese);
                   return (
                     <TableRow key={p.id}>
@@ -324,7 +330,7 @@ export function ProcessosTesesTab({
                               {TIPO_RECUPERACAO_LABEL[tipoRec]}
                             </Badge>
                           )}
-                          {p.categoria === "reporto" && (
+                          {isReporto && (
                             <Badge
                               variant="outline"
                               className="border-slate-200 bg-slate-100 text-[10px] text-slate-700"

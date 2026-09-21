@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { formatCurrencyBR } from "@/lib/clientes-constants";
+import {
+  formatCurrencyBR,
+  isReportoCompensacao,
+  isReportoProcesso,
+} from "@/lib/clientes-constants";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -31,10 +35,11 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
 
   // Fox: gráficos/KPIs do cliente excluem Reporto (possíveis futuros) — nunca entra em compensado
   const assinados = processos.filter((p) => p.status_contrato === "assinado");
-  const assinadosCalculo = assinados.filter((p) => p.categoria !== "reporto");
+  const assinadosCalculo = assinados.filter((p) => !isReportoProcesso(p));
   const processoIdsCalculo = new Set(assinadosCalculo.map((p) => p.id));
+  const reportoProcessoIds = new Set(processos.filter(isReportoProcesso).map((p) => p.id));
   const compsCalculo = compensacoes.filter((c) => {
-    if ((c.processos_teses as any)?.categoria === "reporto") return false;
+    if (isReportoCompensacao(c, { reportoProcessoIds })) return false;
     if (!c.processo_tese_id) return true; // fluxo sem processo vinculado
     return processoIdsCalculo.has(c.processo_tese_id);
   });
@@ -51,9 +56,8 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
   const taxaHonorarios = totalCompensado > 0 ? ((totalHonorarios / totalCompensado) * 100).toFixed(1) : "0";
 
   // Trilhas do cliente (compensação / reporto) — vem da coluna categoria (PR 4).
-  const trilhas = new Set(assinados.map((p) => (p.categoria as string) || "compensacao"));
-  const temReporto = trilhas.has("reporto");
-  const temCompensacao = trilhas.has("compensacao");
+  const temReporto = assinados.some(isReportoProcesso);
+  const temCompensacao = assinados.some((processo) => !isReportoProcesso(processo));
 
   // Chart data grouped by month — só teses do cálculo
   const porMes: Record<string, { compensado: number; honorarios: number }> = {};

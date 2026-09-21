@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
   normalizarStatusCompensacao,
+  type ProcessoTipoRecuperacaoRow,
   type StatusCompensacaoRow,
 } from "@/lib/gerencial-filters";
 import type { Database } from "@/integrations/supabase/types";
@@ -162,5 +163,5 @@ export async function listStatusCompensacaoRows() {
     ...row,
     status_principal: normalizarStatusCompensacao(row as unknown as StatusCompensacaoRow),
     processos: processosPorCliente.get(row.cliente_id as string) ?? [],
-  }));
+  })) as (StatusCompensacaoRow & { processos: ProcessoTipoRecuperacaoRow[] })[];
 }

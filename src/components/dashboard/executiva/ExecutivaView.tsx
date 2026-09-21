@@ -95,14 +95,12 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
     const desde30 = Date.now() - 30 * 86_400_000;
     const teses30d = processos.filter((p) => p.criado_em && new Date(p.criado_em).getTime() >= desde30).length;
 
-    const contagem = new Map<string, number>();
-    for (const r of statusRows) {
-      const status = normalizarStatusCompensacao(r);
-      if (status === "reporto") continue;
-      contagem.set(status, (contagem.get(status) ?? 0) + 1);
-    }
-    const statusRowsOrd = STATUS_COMPENSACAO_VALUES.filter((s) => s !== "reporto")
-      .map((s) => ({ status: s, count: contagem.get(s) ?? 0 }))
+    const contagem = countByStatus(
+      statusRows.map((row) => row.cliente_id),
+      new Map(statusRows.map((row) => [row.cliente_id, normalizarStatusCompensacao(row)])),
+    );
+    const statusRowsOrd = STATUS_COMPENSACAO_VALUES
+      .map((status) => ({ status, count: contagem[status] }))
       .sort((a, b) => b.count - a.count);
     const totalStatus = statusRowsOrd.reduce((s, r) => s + r.count, 0);
 

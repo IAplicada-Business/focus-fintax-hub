@@ -93,6 +93,46 @@ describe("buildLinhasMapa", () => {
     expect(r.saldo_final).toBe(200);
   });
 
+  it("mapeia o slug real do motor para a chave INSUMOS", () => {
+    const [r] = buildLinhasMapa({
+      mapa: [linha({ tese_codigo: "INSUMOS", valor_apurado_inicial: 1000 })],
+      compensacoes: [{
+        valor_compensado: 250,
+        processo_tese_id: "p-insumos",
+        mes_referencia: "2026-08-01",
+        tributo_enum: "PIS",
+      }],
+      processos: [{
+        id: "p-insumos",
+        tese: "pis_cofins_insumos",
+        nome_exibicao: "Créditos de insumos",
+        categoria: "compensacao",
+      }],
+      creditos: [],
+    });
+    expect(r.total_compensado).toBe(250);
+  });
+
+  it("classifica REPORTO pela categoria mesmo com slug diferente", () => {
+    const [r] = buildLinhasMapa({
+      mapa: [linha({ tese_codigo: "INSUMOS", valor_apurado_inicial: 1000 })],
+      compensacoes: [{
+        valor_compensado: 700,
+        processo_tese_id: "p-reporto",
+        mes_referencia: "2026-08-01",
+        tributo_enum: "outros",
+      }],
+      processos: [{
+        id: "p-reporto",
+        tese: "pis_cofins_acumulado",
+        nome_exibicao: "Crédito acumulado",
+        categoria: "reporto",
+      }],
+      creditos: [],
+    });
+    expect(r.total_compensado).toBe(0);
+  });
+
   it("ignora valor_compensado_manual nulo", () => {
     const [r] = buildLinhasMapa({
       mapa: [linha({ tese_codigo: "INSUMOS", valor_apurado_inicial: 1000 })],

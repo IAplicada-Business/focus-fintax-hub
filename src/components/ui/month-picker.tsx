@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { formatCompetenciaPT } from "@/lib/clientes-constants";
+import { currentMonthKey } from "@/lib/month-key";
 
 const MESES = [
   { v: "01", label: "Jan" },
@@ -37,7 +38,7 @@ export function MonthPicker({
   "aria-label": ariaLabel,
 }: MonthPickerProps) {
   const parsed = String(value || "").match(/^(\d{4})-(\d{2})/);
-  const selectedYear = parsed ? Number(parsed[1]) : new Date().getFullYear();
+  const selectedYear = parsed ? Number(parsed[1]) : Number(currentMonthKey().slice(0, 4));
   const selectedMonth = parsed ? parsed[2] : "";
   const [open, setOpen] = useState(false);
   const [year, setYear] = useState(selectedYear);
