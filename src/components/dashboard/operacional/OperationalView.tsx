@@ -1,11 +1,13 @@
 import { memo, useMemo, useState } from "react";
 import { Link, type NavigateFunction } from "react-router-dom";
 import { AlertTriangle, Building2, Clock, Coins, Layers, TrendingUp } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import {
+  STATUS_COMPENSACAO_VALUES,
+  StatusCompensacaoFilter,
   TipoRecuperacaoFilter,
   buildRamoFlagsPorCliente,
   countByRamo,
+  countByStatus,
   type RamoGerencialFiltro,
 } from "@/components/StatusCompensacaoFilter";
 import type { OperacionalDashboardData } from "@/services/operacionalDashboardService";
@@ -42,6 +44,9 @@ interface Props {
  * projeção dos próximos meses a partir do ritmo real.
  */
 export const OperationalView = memo(function OperationalView({ data, navigate }: Props) {
+  const [statusFiltro, setStatusFiltro] = useState<Set<StatusCompensacao>>(
+    new Set(STATUS_COMPENSACAO_VALUES),
+  );
   const [ramoFiltro, setRamoFiltro] = useState<RamoGerencialFiltro>("todas");
   const m = useMemo(() => {
     const agora = Date.now();
@@ -50,16 +55,9 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       statusRows.map((row) => [row.cliente_id, normalizarStatusCompensacao(row)]),
     );
     const ramosMap = buildRamoFlagsPorCliente(data.processos);
-    const idsCompensando = filtrarIdsRecorteGerencial(
-      clientes.map((cliente) => cliente.id),
-      new Set<StatusCompensacao>(["compensando"]),
-      "todas",
-      statusMap,
-      ramosMap,
-    );
     const idsRecorte = filtrarIdsRecorteGerencial(
-      [...idsCompensando],
-      new Set<StatusCompensacao>(["compensando"]),
+      clientes.map((cliente) => cliente.id),
+      statusFiltro,
       ramoFiltro,
       statusMap,
       ramosMap,
@@ -88,7 +86,9 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
     const proj3mComp = projecao.reduce((s, p) => s + p.compensado, 0);
     const proj3mHon = projecao.reduce((s, p) => s + p.honorarios, 0);
 
-    const compensando = idsRecorte.size;
+    const compensando = clientes.filter(
+      (cliente) => statusMap.get(cliente.id) === "compensando",
+    ).length;
     const slaMap = new Map(slaConfig.map((c) => [c.estagio as string, c.sla_dias]));
     const etapas = resumoEsteira(esteira, slaConfig);
     const atrasadosEsteira = etapas.reduce((s, e) => s + e.atrasados, 0);
@@ -125,16 +125,19 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       intimPendentes: pendentes.length,
       intimVencendo: vencendo,
       semDados: comps.length === 0,
-      ramoCounts: countByRamo([...idsCompensando], ramosMap),
+      statusCounts: countByStatus(clientes.map((cliente) => cliente.id), statusMap),
+      ramoCounts: countByRamo(clientes.map((cliente) => cliente.id), ramosMap),
     };
-  }, [data, ramoFiltro]);
+  }, [data, ramoFiltro, statusFiltro]);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2" aria-label="Recorte da visão operacional">
-        <Badge variant="outline" className="border-emerald-200 bg-emerald-100 text-emerald-800">
-          Status: Compensando
-        </Badge>
+        <StatusCompensacaoFilter
+          selectedStatuses={statusFiltro}
+          onChange={setStatusFiltro}
+          counts={m.statusCounts}
+        />
         <TipoRecuperacaoFilter
           ramo={ramoFiltro}
           onChange={setRamoFiltro}
@@ -149,7 +152,10 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
         data.qualidade.lancamentosForaDaRegraCanonica > 0 ||
         data.qualidade.clientesComSnapshotManual > 0 ||
         data.qualidade.clientesSemEtapa > 0 ||
-        data.qualidade.clientesEmEtapaSemConfig > 0) && (
+        data.qualidade.clientesEmEtapaSemConfig > 0 ||
+        data.qualidade.clientesSemStatusCompensacao > 0 ||
+        data.qualidade.clientesSemTipoRecuperacao > 0 ||
+        data.qualidade.fontesIndisponiveis.length > 0) && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-dash-amber/25 bg-dash-amber/[0.05] px-5 py-3 text-xs text-ink-60">
           <AlertTriangle className="h-4 w-4 shrink-0 text-dash-amber" />
           <span className="font-semibold text-ink">Dados incompletos:</span>
@@ -159,6 +165,9 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
           {data.qualidade.clientesComSnapshotManual > 0 && <span>{data.qualidade.clientesComSnapshotManual} cliente(s) com snapshot manual no mapa</span>}
           {data.qualidade.clientesSemEtapa > 0 && <span>{data.qualidade.clientesSemEtapa} sem etapa</span>}
           {data.qualidade.clientesEmEtapaSemConfig > 0 && <span>{data.qualidade.clientesEmEtapaSemConfig} em etapa sem configuração</span>}
+          {data.qualidade.clientesSemStatusCompensacao > 0 && <span>{data.qualidade.clientesSemStatusCompensacao} sem status de compensação</span>}
+          {data.qualidade.clientesSemTipoRecuperacao > 0 && <span>{data.qualidade.clientesSemTipoRecuperacao} sem tipo de recuperação</span>}
+          {data.qualidade.fontesIndisponiveis.length > 0 && <span>fontes indisponíveis: {data.qualidade.fontesIndisponiveis.join(", ")}</span>}
         </div>
       )}
       {m.semDados && (

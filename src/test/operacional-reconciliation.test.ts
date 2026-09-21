@@ -97,6 +97,28 @@ const COMPS = [
 ];
 
 describe("reconciliação financeira da Visão Operacional", () => {
+  it("inclui legado sem status/tipo quando o recorte não foi escolhido", () => {
+    const ids = filtrarIdsRecorteGerencial(
+      ["legacy"],
+      new Set(),
+      "todas",
+      new Map(),
+      new Map(),
+    );
+    expect([...ids]).toEqual(["legacy"]);
+  });
+
+  it("mantém dimensão ausente visível mesmo com filtro explícito", () => {
+    const ids = filtrarIdsRecorteGerencial(
+      ["legacy"],
+      new Set(["compensando"]),
+      "administrativo",
+      new Map(),
+      new Map(),
+    );
+    expect([...ids]).toEqual(["legacy"]);
+  });
+
   it("movimento no mês prevalece sobre REPORTO no status operacional", () => {
     expect(normalizarStatusCompensacao({
       cliente_id: "a",

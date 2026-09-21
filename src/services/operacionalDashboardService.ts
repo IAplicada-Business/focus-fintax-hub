@@ -63,6 +63,9 @@ export interface OperacionalDashboardData {
     clientesComSnapshotManual: number;
     clientesSemEtapa: number;
     clientesEmEtapaSemConfig: number;
+    clientesSemStatusCompensacao: number;
+    clientesSemTipoRecuperacao: number;
+    fontesIndisponiveis: string[];
   };
 }
 
@@ -77,6 +80,7 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
   // Views/tabelas fora do types.ts gerado (creditos_apurados, v_*): mesmo padrão dos outros services.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
+  const fontesIndisponiveis: string[] = [];
 
   const [
     clientesRes,
@@ -107,7 +111,10 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
       .from("v_clientes_status_compensacao")
       .select("cliente_id, status_principal, tem_compensacao_mes_corrente, tem_tese_ativa, todos_encerrados, tem_reporto")
       .limit(5000),
-    listEsteiraClientes(),
+    listEsteiraClientes().catch(() => {
+      fontesIndisponiveis.push("esteira");
+      return [] as EsteiraCliente[];
+    }),
     listEsteiraSlaConfig(),
     supabase
       .from("esteira_historico")
@@ -120,18 +127,18 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
   ]);
 
   if (clientesRes.error) throw clientesRes.error;
-  if (compsRes.error) throw compsRes.error;
-  if (creditosRes.error) throw creditosRes.error;
-  if (tesesRes.error) throw tesesRes.error;
-  if (processosRes.error) throw processosRes.error;
-  if (statusRes.error) throw statusRes.error;
-  if (histRes.error) throw histRes.error;
-  if (acoesRes.error) throw acoesRes.error;
-  if (profilesRes.error) throw profilesRes.error;
-  if (intimRes.error) throw intimRes.error;
+  if (compsRes.error) fontesIndisponiveis.push("compensações");
+  if (creditosRes.error) fontesIndisponiveis.push("créditos");
+  if (tesesRes.error) fontesIndisponiveis.push("teses");
+  if (processosRes.error) fontesIndisponiveis.push("processos");
+  if (statusRes.error) fontesIndisponiveis.push("status de compensação");
+  if (histRes.error) fontesIndisponiveis.push("histórico da esteira");
+  if (acoesRes.error) fontesIndisponiveis.push("histórico de ações");
+  if (profilesRes.error) fontesIndisponiveis.push("responsáveis");
+  if (intimRes.error) fontesIndisponiveis.push("intimações");
 
   const nomes: Record<string, string> = {};
-  for (const p of profilesRes.data ?? []) nomes[p.user_id] = p.full_name;
+  for (const p of profilesRes.error ? [] : profilesRes.data ?? []) nomes[p.user_id] = p.full_name;
   const clientes = (clientesRes.data ?? []).map((c) => ({
     id: c.id,
     empresa: c.empresa || "—",
@@ -140,17 +147,17 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
     atualizado_em: c.atualizado_em ?? null,
   }));
   const idsAtivos = new Set(clientes.map((c) => c.id));
-  const compsTodos = (compsRes.data ?? []) as CompLike[];
-  const creditosTodos = (creditosRes.data ?? []) as CreditoLike[];
-  const processosTodos = (processosRes.data ?? []) as ProcessoLike[];
-  const statusTodos = (statusRes.data ?? []) as StatusCompensacaoRow[];
-  if (compsTodos.length === 10_000 || creditosTodos.length === 10_000 || processosTodos.length === 10_000) {
-    throw new Error("Base operacional atingiu o limite de leitura; os totais não seriam completos.");
-  }
+  const compsTodos = (compsRes.error ? [] : compsRes.data ?? []) as CompLike[];
+  const creditosTodos = (creditosRes.error ? [] : creditosRes.data ?? []) as CreditoLike[];
+  const processosTodos = (processosRes.error ? [] : processosRes.data ?? []) as ProcessoLike[];
+  const statusTodos = (statusRes.error ? [] : statusRes.data ?? []) as StatusCompensacaoRow[];
+  if (compsTodos.length === 10_000) fontesIndisponiveis.push("compensações (limite de leitura)");
+  if (creditosTodos.length === 10_000) fontesIndisponiveis.push("créditos (limite de leitura)");
+  if (processosTodos.length === 10_000) fontesIndisponiveis.push("processos (limite de leitura)");
   const compsAtivos = compsTodos.filter((row) => idsAtivos.has(row.cliente_id));
   const creditos = creditosTodos.filter((row) => idsAtivos.has(row.cliente_id));
   const processos = processosTodos.filter((row) => idsAtivos.has(row.cliente_id));
-  const teses = (tesesRes.data ?? []) as TeseLike[];
+  const teses = (tesesRes.error ? [] : tesesRes.data ?? []) as TeseLike[];
   const comps = compensacoesCanonicas(compsAtivos, teses, processos);
   const mesAtual = new Date().toISOString().slice(0, 7);
   const clientesComCompensacaoMes = new Set(
@@ -189,10 +196,10 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
     statusRows,
     esteira,
     slaConfig,
-    esteiraHistorico: (histRes.data ?? []) as HistoricoEsteiraLike[],
-    acoes: (acoesRes.data ?? []) as AcaoLike[],
+    esteiraHistorico: (histRes.error ? [] : histRes.data ?? []) as HistoricoEsteiraLike[],
+    acoes: (acoesRes.error ? [] : acoesRes.data ?? []) as AcaoLike[],
     nomes,
-    intimacoes: (intimRes.data ?? []) as IntimacaoResumo[],
+    intimacoes: (intimRes.error ? [] : intimRes.data ?? []) as IntimacaoResumo[],
     qualidade: {
       compensacoesForaDaCarteiraAtiva: compsTodos.filter((row) => !idsAtivos.has(row.cliente_id)).length,
       lancamentosForaDaRegraCanonica: compsAtivos.length - comps.length,
@@ -207,6 +214,17 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
       clientesEmEtapaSemConfig: esteira.filter(
         (row) => !!row.estagio_esteira && !configStages.has(row.estagio_esteira),
       ).length,
+      clientesSemStatusCompensacao: clientes.filter(
+        (cliente) => !statusTodos.some((row) => row.cliente_id === cliente.id),
+      ).length,
+      clientesSemTipoRecuperacao: clientes.filter(
+        (cliente) => !processos.some(
+          (processo) =>
+            processo.cliente_id === cliente.id &&
+            !!processo.tipo_recuperacao,
+        ),
+      ).length,
+      fontesIndisponiveis: [...new Set(fontesIndisponiveis)],
     },
   };
 }

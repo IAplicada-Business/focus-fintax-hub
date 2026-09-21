@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  clientesConvertidosNoFunil,
   inicioSemana,
   leadsPorOrigem,
   pipelinePonderado,
@@ -94,6 +95,17 @@ describe("pipelinePonderado", () => {
     expect(r.potencial).toBe(400);
     expect(r.total).toBeCloseTo(10 + 45 + 170);
     expect(r.porEtapa[0].etapa).toBe("contrato_emitido");
+  });
+});
+
+describe("clientesConvertidosNoFunil", () => {
+  it("conta leads em cliente_ativo, não a carteira global de clientes", () => {
+    expect(clientesConvertidosNoFunil([
+      { status_funil: "cliente_ativo" },
+      { status_funil: "cliente_ativo" },
+      { status_funil: "novo" },
+      { status_funil: "perdido" },
+    ])).toBe(2);
   });
 });
 
