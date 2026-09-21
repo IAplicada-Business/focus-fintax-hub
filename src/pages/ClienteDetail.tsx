@@ -16,6 +16,7 @@ import {
   FileText,
   PanelRightOpen,
   PanelRightClose,
+  Save,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -49,6 +50,7 @@ import {
   useTesesTributarias,
   invalidateClienteOperacional,
 } from "@/hooks/data/useClienteOperacional";
+import { useUpdateClienteMotivoParada } from "@/hooks/data/useClientes";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function ClienteDetail() {
@@ -62,6 +64,8 @@ export default function ClienteDetail() {
   const obsDebounce = useRef<NodeJS.Timeout>();
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [obsSaved, setObsSaved] = useState(false);
+  const [motivoParada, setMotivoParada] = useState("");
+  const updateMotivoParada = useUpdateClienteMotivoParada();
 
   const { data: compensacoesCached = [] } = useClienteCompensacoes(id);
   const { data: processosCached = [] } = useClienteProcessos(id);
@@ -171,6 +175,7 @@ export default function ClienteDetail() {
           return;
         }
         setCliente(data);
+        setMotivoParada(data.motivo_parada || "");
         setLoading(false);
       });
   }, [id, navigate, userRole]);
@@ -189,6 +194,21 @@ export default function ClienteDetail() {
         setTimeout(() => setObsSaved(false), 2000);
       }
     }, 800);
+  };
+
+  const handleMotivoParadaSave = async () => {
+    if (!id) return;
+    const normalized = motivoParada.trim() || null;
+    try {
+      const saved = await updateMotivoParada.mutateAsync({
+        clienteId: id,
+        motivoParada: normalized,
+      });
+      setMotivoParada(saved || "");
+      setCliente((prev: any) => ({ ...prev, motivo_parada: saved }));
+    } catch {
+      // O hook apresenta o erro e mantém o texto para nova tentativa.
+    }
   };
 
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -509,6 +529,35 @@ export default function ClienteDetail() {
                 <span className="text-muted-foreground text-xs">Comp. outro escritório:</span>
                 <p className="text-xs">{cliente.compensacao_outro_escritorio || "—"}</p>
               </div>
+              <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                <div className="flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-700" />
+                  <span className="text-xs font-semibold text-amber-900">Motivo da parada</span>
+                </div>
+                <textarea
+                  value={motivoParada}
+                  onChange={(e) => setMotivoParada(e.target.value)}
+                  className="min-h-[72px] w-full resize-y rounded-md border border-amber-200 bg-background p-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="Ex.: aguardando documentos do cliente"
+                  aria-label="Motivo da parada"
+                />
+                <p className="text-[10px] leading-snug text-amber-800/80">
+                  Este texto aparece na esteira e no pulso semanal.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 w-full gap-1.5 text-xs"
+                  disabled={
+                    updateMotivoParada.isPending ||
+                    (motivoParada.trim() || null) === (cliente.motivo_parada?.trim() || null)
+                  }
+                  onClick={handleMotivoParadaSave}
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  {updateMotivoParada.isPending ? "Salvando..." : "Salvar motivo"}
+                </Button>
+              </div>
               <div className="relative">
                 <span className="text-muted-foreground text-xs">Observações:</span>
                 <textarea
@@ -698,7 +747,10 @@ export default function ClienteDetail() {
             .eq("id", id!)
             .single()
             .then(({ data }) => {
-              if (data) setCliente(data);
+              if (data) {
+                setCliente(data);
+                setMotivoParada(data.motivo_parada || "");
+              }
             });
         }}
         cliente={cliente}

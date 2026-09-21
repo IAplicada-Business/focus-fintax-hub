@@ -19,6 +19,20 @@ export async function getCliente(id: string) {
   return data as Cliente;
 }
 
+export async function updateClienteMotivoParada(id: string, motivoParada: string | null) {
+  const { data, error } = await supabase
+    .from("clientes")
+    .update({
+      motivo_parada: motivoParada,
+      atualizado_em: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select("motivo_parada")
+    .single();
+  if (error) throw error;
+  return data.motivo_parada;
+}
+
 export async function listProcessosTeses() {
   const { data, error } = await supabase
     .from("processos_teses")
