@@ -38,10 +38,10 @@ export type { StatusCompensacao, RamoGerencialFiltro };
 
 export const STATUS_COMPENSACAO_LABELS: Record<StatusCompensacao, string> = {
   compensando: "Compensando",
-  prevista: "Prevista",
+  prevista: "Dados legados: prevista",
   reporto: "Possíveis futuros",
   encerrado: "Encerrado",
-  sem_operacao: "Pendente / sem operação",
+  sem_operacao: "Dados incompletos",
 };
 
 export const STATUS_COMPENSACAO_COLORS: Record<StatusCompensacao, string> = {

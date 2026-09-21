@@ -8,13 +8,16 @@ import {
 
 export const STATUS_COMPENSACAO_VALUES = [
   "compensando",
-  "prevista",
   "reporto",
   "encerrado",
-  "sem_operacao",
 ] as const;
 
-export type StatusCompensacao = (typeof STATUS_COMPENSACAO_VALUES)[number];
+export type StatusCompensacaoPadrao = (typeof STATUS_COMPENSACAO_VALUES)[number];
+/** Aliases legados internos; não aparecem em seletores de status. */
+export type StatusCompensacao =
+  | StatusCompensacaoPadrao
+  | "prevista"
+  | "sem_operacao";
 
 export interface StatusCompensacaoRow {
   cliente_id: string;
@@ -38,15 +41,15 @@ export function normalizarStatusCompensacao(row: StatusCompensacaoRow): StatusCo
   // REPORTO é tipo de tese/possível futuro e não pode esconder um cliente
   // que também está efetivamente compensando.
   if (row.tem_compensacao_mes_corrente) return "compensando";
-  if (STATUS_COMPENSACAO_VALUES.includes(status as StatusCompensacao)) {
-    return status as StatusCompensacao;
+  if (STATUS_COMPENSACAO_VALUES.includes(status as StatusCompensacaoPadrao)) {
+    return status as StatusCompensacaoPadrao;
   }
 
   // Compatibilidade com a view anterior, em que ramo judicial/ressarcimento
   // sobrescrevia o status operacional.
   if (row.tem_reporto) return "reporto";
-  if (row.tem_tese_ativa) return "prevista";
   if (row.todos_encerrados) return "encerrado";
+  // `prevista` e `sem_operacao` viram uma pendência explícita de qualidade.
   return "sem_operacao";
 }
 

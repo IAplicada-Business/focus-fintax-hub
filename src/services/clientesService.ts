@@ -5,6 +5,10 @@ import {
   type StatusCompensacaoRow,
 } from "@/lib/gerencial-filters";
 import type { Database } from "@/integrations/supabase/types";
+import type {
+  ClienteStatusCompensacao,
+} from "@/lib/client-operation";
+import type { EstagioEsteira } from "@/lib/esteira-constants";
 
 type Cliente = Database["public"]["Tables"]["clientes"]["Row"];
 
@@ -36,6 +40,45 @@ export async function updateClienteMotivoParada(id: string, motivoParada: string
     .single();
   if (error) throw error;
   return data.motivo_parada;
+}
+
+export interface ClienteResponsavelElegivel {
+  user_id: string;
+  full_name: string;
+  cargo: string | null;
+}
+
+export async function listClienteResponsaveisElegiveis(): Promise<
+  ClienteResponsavelElegivel[]
+> {
+  const { data, error } = await supabase.rpc("cliente_responsaveis_elegiveis");
+  if (error) throw error;
+  return (data ?? []) as ClienteResponsavelElegivel[];
+}
+
+export interface ClienteOperacaoUpdate {
+  clienteId: string;
+  statusCompensacao?: ClienteStatusCompensacao;
+  estagio?: EstagioEsteira;
+  responsavelId?: string;
+}
+
+export async function updateClienteOperacao({
+  clienteId,
+  statusCompensacao,
+  estagio,
+  responsavelId,
+}: ClienteOperacaoUpdate): Promise<Cliente> {
+  const { data, error } = await supabase.rpc("cliente_atualizar_operacao", {
+    p_cliente_id: clienteId,
+    ...(statusCompensacao ? { p_status_compensacao: statusCompensacao } : {}),
+    ...(estagio ? { p_estagio: estagio } : {}),
+    ...(responsavelId
+      ? { p_responsavel_id: responsavelId, p_atualizar_responsavel: true }
+      : {}),
+  });
+  if (error) throw error;
+  return data as Cliente;
 }
 
 export async function listProcessosTeses() {

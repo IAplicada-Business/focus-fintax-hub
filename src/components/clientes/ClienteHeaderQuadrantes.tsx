@@ -21,6 +21,9 @@ import {
   STATUS_COMPENSACAO_COLORS,
   type StatusCompensacao,
 } from "@/components/StatusCompensacaoFilter";
+import {
+  isClienteStatusCompensacao,
+} from "@/lib/client-operation";
 import { TrocaTeseAtivaModal } from "@/components/clientes/TrocaTeseAtivaModal";
 import {
   invalidateClienteOperacional,
@@ -378,7 +381,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
               <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Status</p>
             </div>
             {processosCount > 0 && (
-              dadosBase.statusPrincipal && dadosBase.statusPrincipal !== "reporto" ? (
+              isClienteStatusCompensacao(dadosBase.statusPrincipal) ? (
                 <Badge
                   variant="outline"
                   className={`${STATUS_COMPENSACAO_COLORS[dadosBase.statusPrincipal]} text-[10px]`}
@@ -386,8 +389,8 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
                   {STATUS_COMPENSACAO_LABELS[dadosBase.statusPrincipal]}
                 </Badge>
               ) : (
-                <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                  Em configuração
+                <Badge variant="outline" className="border-amber-200 bg-amber-50 text-[10px] text-amber-800">
+                  Dados incompletos
                 </Badge>
               )
             )}
@@ -397,14 +400,14 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
             <>
               <Badge
                 variant="outline"
-                className={`${STATUS_COMPENSACAO_COLORS.sem_operacao} w-fit text-[10px]`}
+                className="w-fit border-amber-200 bg-amber-50 text-[10px] text-amber-800"
               >
-                Sem operação
+                Dados incompletos
               </Badge>
               <p className="text-[12px] font-medium leading-snug text-foreground">
                 Nenhuma tese cadastrada
               </p>
-              {opcoesTese.length > 0 ? (
+              {onAddTese && opcoesTese.length > 0 ? (
                 <div className="mt-auto flex flex-wrap gap-1.5">
                   {opcoesTese.slice(0, 4).map((t) => (
                     <Button
@@ -431,7 +434,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
                     </Button>
                   )}
                 </div>
-              ) : (
+              ) : onAddTese ? (
                 <Button
                   type="button"
                   size="sm"
@@ -441,7 +444,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
                   <Plus className="mr-1 h-3.5 w-3.5" />
                   Adicionar tese
                 </Button>
-              )}
+              ) : null}
             </>
           ) : (
             <>
@@ -478,7 +481,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
                   Tese em uso:{" "}
                   <strong className="text-foreground">{teseAtivaLabel || "não definida"}</strong>
                 </p>
-                {teseAtivaId || dadosBase.tesesAtivas > 0 ? (
+                {onAddTese && (teseAtivaId || dadosBase.tesesAtivas > 0) ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -489,7 +492,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
                     <RefreshCw className="mr-1 h-3 w-3" />
                     {teseAtivaId ? "Trocar tese em uso" : "Definir tese em uso"}
                   </Button>
-                ) : (
+                ) : onAddTese ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -500,7 +503,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
                     <Plus className="mr-1 h-3 w-3" />
                     Adicionar tese ao cálculo
                   </Button>
-                )}
+                ) : null}
               </div>
             </>
           )}
