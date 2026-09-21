@@ -87,10 +87,10 @@ describe("ordenarCardsEsteira", () => {
 });
 
 describe("parseDashEsteiraView", () => {
-  it("só aceita kanban; o resto vira etapas", () => {
+  it("só sai do kanban com a preferência explícita de etapas", () => {
     expect(parseDashEsteiraView("kanban")).toBe("kanban");
     expect(parseDashEsteiraView("etapas")).toBe("etapas");
-    expect(parseDashEsteiraView(null)).toBe("etapas");
-    expect(parseDashEsteiraView("x")).toBe("etapas");
+    expect(parseDashEsteiraView(null)).toBe("kanban");
+    expect(parseDashEsteiraView("x")).toBe("kanban");
   });
 });

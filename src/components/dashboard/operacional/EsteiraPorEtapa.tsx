@@ -33,7 +33,7 @@ export function EsteiraPorEtapa({ etapas, clientes }: Props) {
     try {
       return parseDashEsteiraView(localStorage.getItem(DASH_ESTEIRA_VIEW_KEY));
     } catch {
-      return "etapas";
+      return "kanban";
     }
   });
   const trocarView = (v: DashEsteiraView) => {
@@ -58,8 +58,8 @@ export function EsteiraPorEtapa({ etapas, clientes }: Props) {
           <div role="tablist" aria-label="Formato da esteira" className="flex rounded-full border border-ink-06 bg-white p-0.5">
             {(
               [
-                { value: "etapas", label: "Etapas", icon: LayoutGrid },
                 { value: "kanban", label: "Kanban", icon: KanbanSquare },
+                { value: "etapas", label: "Etapas", icon: LayoutGrid },
               ] as { value: DashEsteiraView; label: string; icon: typeof LayoutGrid }[]
             ).map((opt) => {
               const ativo = view === opt.value;

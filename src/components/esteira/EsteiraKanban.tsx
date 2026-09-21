@@ -88,6 +88,20 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
     }
   };
 
+  // Sem coluna nenhuma o quadro seria uma faixa vazia — sem isso o usuário vê
+  // a tela "sem kanban" e não tem como saber que é config de etapa.
+  if (stages.length === 0) {
+    return (
+      <div role="region" aria-label="Esteira administrativa" className={cn("flex-1 min-h-0 flex items-center justify-center", className)}>
+        <EmptyState
+          icon={<Building2 className="w-5 h-5 text-ink-35" />}
+          title="Nenhuma etapa ativa na esteira"
+          subtitle="Ative pelo menos uma etapa em Configurar SLA para o quadro aparecer"
+        />
+      </div>
+    );
+  }
+
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
       <div role="region" aria-label="Esteira administrativa" className={cn("flex-1 min-h-0 flex gap-3 overflow-x-auto pb-3 -mx-1 px-1", className)}>
