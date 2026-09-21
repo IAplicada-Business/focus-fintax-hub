@@ -83,6 +83,7 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
       .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "compensacoes_mensais" }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "clientes" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cliente_historico" }, bump)
       .subscribe();
     return () => {
       if (t) clearTimeout(t);

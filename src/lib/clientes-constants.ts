@@ -169,6 +169,7 @@ export function isOrphanDuplicateOfLinked(
   const valor = Number(orphan.valor_compensado || 0);
   return linkedRows.some((l) => {
     if (!l.tese_origem_id) return false;
+    if (l.cliente_id !== orphan.cliente_id) return false;
     if (mesKey(l.mes_referencia) !== mes) return false;
     if (tributoKey(l) !== trib) return false;
     return Math.abs(Number(l.valor_compensado || 0) - valor) < 0.015;

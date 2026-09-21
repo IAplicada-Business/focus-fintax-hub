@@ -100,7 +100,7 @@ export default function Esteira() {
     const slaPorEtapa = new Map(config.map((c) => [c.estagio as string, c.sla_dias]));
     return visibleEsteiraStages(
       config,
-      (clientes ?? []).map((c) => c.estagio_esteira || "triagem"),
+      (clientes ?? []).map((c) => c.estagio_esteira || "__sem_etapa__"),
     ).map((s) => ({ ...s, sla_dias: slaPorEtapa.get(s.value) ?? null }));
   }, [config, clientes]);
 

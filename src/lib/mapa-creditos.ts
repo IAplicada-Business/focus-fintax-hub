@@ -81,6 +81,12 @@ export function buildLinhasMapa(input: MapaRawInput): LinhaMapa[] {
     if (!processoIdsByTese.has(cod)) processoIdsByTese.set(cod, new Set());
     processoIdsByTese.get(cod)!.add(p.id);
   }
+  const reportoTeseIds = new Set(
+    (input.mapa || [])
+      .filter((row) => String(row.tese_codigo || "").toUpperCase() === "REPORTO")
+      .map((row) => row.tese_id),
+  );
+  const reportoProcessoIds = processoIdsByTese.get("REPORTO") ?? new Set<string>();
 
   const manualByTese = new Map<string, number>();
   for (const row of input.creditos || []) {
@@ -104,6 +110,8 @@ export function buildLinhasMapa(input: MapaRawInput): LinhaMapa[] {
         teseCodigo: codigo,
         teseId: r.tese_id,
         processoIds: processoIdsByTese.get(codigo),
+        reportoTeseIds,
+        reportoProcessoIds,
       });
       const manual = manualByTese.get(r.tese_id);
       const compensado = Math.max(

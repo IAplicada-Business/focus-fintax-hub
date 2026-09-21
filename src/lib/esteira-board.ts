@@ -29,16 +29,16 @@ export interface EsteiraCardLike extends ClienteSlaLike {
   atrasado?: boolean | null;
 }
 
-/** Agrupa por etapa na ordem das colunas; etapa desconhecida cai em "triagem" (ou na primeira). */
+/** Agrupa por etapa na ordem das colunas; só usa fallback quando não há coluna explícita. */
 export function agruparEsteiraPorEtapa<T extends EsteiraCardLike>(
   clientes: T[],
   stages: readonly EsteiraBoardStage[],
 ): Record<string, T[]> {
   const map: Record<string, T[]> = {};
   for (const s of stages) map[s.value] = [];
-  const fallback = map["triagem"] ? "triagem" : stages[0]?.value;
+  const fallback = map["__sem_etapa__"] ? "__sem_etapa__" : map["triagem"] ? "triagem" : stages[0]?.value;
   for (const c of clientes) {
-    const etapa = c.estagio_esteira || fallback;
+    const etapa = c.estagio_esteira || (map["__sem_etapa__"] ? "__sem_etapa__" : fallback);
     if (etapa && map[etapa]) map[etapa].push(c);
     else if (fallback && map[fallback]) map[fallback].push(c);
   }
