@@ -82,7 +82,7 @@ export const MENU_COMERCIAL: MenuItem[] = [
 
 export const MENU_OPERACIONAL: MenuItem[] = [
   {
-    // Pulso da semana, Ciclo & SLA e SLA por etapa são abas desta tela.
+    // Pulso semanal, Ciclo & SLA e SLA por etapa são abas desta tela.
     title: "Dashboard",
     url: "/dashboard",
     icon: LayoutDashboard,

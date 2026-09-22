@@ -19,7 +19,7 @@ const ABA_KEY = "dash_tab";
 /**
  * `modo="comercial"` (/dashboard/comercial): a Visão Comercial inteira em uma
  * página, sem abas. `modo="operacional"` (/dashboard): Operacional,
- * Executiva e Pulso da semana compartilhando uma única leitura de dados.
+ * Executiva e Pulso semanal compartilhando uma única leitura de dados.
  */
 export default function Dashboard({ modo = "operacional" }: { modo?: DashboardModo }) {
   const { profile, userRole, permissions } = useAuth();
@@ -115,7 +115,7 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
         canExecutiva={canExecutiva}
         activeTab={modo === "comercial" ? "comercial" : activeTab}
         switchTab={switchTab}
-        extraTabs={canPulso ? [{ key: "pulso", label: "Pulso da semana" }] : []}
+        extraTabs={canPulso ? [{ key: "pulso", label: "Pulso semanal" }] : []}
         titulo={modo === "comercial" ? "Visão Comercial" : undefined}
       />
 

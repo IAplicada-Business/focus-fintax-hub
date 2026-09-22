@@ -228,29 +228,6 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
           {m.recorte} cliente{m.recorte === 1 ? "" : "s"} no recorte · período: {m.periodoLabel} · tese: {rotuloFiltroTese(tipoTeseFiltro, m.tiposTese)} · {m.foraRecorte} ativo{m.foraRecorte === 1 ? "" : "s"} fora
         </span>
       </div>
-      {(data.qualidade.clientesSemBaseFinanceira > 0 ||
-        data.qualidade.compensacoesForaDaCarteiraAtiva > 0 ||
-        data.qualidade.lancamentosForaDaRegraCanonica > 0 ||
-        data.qualidade.clientesComSnapshotManual > 0 ||
-        data.qualidade.clientesSemEtapa > 0 ||
-        data.qualidade.clientesEmEtapaSemConfig > 0 ||
-        data.qualidade.clientesSemStatusCompensacao > 0 ||
-        data.qualidade.clientesSemTipoRecuperacao > 0 ||
-        data.qualidade.fontesIndisponiveis.length > 0) && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-dash-amber/25 bg-dash-amber/[0.05] px-5 py-3 text-xs text-ink-60">
-          <AlertTriangle className="h-4 w-4 shrink-0 text-dash-amber" />
-          <span className="font-semibold text-ink">Dados incompletos:</span>
-          {data.qualidade.compensacoesForaDaCarteiraAtiva > 0 && <span>{data.qualidade.compensacoesForaDaCarteiraAtiva} lançamento(s) de clientes inativos excluídos</span>}
-          {data.qualidade.lancamentosForaDaRegraCanonica > 0 && <span>{data.qualidade.lancamentosForaDaRegraCanonica} lançamento(s) REPORTO/duplicado(s) excluídos</span>}
-          {data.qualidade.clientesSemBaseFinanceira > 0 && <span>{data.qualidade.clientesSemBaseFinanceira} cliente(s) sem crédito/processo financeiro</span>}
-          {data.qualidade.clientesComSnapshotManual > 0 && <span>{data.qualidade.clientesComSnapshotManual} cliente(s) com snapshot manual no mapa</span>}
-          {data.qualidade.clientesSemEtapa > 0 && <span>{data.qualidade.clientesSemEtapa} sem etapa</span>}
-          {data.qualidade.clientesEmEtapaSemConfig > 0 && <span>{data.qualidade.clientesEmEtapaSemConfig} em etapa sem configuração</span>}
-          {data.qualidade.clientesSemStatusCompensacao > 0 && <span>{data.qualidade.clientesSemStatusCompensacao} sem status de compensação</span>}
-          {data.qualidade.clientesSemTipoRecuperacao > 0 && <span>{data.qualidade.clientesSemTipoRecuperacao} sem tipo de recuperação</span>}
-          {data.qualidade.fontesIndisponiveis.length > 0 && <span>fontes indisponíveis: {data.qualidade.fontesIndisponiveis.join(", ")}</span>}
-        </div>
-      )}
       {m.semDados && (
         <div className="flex items-center gap-3 px-5 py-3 rounded-xl border border-dash-amber/25 bg-dash-amber/[0.05]">
           <AlertTriangle className="w-4 h-4 text-dash-amber shrink-0" />
