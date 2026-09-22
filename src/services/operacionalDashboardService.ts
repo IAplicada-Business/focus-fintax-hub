@@ -15,9 +15,7 @@ import {
   normalizarStatusCompensacao,
   type StatusCompensacaoRow,
 } from "@/lib/gerencial-filters";
-import { currentMonthKey } from "@/lib/month-key";
-
-const MS_DIA = 86_400_000;
+import { currentMonthKey, shiftMonthKey } from "@/lib/month-key";
 
 export interface ClienteResumo {
   id: string;
@@ -75,12 +73,14 @@ export interface OperacionalDashboardData {
 
 /**
  * Leitura única para as três visões do Dashboard operacional (Operacional,
- * Executiva e Pulso da semana). Trocar de aba não dispara consulta nova.
+ * Executiva e Pulso semanal). Trocar de aba não dispara consulta nova.
  */
 export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardData> {
-  const agora = Date.now();
-  const desde30 = new Date(agora - 30 * MS_DIA).toISOString();
-  const desde7 = new Date(agora - 7 * MS_DIA).toISOString();
+  // O Pulso semanal permite trocar o mês e a semana; buscar só 7 dias
+  // deixava as semanas anteriores artificialmente vazias.
+  const desdeJanela = new Date(
+    `${shiftMonthKey(currentMonthKey(), -11)}-01T00:00:00-03:00`,
+  ).toISOString();
   // Views/tabelas fora do types.ts gerado (creditos_apurados, v_*): mesmo padrão dos outros services.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
@@ -123,9 +123,9 @@ export async function fetchOperacionalDashboard(): Promise<OperacionalDashboardD
     supabase
       .from("esteira_historico")
       .select("cliente_id, estagio, entrou_em, saiu_em, origem, responsavel_id")
-      .gte("entrou_em", desde30)
-      .limit(5000),
-    db.from("cliente_historico").select("cliente_id, tipo, usuario_id, created_at").gte("created_at", desde7).limit(2000),
+      .gte("entrou_em", desdeJanela)
+      .limit(8000),
+    db.from("cliente_historico").select("cliente_id, tipo, usuario_id, created_at").gte("created_at", desdeJanela).limit(8000),
     supabase.from("profiles").select("user_id, full_name").limit(500),
     supabase.from("intimacoes").select("id, status, prazo_vencimento, created_at").limit(2000),
   ]);

@@ -13,7 +13,7 @@ interface Props {
   switchTab: (t: string) => void;
   /** Rótulo da aba comercial quando ela existe. */
   comercialLabel?: string;
-  /** Abas extras depois das visões (ex.: "Pulso da semana"). */
+  /** Abas extras depois das visões (ex.: "Pulso semanal"). */
   extraTabs?: { key: string; label: string }[];
   /** Título fixo quando a tela não tem abas (ex.: "Visão Comercial"). */
   titulo?: string;

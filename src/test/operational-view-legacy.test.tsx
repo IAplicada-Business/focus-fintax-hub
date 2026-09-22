@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { OperationalView } from "@/components/dashboard/operacional/OperationalView";
+import { ResumoSemanalTab } from "@/components/dashboard/gestao/ResumoSemanalTab";
 import type { OperacionalDashboardData } from "@/services/operacionalDashboardService";
 
 const data: OperacionalDashboardData = {
@@ -84,9 +85,21 @@ describe("OperationalView com base legada", () => {
 
     expect(screen.getByText(/2 clientes no recorte · período: Acumulado · tese: todas · 0 ativos fora/)).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Saldo a compensar: 1500" })).toBeInTheDocument();
+    expect(screen.queryByText(/Dados incompletos:/)).not.toBeInTheDocument();
+    expect(screen.getByText("Onde os clientes estão")).toBeInTheDocument();
+  });
+
+  it("move a qualidade de dados para o Pulso semanal", () => {
+    render(
+      <MemoryRouter>
+        <ResumoSemanalTab data={data} navigate={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("heading", { name: "Pulso semanal" })).toBeInTheDocument();
+    expect(screen.getByText("Dados incompletos:")).toBeInTheDocument();
     expect(screen.getByText(/2 sem status de compensação/)).toBeInTheDocument();
     expect(screen.getByText(/2 sem tipo de recuperação/)).toBeInTheDocument();
     expect(screen.getByText(/fontes indisponíveis: status de compensação/)).toBeInTheDocument();
-    expect(screen.getByText("Onde os clientes estão")).toBeInTheDocument();
   });
 });
