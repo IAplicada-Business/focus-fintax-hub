@@ -137,6 +137,19 @@ export function ProcessoFormModal({
     return true;
   });
 
+  /**
+   * O seletor abrir vazio tem três causas diferentes e o usuário não tem como
+   * distinguir olhando: ainda carregando, o catálogo não voltou nenhuma tese
+   * ativa, ou o cliente já usa todas. Nomeia cada caso em vez de mostrar nada.
+   */
+  const avisoListaVazia = motorQ.isPending
+    ? "Carregando teses…"
+    : motorQ.isError
+      ? "Não foi possível carregar as teses."
+      : teses.length === 0
+        ? "Nenhuma tese ativa no motor de cálculo."
+        : "Este cliente já tem todas as teses ativas.";
+
   const handleTesePick = (value: string) => {
     const t = teses.find((x) => x.tese === value);
     const nome = t?.nome_exibicao || value;
@@ -285,9 +298,13 @@ export function ProcessoFormModal({
             <Select value={form.tese} onValueChange={handleTesePick}>
               <SelectTrigger><SelectValue placeholder="Selecione a tese" /></SelectTrigger>
               <SelectContent>
-                {availableTeses.map((t) => (
-                  <SelectItem key={t.tese} value={t.tese}>{t.nome_exibicao}</SelectItem>
-                ))}
+                {availableTeses.length === 0 ? (
+                  <p className="px-2 py-3 text-center text-xs text-muted-foreground">{avisoListaVazia}</p>
+                ) : (
+                  availableTeses.map((t) => (
+                    <SelectItem key={t.tese} value={t.tese}>{t.nome_exibicao}</SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
