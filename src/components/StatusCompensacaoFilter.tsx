@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Filter } from "lucide-react";
 import {
   STATUS_COMPENSACAO_VALUES,
+  STATUS_FILTRO_VALUES,
   buildRamoFlagsPorCliente,
   countByRamo,
   countByStatus,
@@ -27,6 +28,7 @@ import {
 
 export {
   STATUS_COMPENSACAO_VALUES,
+  STATUS_FILTRO_VALUES,
   buildRamoFlagsPorCliente,
   countByRamo,
   countByStatus,
@@ -37,10 +39,12 @@ export {
 export type { StatusCompensacao, RamoGerencialFiltro };
 
 export const STATUS_COMPENSACAO_LABELS: Record<StatusCompensacao, string> = {
-  compensando: "Compensando",
+  compensando: "Total Compensados",
   prevista: "Dados legados: prevista",
-  reporto: "Possíveis futuros",
-  encerrado: "Encerrado",
+  reporto: "Possíveis recebimentos",
+  encerrado: "Encerrado / Liquidado",
+  recuperacao_judicial: "Recuperação Judicial",
+  ressarcimento_concluido: "Ressarcimento concluído",
   sem_operacao: "Dados incompletos",
 };
 
@@ -49,6 +53,8 @@ export const STATUS_COMPENSACAO_COLORS: Record<StatusCompensacao, string> = {
   prevista: "bg-blue-100 text-blue-800 border-blue-200",
   reporto: "bg-slate-100 text-slate-700 border-slate-200",
   encerrado: "bg-slate-100 text-slate-700 border-slate-200",
+  recuperacao_judicial: "bg-indigo-100 text-indigo-800 border-indigo-200",
+  ressarcimento_concluido: "bg-teal-100 text-teal-800 border-teal-200",
   sem_operacao: "bg-neutral-100 text-neutral-600 border-neutral-200",
 };
 
@@ -92,7 +98,7 @@ interface Props {
 }
 
 export function StatusCompensacaoFilter({ selectedStatuses, onChange, counts, className }: Props) {
-  const allSelected = selectedStatuses.size === 0 || selectedStatuses.size === STATUS_COMPENSACAO_VALUES.length;
+  const allSelected = selectedStatuses.size === 0 || selectedStatuses.size === STATUS_FILTRO_VALUES.length;
   const label = allSelected ? "Status compensação" : `${selectedStatuses.size} status`;
 
   const toggle = (s: StatusCompensacao) => {
@@ -103,7 +109,7 @@ export function StatusCompensacaoFilter({ selectedStatuses, onChange, counts, cl
   };
 
   const setAll = (v: boolean) => {
-    onChange(v ? new Set(STATUS_COMPENSACAO_VALUES) : new Set());
+    onChange(v ? new Set(STATUS_FILTRO_VALUES) : new Set());
   };
 
   return (
@@ -137,7 +143,7 @@ export function StatusCompensacaoFilter({ selectedStatuses, onChange, counts, cl
               </button>
             </div>
           </div>
-          {STATUS_COMPENSACAO_VALUES.map((s) => {
+          {STATUS_FILTRO_VALUES.map((s) => {
             const active = selectedStatuses.has(s);
             const n = counts?.[s];
             return (

@@ -1,4 +1,8 @@
-import { processoTeseCatalogCodigo } from "@/lib/clientes-constants";
+import {
+  TESES_OFICIAIS,
+  normalizeTeseCatalogCodigo,
+  processoTeseCatalogCodigo,
+} from "@/lib/clientes-constants";
 import type {
   CompLike,
   CreditoLike,
@@ -16,6 +20,10 @@ export interface TipoTeseOpcao {
 }
 
 const normalizar = (value: string | null | undefined) => String(value ?? "").trim();
+
+/** Código oficial de uma linha do catálogo (EXCLUSAO_ICMS_BC legado → PIS_COFINS_JUD). */
+const codigoCatalogo = (codigo: string | null | undefined) =>
+  String(normalizeTeseCatalogCodigo(codigo) ?? "").toUpperCase();
 
 export function teseFiltroAtivo(filtro: TipoTeseFiltro | null | undefined): boolean {
   return (filtro?.length ?? 0) > 0;
@@ -40,7 +48,7 @@ function catalogoTeses(teses: TeseLike[]) {
     teses.map((tese) => [
       tese.id,
       {
-        codigo: normalizar(tese.codigo).toUpperCase(),
+        codigo: codigoCatalogo(tese.codigo),
         label: normalizar(tese.label || tese.codigo),
       },
     ]),
@@ -87,39 +95,21 @@ export function filtrarIdsPorTipoTese(
   );
 }
 
+/**
+ * Opções do filtro "Teses": sempre as 6 teses oficiais, nessa ordem e com o
+ * nome padronizado — nunca uma opção por variação de slug/rótulo cadastrada.
+ */
 export function listarTiposTese(
   processos: ProcessoLike[],
   creditos: CreditoLike[],
   teses: TeseLike[],
 ): TipoTeseOpcao[] {
-  const catalogo = catalogoTeses(teses);
-  const labels = new Map<string, string>();
-  for (const tese of teses) {
-    const info = catalogo.get(tese.id);
-    if (info?.codigo) labels.set(info.codigo, info.label || info.codigo);
-  }
-  for (const processo of processos) {
-    const codigo = codigoTipoTeseProcesso(processo);
-    if (!codigo) continue;
-    const label =
-      codigo === "REPORTO"
-        ? "REPORTO"
-        : normalizar(processo.nome_exibicao) || codigo;
-    if (!labels.has(codigo)) labels.set(codigo, label);
-  }
-
   const clientes = idsClientesPorTipoTese(processos, creditos, teses);
-  return [...clientes.entries()]
-    .map(([value, ids]) => ({
-      value,
-      label: labels.get(value) || value,
-      clientes: ids.size,
-    }))
-    .sort((a, b) => {
-      if (a.value === "REPORTO") return 1;
-      if (b.value === "REPORTO") return -1;
-      return a.label.localeCompare(b.label, "pt-BR");
-    });
+  return TESES_OFICIAIS.map(({ codigo, label }) => ({
+    value: codigo,
+    label,
+    clientes: clientes.get(codigo)?.size ?? 0,
+  }));
 }
 
 export function codigoNoFiltroTese(
@@ -167,7 +157,7 @@ export function filtrarCreditosPorTipoTese(
   if (!teseFiltroAtivo(filtro)) return creditos;
   const ids = new Set(
     teses
-      .filter((tese) => filtro.includes(normalizar(tese.codigo).toUpperCase()))
+      .filter((tese) => filtro.includes(codigoCatalogo(tese.codigo)))
       .map((tese) => tese.id),
   );
   return creditos.filter((credito) => ids.has(credito.tese_id));
@@ -183,7 +173,7 @@ export function filtrarCompensacoesPorTipoTese(
   if (!teseFiltroAtivo(filtro)) return comps;
   const teseIds = new Set(
     teses
-      .filter((tese) => filtro.includes(normalizar(tese.codigo).toUpperCase()))
+      .filter((tese) => filtro.includes(codigoCatalogo(tese.codigo)))
       .map((tese) => tese.id),
   );
   const processoIds = new Set(

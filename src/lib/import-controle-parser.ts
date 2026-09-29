@@ -169,8 +169,10 @@ const HEADER_TESE_MAP: Record<string, TeseCodigoEnum> = {
   "subvencao": "SUBVENCAO",
   "subvenção": "SUBVENCAO",
   "icms st da bc pis e cof": "ICMS_ST",
-  "exclusao icms base pis e cof": "EXCLUSAO_ICMS_BC",
-  "exclusão icms base pis e cof": "EXCLUSAO_ICMS_BC",
+  // Padronização AGF (set/2026): exclusão do ICMS da base é a mesma tese
+  // oficial "PIS/COFINS da Base — Via Judicial". As duas colunas somam.
+  "exclusao icms base pis e cof": "PIS_COFINS_JUD",
+  "exclusão icms base pis e cof": "PIS_COFINS_JUD",
   "pis e cofins da base - judc": "PIS_COFINS_JUD",
   "previdenciario": "PREVIDENCIARIO",
   "previdenciário": "PREVIDENCIARIO",
@@ -220,10 +222,11 @@ export function parseAbaControle(
     status: header.indexOf("status"),
     regiao: header.findIndex((h) => h === "região" || h === "regiao"),
   };
-  const idxTese: Partial<Record<TeseCodigoEnum, number>> = {};
+  const idxTese: Partial<Record<TeseCodigoEnum, number[]>> = {};
   for (let c = 0; c < header.length; c++) {
     const key = header[c];
-    if (HEADER_TESE_MAP[key]) idxTese[HEADER_TESE_MAP[key]] = c;
+    const tese = HEADER_TESE_MAP[key];
+    if (tese) (idxTese[tese] ??= []).push(c);
   }
 
   if (idx.razao < 0 || idx.cnpj < 0) {
@@ -271,7 +274,7 @@ export function parseAbaControle(
     }
     if (!razaoRaw) {
       // linha só com valores nos tributos = row 47 (subtotal implícito). Já cai no filtro abaixo.
-      const somaCol = Object.values(idxTese).reduce((s, c) => s + (parseValorMonetario(row[c!]) || 0), 0);
+      const somaCol = Object.values(idxTese).flat().reduce((s, c) => s + (parseValorMonetario(row[c!]) || 0), 0);
       if (somaCol > 0) {
         rejeitadas.push({ linha_planilha: linhaPlanilha, motivo: "subtotal implícito (sem razão social)", raw: row.slice(0, 16).map(String) });
       }
@@ -281,7 +284,7 @@ export function parseAbaControle(
     // Linhas 65-69: observação textual (razão social preenchida mas SEM créditos e SEM CNPJ; texto na coluna C)
     // Heurística: se todos os créditos estão vazios E a coluna C (idx razao+1 = CNPJ) tem texto não-numérico
     // (ou razão social contém "obs em"), tratamos como observação.
-    const somaCreditos = Object.values(idxTese).reduce((s, c) => s + (parseValorMonetario(row[c!]) || 0), 0);
+    const somaCreditos = Object.values(idxTese).flat().reduce((s, c) => s + (parseValorMonetario(row[c!]) || 0), 0);
     if (somaCreditos === 0 && !normalizarCnpj(cnpjRaw)) {
       // Provavelmente linha de observação. Registra como rejeitada com nota; UI pode oferecer
       // "criar observação no cliente X" se a razão social bater.
@@ -305,8 +308,11 @@ export function parseAbaControle(
 
     // Extrai créditos
     const creditos: CreditoParsed[] = [];
-    for (const [tese, col] of Object.entries(idxTese) as [TeseCodigoEnum, number][]) {
-      const v = parseValorMonetario(row[col]);
+    for (const [tese, cols] of Object.entries(idxTese) as [TeseCodigoEnum, number[]][]) {
+      const valores = cols
+        .map((col) => parseValorMonetario(row[col]))
+        .filter((valor): valor is number => valor !== null && valor > 0);
+      const v = valores.length > 0 ? valores.reduce((s, valor) => s + valor, 0) : null;
       if (v !== null && v > 0) {
         creditos.push({ tese, valor: v });
         totais[tese] = (totais[tese] || 0) + v;

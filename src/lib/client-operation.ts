@@ -6,9 +6,9 @@ import {
 } from "@/lib/tipo-recuperacao";
 
 export const CLIENTE_STATUS_COMPENSACAO = [
-  { value: "compensando", label: "Compensando" },
-  { value: "reporto", label: "Possíveis futuros" },
-  { value: "encerrado", label: "Encerrado" },
+  { value: "compensando", label: "Total Compensados" },
+  { value: "reporto", label: "Possíveis recebimentos" },
+  { value: "encerrado", label: "Encerrado / Liquidado" },
 ] as const;
 
 export type ClienteStatusCompensacao =
@@ -18,9 +18,9 @@ export const CLIENTE_STATUS_COMPENSACAO_LABEL: Record<
   ClienteStatusCompensacao,
   string
 > = {
-  compensando: "Compensando",
-  reporto: "Possíveis futuros",
-  encerrado: "Encerrado",
+  compensando: "Total Compensados",
+  reporto: "Possíveis recebimentos",
+  encerrado: "Encerrado / Liquidado",
 };
 
 export function isClienteStatusCompensacao(

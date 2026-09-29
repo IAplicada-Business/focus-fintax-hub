@@ -16,17 +16,23 @@ export const RAMO_FILTROS: { value: RamoFiltro; label: string }[] = [
   { value: "recuperacao_judicial", label: "Recuperação Judicial" },
 ];
 
-/** Mesmo recorte da esteira, com o agrupador executivo solicitado. */
+/**
+ * Mesmo recorte da esteira, com o agrupador executivo solicitado.
+ * "Compensação" sai do filtro gerencial (AGF set/2026): fica dentro de
+ * Administrativo. A esteira continua usando `RAMO_FILTROS` com as três.
+ */
 export const RAMO_GERENCIAL_FILTROS: { value: RamoGerencialFiltro; label: string }[] = [
   RAMO_FILTROS[0],
   { value: "administrativo", label: "Administrativo" },
-  ...RAMO_FILTROS.slice(1),
+  ...RAMO_FILTROS.filter((r) => r.value === "ressarcimento" || r.value === "recuperacao_judicial"),
 ];
 
 export interface ClienteRamoFlags {
   tem_ramo_compensacao?: boolean | null;
   tem_ramo_ressarcimento?: boolean | null;
   tem_ramo_judicial?: boolean | null;
+  /** Ressarcimento assinado com etapa concluída (filtro "Ressarcimento concluído"). */
+  tem_ressarcimento_concluido?: boolean | null;
 }
 
 /**

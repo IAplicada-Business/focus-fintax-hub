@@ -102,18 +102,33 @@ export function tributoKey(c: { tributo?: string | null; tributo_enum?: string |
     .replace(/\s+/g, "_");
 }
 
-/** Códigos do enum `tese_tributaria` (catálogo financeiro / tese em uso). */
-export const TESE_CATALOG_CODIGOS = [
-  "INSUMOS",
-  "SUBVENCAO",
-  "ICMS_ST",
-  "EXCLUSAO_ICMS_BC",
-  "PIS_COFINS_JUD",
-  "PREVIDENCIARIO",
-  "REPORTO",
+/**
+ * As 6 teses oficiais do Grupo AGF (padronização set/2026), na ordem do
+ * filtro. `EXCLUSAO_ICMS_BC` segue no enum do banco por compatibilidade, mas
+ * foi fundida em `PIS_COFINS_JUD` e não aparece mais em nenhum seletor.
+ */
+export const TESES_OFICIAIS = [
+  { codigo: "INSUMOS", label: "Insumos de PIS/COFINS" },
+  { codigo: "SUBVENCAO", label: "Subvenção IRPJ/CSLL" },
+  { codigo: "PREVIDENCIARIO", label: "Créditos Previdenciários" },
+  { codigo: "ICMS_ST", label: "Exclusão ICMS-ST da base PIS/COFINS" },
+  { codigo: "PIS_COFINS_JUD", label: "PIS/COFINS da Base — Via Judicial" },
+  { codigo: "REPORTO", label: "Reporto" },
 ] as const;
 
-export type TeseCatalogCodigo = (typeof TESE_CATALOG_CODIGOS)[number];
+/** Códigos do enum `tese_tributaria` em uso (catálogo financeiro / tese em uso). */
+export const TESE_CATALOG_CODIGOS = TESES_OFICIAIS.map((t) => t.codigo);
+
+export type TeseCatalogCodigo = (typeof TESES_OFICIAIS)[number]["codigo"];
+
+const TESE_OFICIAL_LABEL = new Map<string, string>(
+  TESES_OFICIAIS.map((t) => [t.codigo, t.label]),
+);
+
+/** Nome oficial da tese pelo código do catálogo (null se não for oficial). */
+export function teseOficialLabel(codigo: string | null | undefined): string | null {
+  return TESE_OFICIAL_LABEL.get(String(codigo || "").toUpperCase()) ?? null;
+}
 
 /**
  * Motor usa slugs livres (`pis_cofins_insumos`); o catálogo usa INSUMOS / SUBVENCAO.
@@ -129,9 +144,17 @@ export function normalizeTeseCatalogCodigo(
   if (blob.includes("reporto")) return "REPORTO";
   if (blob.includes("insumo")) return "INSUMOS";
   if (blob.includes("subvenc")) return "SUBVENCAO";
-  if (blob.includes("exclusao") && blob.includes("icms")) return "EXCLUSAO_ICMS_BC";
+  // ICMS-ST antes de "exclusão ICMS": `exclusao_icms_st` é ICMS-ST, não a
+  // exclusão do ICMS da base (que é a tese judicial).
   if (blob.includes("icms_st") || blob.includes("icmsst")) return "ICMS_ST";
-  if (blob.includes("pis_cofins_jud") || (blob.includes("jud") && blob.includes("pis"))) {
+  if (
+    blob.includes("pis_cofins_jud") ||
+    (blob.includes("jud") && blob.includes("pis")) ||
+    (blob.includes("exclusao") && blob.includes("icms")) ||
+    blob.includes("pis_cofins_bc") ||
+    blob.includes("pis/cofins_bc") ||
+    blob.includes("pis_cofins_da_base")
+  ) {
     return "PIS_COFINS_JUD";
   }
   if (blob.includes("previdenc")) return "PREVIDENCIARIO";

@@ -11,8 +11,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   STATUS_CONTRATO,
+  TESES_OFICIAIS,
   isReportoProcesso,
   normalizeTeseCatalogCodigo,
+  processoTeseCatalogCodigo,
+  teseOficialLabel,
 } from "@/lib/clientes-constants";
 import { resolveCatalogTeseId, syncCreditoApuradoFromProcesso } from "@/lib/sync-credito-apurado";
 import { useMotorTesesAtivas } from "@/hooks/data/useClienteOperacional";
@@ -75,10 +78,23 @@ export function ProcessoFormModal({
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const motorQ = useMotorTesesAtivas();
-  const teses = useMemo(
-    () => (motorQ.data ?? []) as TeseOption[],
-    [motorQ.data],
-  );
+  // Seletor = as 6 teses oficiais (código do catálogo + nome padronizado).
+  // O motor só empresta o ramo padrão; seus slugs não viram opção, senão a
+  // mesma tese aparecia duplicada com nomes diferentes.
+  const teses = useMemo<TeseOption[]>(() => {
+    const motor = (motorQ.data ?? []) as TeseOption[];
+    return TESES_OFICIAIS.map(({ codigo, label }) => ({
+      tese: codigo,
+      nome_exibicao: label,
+      tipo_recuperacao_padrao:
+        motor.find((m) => normalizeTeseCatalogCodigo(m.tese, m.nome_exibicao) === codigo)
+          ?.tipo_recuperacao_padrao ?? null,
+    }));
+  }, [motorQ.data]);
+  // Processo legado pode guardar slug (`subvencao_icms`); o form trabalha com o código.
+  const processoCodigo = processo
+    ? String(processoTeseCatalogCodigo(processo) || processo.tese)
+    : null;
   const refetchMotor = motorQ.refetch;
 
   useEffect(() => {
@@ -88,9 +104,10 @@ export function ProcessoFormModal({
   useEffect(() => {
     if (!open) return;
     if (processo) {
+      const codigo = String(processoTeseCatalogCodigo(processo) || processo.tese);
       setForm({
-        tese: processo.tese,
-        nome_exibicao: processo.nome_exibicao,
+        tese: codigo,
+        nome_exibicao: teseOficialLabel(codigo) ?? processo.nome_exibicao,
         valor_credito: String(processo.valor_credito || 0),
         percentual_honorario: String(processo.percentual_honorario || 0),
         status_contrato: processo.status_contrato,
@@ -108,15 +125,16 @@ export function ProcessoFormModal({
 
   useEffect(() => {
     if (!open || processo || !presetTese || teses.length === 0) return;
-    const t = teses.find((x) => x.tese === presetTese);
+    const codigo = String(normalizeTeseCatalogCodigo(presetTese) || presetTese);
+    const t = teses.find((x) => x.tese === codigo);
     const nome = t?.nome_exibicao || presetTese;
-    const isReporto = isReportoProcesso({ tese: presetTese, nome_exibicao: nome });
+    const isReporto = isReportoProcesso({ tese: codigo, nome_exibicao: nome });
     setForm({
       ...EMPTY_FORM,
-      tese: presetTese,
+      tese: codigo,
       nome_exibicao: nome,
       categoria: isReporto ? "reporto" : "compensacao",
-      tipo_recuperacao: resolveTipoRecuperacao(t?.tipo_recuperacao_padrao, presetTese, nome),
+      tipo_recuperacao: resolveTipoRecuperacao(t?.tipo_recuperacao_padrao, codigo, nome),
     });
   }, [open, processo, presetTese, teses]);
 
@@ -130,7 +148,7 @@ export function ProcessoFormModal({
   );
 
   const availableTeses = teses.filter((t) => {
-    if (processo?.tese === t.tese) return true;
+    if (processoCodigo === t.tese) return true;
     if (existingTeses.includes(t.tese)) return false;
     const n = normalizeTeseCatalogCodigo(t.tese, t.nome_exibicao);
     if (n && takenNorm.has(n)) return false;
@@ -142,13 +160,7 @@ export function ProcessoFormModal({
    * distinguir olhando: ainda carregando, o catálogo não voltou nenhuma tese
    * ativa, ou o cliente já usa todas. Nomeia cada caso em vez de mostrar nada.
    */
-  const avisoListaVazia = motorQ.isPending
-    ? "Carregando teses…"
-    : motorQ.isError
-      ? "Não foi possível carregar as teses."
-      : teses.length === 0
-        ? "Nenhuma tese ativa no motor de cálculo."
-        : "Este cliente já tem todas as teses ativas.";
+  const avisoListaVazia = "Este cliente já tem todas as teses oficiais.";
 
   const handleTesePick = (value: string) => {
     const t = teses.find((x) => x.tese === value);
@@ -164,7 +176,10 @@ export function ProcessoFormModal({
   };
 
   const teseJaUsada = (slug: string) => {
-    if (existingTeses.includes(slug) && slug !== processo?.tese) return true;
+    // Editar sem trocar a tese nunca bloqueia (cliente legado com processo
+    // duplicado da mesma tese precisa continuar editável).
+    if (processo && slug === processoCodigo) return false;
+    if (existingTeses.includes(slug) && slug !== processo?.tese && slug !== processoCodigo) return true;
     const n = normalizeTeseCatalogCodigo(slug, form.nome_exibicao);
     return !!(n && takenNorm.has(n));
   };
@@ -183,7 +198,7 @@ export function ProcessoFormModal({
       return;
     }
 
-    const teseMudou = !!processo && form.tese !== processo.tese;
+    const teseMudou = !!processo && form.tese !== processoCodigo;
     if (teseMudou) {
       const { count } = await supabase
         .from("compensacoes_mensais")

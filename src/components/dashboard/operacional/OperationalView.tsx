@@ -2,12 +2,10 @@ import { memo, useMemo, useState } from "react";
 import { Link, type NavigateFunction } from "react-router-dom";
 import { AlertTriangle, Building2, Clock, Coins, Layers, TrendingUp } from "lucide-react";
 import {
-  STATUS_COMPENSACAO_VALUES,
+  STATUS_FILTRO_VALUES,
   StatusCompensacaoFilter,
   TipoRecuperacaoFilter,
   buildRamoFlagsPorCliente,
-  countByRamo,
-  countByStatus,
   type RamoGerencialFiltro,
 } from "@/components/StatusCompensacaoFilter";
 import type { OperacionalDashboardData } from "@/services/operacionalDashboardService";
@@ -23,13 +21,12 @@ import {
   serieMensal,
 } from "@/lib/operacional-analytics";
 import {
-  filtrarIdsRecorteGerencial,
   normalizarStatusCompensacao,
   type StatusCompensacao,
 } from "@/lib/gerencial-filters";
+import { makeRecorteGerencial } from "@/lib/recorte-gerencial";
 import { TipoTeseFilter } from "@/components/TipoTeseFilter";
 import {
-  filtrarIdsPorTipoTese,
   listarTiposTese,
   rotuloFiltroTese,
   teseFiltroAtivo,
@@ -41,7 +38,6 @@ import {
   dashboardPeriodLabel,
   dashboardPeriodOptions,
   defaultDashboardPeriod,
-  filterClientIdsByDashboardPeriod,
   filterCompsByDashboardPeriod,
   timestampMatchesDashboardPeriod,
   type DashboardPeriod,
@@ -65,7 +61,7 @@ interface Props {
  */
 export const OperationalView = memo(function OperationalView({ data, navigate }: Props) {
   const [statusFiltro, setStatusFiltro] = useState<Set<StatusCompensacao>>(
-    new Set(STATUS_COMPENSACAO_VALUES),
+    new Set(STATUS_FILTRO_VALUES),
   );
   const [ramoFiltro, setRamoFiltro] = useState<RamoGerencialFiltro>("todas");
   const [tipoTeseFiltro, setTipoTeseFiltro] = useState<TipoTeseFiltro>([]);
@@ -79,26 +75,19 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       statusRows.map((row) => [row.cliente_id, normalizarStatusCompensacao(row)]),
     );
     const ramosMap = buildRamoFlagsPorCliente(data.processos);
-    const idsGerenciais = filtrarIdsRecorteGerencial(
-      clientes.map((cliente) => cliente.id),
-      statusFiltro,
-      ramoFiltro,
+    const recorte = makeRecorteGerencial({
+      clienteIds: clientes.map((cliente) => cliente.id),
       statusMap,
       ramosMap,
-    );
-    const idsTese = filtrarIdsPorTipoTese(
-      idsGerenciais,
-      tipoTeseFiltro,
-      data.processos,
-      data.creditos,
-      data.teses,
-    );
-    const idsRecorte = filterClientIdsByDashboardPeriod(
-      idsTese,
+      tipoTese: tipoTeseFiltro,
       periodo,
-      data.compsRaw,
-      data.processos,
-    );
+      processos: data.processos,
+      creditos: data.creditos,
+      teses: data.teses,
+      comps: data.compsRaw,
+    });
+    const idsRecorte = recorte.recortePara(ramoFiltro, statusFiltro);
+    const { ramoCounts, statusCounts } = recorte.contagens(ramoFiltro, statusFiltro);
     const processosRecorte = data.processos.filter((row) => idsRecorte.has(row.cliente_id));
     const compsDoRecorte = compensacoesCanonicas(
       data.compsRaw.filter((row) => idsRecorte.has(row.cliente_id)),
@@ -192,8 +181,8 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       intimPendentes: pendentes.length,
       intimVencendo: vencendo,
       semDados: comps.length === 0,
-      statusCounts: countByStatus(clientes.map((cliente) => cliente.id), statusMap),
-      ramoCounts: countByRamo(clientes.map((cliente) => cliente.id), ramosMap),
+      statusCounts,
+      ramoCounts,
       tiposTese: listarTiposTese(data.processos, data.creditos, data.teses),
       periodoOptions,
       periodoLabel: dashboardPeriodLabel(periodo),

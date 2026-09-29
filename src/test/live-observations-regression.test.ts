@@ -58,6 +58,8 @@ describe("regressão com o formato observado no banco ao vivo", () => {
       prevista: 0,
       reporto: 40,
       encerrado: 0,
+      recuperacao_judicial: 0,
+      ressarcimento_concluido: 0,
       sem_operacao: 54,
     });
   });
