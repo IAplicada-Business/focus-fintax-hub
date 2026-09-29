@@ -32,7 +32,14 @@ function pickSafeScale(cssWidth: number, cssHeight: number, preferred = 2) {
 export async function exportElementToPdf(
   source: HTMLElement,
   filename: string,
-  opts?: { preferredScale?: number; footerLeft?: string },
+  opts?: {
+    preferredScale?: number;
+    footerLeft?: string;
+    /** false = o layout já traz o próprio rodapé (novo Mapa Tributário). */
+    footer?: boolean;
+    /** Cor de fundo da captura (padrão branco). */
+    background?: string;
+  },
 ): Promise<void> {
   if (!source) throw new Error("Elemento do mapa não encontrado na tela.");
 
@@ -55,7 +62,7 @@ export async function exportElementToPdf(
     "overflow:visible",
     "transform:none",
     "filter:none",
-    "background:#ffffff",
+    `background:${opts?.background ?? "#ffffff"}`,
   ].join(";");
 
   const widthPx = Math.max(source.scrollWidth, source.offsetWidth, 794);
@@ -69,7 +76,7 @@ export async function exportElementToPdf(
     "filter:none",
     "position:static",
     "margin:0",
-    "background:#ffffff",
+    `background:${opts?.background ?? "#ffffff"}`,
     "color:#111111",
   ].join(";");
 
@@ -101,7 +108,7 @@ export async function exportElementToPdf(
       scale,
       useCORS: true,
       allowTaint: false,
-      backgroundColor: "#ffffff",
+      backgroundColor: opts?.background ?? "#ffffff",
       logging: false,
       scrollX: 0,
       scrollY: 0,
@@ -153,6 +160,11 @@ export async function exportElementToPdf(
     }
 
     const pageCount = pdf.getNumberOfPages();
+    if (opts?.footer === false) {
+      const safeName = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
+      pdf.save(safeName);
+      return;
+    }
     const nowStr = new Date().toLocaleDateString("pt-BR");
     const footerLeft = opts?.footerLeft ?? `Fintax · Confidencial · Gerado em ${nowStr}`;
     for (let i = 1; i <= pageCount; i++) {

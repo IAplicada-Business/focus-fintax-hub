@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   invalidateClienteOperacional,
   useClienteCompensacoes,
@@ -30,16 +30,21 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import {
   formatCurrencyBR,
-  formatPercentualHonorarios,
   formatCompetenciaPT,
   getStatusPagamentoConfig,
   isReportoCompensacao,
   isReportoProcesso,
   processoTeseCatalogCodigo,
   sumCompensadoCanonical,
-  filterCompsForTese,
   STATUS_PAGAMENTO,
+  TESES_OFICIAIS,
 } from "@/lib/clientes-constants";
+import { calcularSaldosCliente } from "@/lib/saldos-cliente";
+import { buildMapaExecutivo, type MapaTeseFiscal } from "@/lib/mapa-executivo";
+import {
+  MAPA_PAGE_WIDTH,
+  MapaTributarioExecutivo,
+} from "@/components/clientes/MapaTributarioExecutivo";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 import { exportElementToPdf, sanitizePdfFileName } from "@/lib/export-element-pdf";
 
@@ -116,8 +121,8 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
   const [whatsOpen, setWhatsOpen] = useState(false);
   const [whatsMes, setWhatsMes] = useState("");
 
-  const teses = tesesQ.data ?? [];
-  const creditos = creditosQ.data ?? [];
+  const teses = useMemo(() => tesesQ.data ?? [], [tesesQ.data]);
+  const creditos = useMemo(() => creditosQ.data ?? [], [creditosQ.data]);
   const perm = permissions.find((p) => p.screen_key === "clientes.compensacoes");
   const canWrite = perm
     ? perm.can_access && !perm.read_only
@@ -143,14 +148,74 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
     return idByCod;
   }, [teses]);
 
-  const creditoByCodigo = useMemo(() => {
-    const credByCod: Record<string, number> = {};
-    for (const c of creditos) {
-      const codigo = Object.entries(teseIdByCodigo).find(([, id]) => id === c.tese_id)?.[0];
-      if (codigo) credByCod[codigo] = Number(c.valor_apurado_inicial || 0);
+  // Crédito, compensado e saldo com a MESMA conta do card "Saldo restante"
+  // (sem recorte de meses): "Todas as teses" = card; tese específica = mapa.
+  const saldos = useMemo(
+    () => calcularSaldosCliente({ creditos, comps: compensacoes, processos, teses }),
+    [creditos, compensacoes, processos, teses],
+  );
+
+  // Campos do bloco "Situação fiscal" (migração 20260929120000). Falha
+  // silenciosa: sem as colunas o mapa usa o padrão de cada tese.
+  const tesesFiscalQ = useQuery({
+    queryKey: ["catalog", "teses_tributarias", "fiscal"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("teses_tributarias")
+        .select("codigo, base_legal, obrigacoes_retificadas");
+      if (error) return [] as MapaTeseFiscal[];
+      return (data ?? []) as MapaTeseFiscal[];
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  /** Teses do cliente, pelo código oficial (duplicatas de slug viram uma opção). */
+  const tesesDoCliente = useMemo(() => {
+    const codigos = new Set<string>();
+    for (const p of processos) {
+      const codigo = String(processoTeseCatalogCodigo(p) || "").toUpperCase();
+      if (codigo) codigos.add(codigo);
     }
-    return credByCod;
-  }, [creditos, teseIdByCodigo]);
+    for (const row of saldos.porTese) codigos.add(row.codigo);
+    return TESES_OFICIAIS.filter((t) => codigos.has(t.codigo)).map((t) => ({
+      codigo: t.codigo as string,
+      label: t.label as string,
+    }));
+  }, [processos, saldos.porTese]);
+
+  const idsDaTeseFiltro = useMemo(() => {
+    if (filterTese === "all") return null;
+    if (filterTese === "REPORTO") {
+      return new Set(
+        compensacoes
+          .filter((c) => isReportoCompensacao(c, saldos))
+          .map((c) => c.id as string),
+      );
+    }
+    return new Set(saldos.compsDaTese(filterTese).map((c) => c.id as string));
+  }, [filterTese, compensacoes, saldos]);
+
+  const resumoSaldo =
+    filterTese === "all"
+      ? {
+          rotulo: "Todas as teses",
+          apurado: saldos.apuradoTotal,
+          compensado: saldos.compensadoTotal,
+          saldo: saldos.saldoTotal,
+          nota: "Igual ao card \"Saldo restante\" do topo.",
+        }
+      : filterTese === "REPORTO"
+        ? null
+        : (() => {
+            const t = saldos.saldoDaTese(filterTese);
+            return {
+              rotulo: tesesDoCliente.find((o) => o.codigo === filterTese)?.label ?? t.label,
+              apurado: t.apurado,
+              compensado: t.compensado,
+              saldo: t.saldo,
+              nota: "Igual ao saldo disponível do Mapa Tributário desta tese.",
+            };
+          })();
 
   const loading = compsQ.isPending && compsQ.data === undefined;
 
@@ -165,7 +230,7 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
   }, [compensacoes, processos, teses, onTotalChange]);
 
   const filtered = compensacoes.filter((c) => {
-    if (filterTese !== "all" && c.processo_tese_id !== filterTese) return false;
+    if (idsDaTeseFiltro && !idsDaTeseFiltro.has(c.id)) return false;
     const mes = (c.mes_referencia as string).slice(0, 7);
     if (mesInicio && mes < mesInicio) return false;
     if (mesFim && mes > mesFim) return false;
@@ -308,66 +373,46 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
     }
   };
 
-  // ——— Mapa Tributário helpers ———
-  // Inclui órfãs (processo/tese nulos) pela inferência de tributo — senão o saldo
-  // fica inflado (ex.: Pérola só subtraindo o mês com processo linkado).
-  const compsForProcesso = (proc: { id: string; tese?: string | null }) => {
-    const codigo = String(proc.tese || "").toUpperCase();
-    return filterCompsForTese(compensacoes, {
-      teseCodigo: codigo,
-      teseId: teseIdByCodigo[codigo] || null,
-      processoIds: new Set([proc.id]),
-    });
-  };
-
-  const tesesMapaOptions = processos
-    .filter((p) => !isReportoProcesso(p))
-    .reduce<{ codigo: string; label: string }[]>((acc, p) => {
-      const codigo = String(processoTeseCatalogCodigo(p) || "");
-      if (!codigo || acc.some((t) => t.codigo === codigo)) return acc;
-      acc.push({ codigo, label: p.nome_exibicao || p.tese });
-      return acc;
-    }, []);
+  // ——— Mapa Tributário (modelo Relatório Executivo) ———
+  const tesesMapaOptions = tesesDoCliente.filter((t) => t.codigo !== "REPORTO");
   const mapaTeseLabel =
     mapaTese === "all"
       ? "Todas as teses"
       : tesesMapaOptions.find((t) => t.codigo === mapaTese)?.label || mapaTese;
 
-  const mesProcessos = processos.filter((p) => {
-    if (!mapaMes) return false;
-    const codigo = String(processoTeseCatalogCodigo(p) || "");
-    if (!codigo || codigo === "REPORTO") return false;
-    if (mapaTese !== "all" && codigo !== mapaTese) return false;
-    return compsForProcesso(p).some((c) => String(c.mes_referencia || "").startsWith(mapaMes));
-  });
+  /** Uma página por tese com compensação na competência. */
+  const mapaTeses = useMemo(() => {
+    if (!mapaMes) return [] as string[];
+    const candidatas = mapaTese === "all" ? tesesMapaOptions.map((t) => t.codigo) : [mapaTese];
+    return candidatas.filter((codigo) =>
+      saldos
+        .compsDaTese(codigo)
+        .some((c) => String(c.mes_referencia || "").startsWith(mapaMes) && Number(c.valor_compensado || 0) > 0),
+    );
+  }, [mapaMes, mapaTese, tesesMapaOptions, saldos]);
+
+  const mapaPaginas = useMemo(
+    () =>
+      mapaTeses.map((codigo) =>
+        buildMapaExecutivo({
+          creditos,
+          comps: compensacoes,
+          processos,
+          teses,
+          codigo,
+          mes: mapaMes,
+          tesesFiscal: tesesFiscalQ.data,
+        }),
+      ),
+    [mapaTeses, creditos, compensacoes, processos, teses, mapaMes, tesesFiscalQ.data],
+  );
 
   const formatMesPT = (mesStr: string) => {
     const [y, m] = mesStr.split("-");
     return `${MESES_PT[parseInt(m, 10) - 1]}/${y}`;
   };
 
-  const getCompensacoesAteOmes = (proc: { id: string; tese?: string | null }, mesRef: string) => {
-    return compsForProcesso(proc)
-      .filter((c) => String(c.mes_referencia || "").slice(0, 7) <= mesRef)
-      .reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
-  };
-
-  const creditoProcesso = (proc: { id: string; tese?: string | null; valor_credito?: number | null }) => {
-    const codigo = String(proc.tese || "").toUpperCase();
-    const fromDetalhe = creditoByCodigo[codigo];
-    if (fromDetalhe != null && fromDetalhe > 0) return fromDetalhe;
-    return Number(proc.valor_credito || 0);
-  };
-
   const getTributo = (c: any) => (c as any).tributo || c.observacao || "INSS";
-
-  const formatDcomps = (c: any) => {
-    const list = (c?.dcomps as { numero_declaracao?: string }[] | undefined) ?? [];
-    const nums = list.map((d) => d.numero_declaracao).filter(Boolean);
-    return nums.length ? nums.join("\n") : "—";
-  };
-
-  const isSubvencao = (tese: string) => tese?.toLowerCase().includes("subven");
 
   // ——— WhatsApp helpers ———
   const whatsComps = whatsMes ? compensacoes.filter((c) => (c.mes_referencia as string).startsWith(whatsMes)) : [];
@@ -443,9 +488,9 @@ Equipe AGF.`;
       toast.error("Selecione um mês antes de gerar o PDF.");
       return;
     }
-    if (mesProcessos.length === 0) {
-      toast.error("Sem processos para este mês", {
-        description: "Não há compensações vinculadas a processos neste mês — o PDF sairia vazio.",
+    if (mapaPaginas.length === 0) {
+      toast.error("Sem compensação neste mês", {
+        description: "Não há compensação da tese escolhida nesta competência — o PDF sairia vazio.",
       });
       return;
     }
@@ -455,7 +500,10 @@ Equipe AGF.`;
       const razao = sanitizePdfFileName(cliente?.empresa || "");
       const comp = mapaMes.replace(/-/g, "");
       const teseSlug = mapaTese === "all" ? "geral" : sanitizePdfFileName(mapaTese);
-      await exportElementToPdf(element, `MapaTributario_${razao}_${teseSlug}_${comp}`);
+      await exportElementToPdf(element, `MapaTributario_${razao}_${teseSlug}_${comp}`, {
+        footer: false,
+        background: "#f4efe6",
+      });
       toast.success("PDF gerado com sucesso!");
       logClienteHistorico(
         clienteId,
@@ -485,8 +533,8 @@ Equipe AGF.`;
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas as teses</SelectItem>
-                {processos.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.nome_exibicao}</SelectItem>
+                {tesesDoCliente.map((t) => (
+                  <SelectItem key={t.codigo} value={t.codigo}>{t.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -533,6 +581,30 @@ Equipe AGF.`;
           title="Excluir compensações selecionadas"
           description={`Esta ação não pode ser desfeita. ${selection.selectedCount} compensação(ões) serão removidas permanentemente, incluindo DCOMPs vinculadas.`}
         />
+      )}
+
+      {resumoSaldo && (
+        <div
+          className="grid grid-cols-1 gap-3 rounded-lg border border-[var(--ink-06)] bg-[rgba(8,17,29,0.02)] px-4 py-3 sm:grid-cols-[1.2fr_1fr_1fr_1fr]"
+          aria-label="Saldo da tese filtrada"
+        >
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-ink-35">Saldo · {resumoSaldo.rotulo}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{resumoSaldo.nota}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.6px] text-ink-35">Valor total do benefício</p>
+            <p className="font-mono-dm text-sm font-semibold tabular-nums">{formatCurrencyBR(resumoSaldo.apurado)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.6px] text-ink-35">Utilizado (acumulado)</p>
+            <p className="font-mono-dm text-sm font-semibold tabular-nums">{formatCurrencyBR(resumoSaldo.compensado)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.6px] text-ink-35">Saldo disponível</p>
+            <p className="font-mono-dm text-sm font-bold tabular-nums text-[var(--navy)]">{formatCurrencyBR(resumoSaldo.saldo)}</p>
+          </div>
+        </div>
       )}
 
       <Table>
@@ -799,7 +871,7 @@ Equipe AGF.`;
           <DialogHeader className="space-y-1 border-b border-[var(--ink-06)] px-6 py-5 pr-14 text-left">
             <DialogTitle>Mapa Tributário</DialogTitle>
             <DialogDescription>
-              Escolha a competência e, se quiser, uma tese específica. O geral do mês inclui todas as teses.
+              Escolha a competência e a tese principal. "Todas as teses" gera uma página por tese com compensação no mês.
             </DialogDescription>
           </DialogHeader>
 
@@ -841,279 +913,41 @@ Equipe AGF.`;
               subtitle="Depois você pode gerar o mapa geral do mês ou filtrar por uma tese."
             />
           ) : (
-            <div
-              id="mapa-tributario-pdf"
-              className="mapa-tributario-report mx-auto overflow-hidden rounded-sm shadow-[0_8px_32px_rgba(15,17,23,0.12)]"
-              style={{
-                width: "794px",
-                background: "white",
-                fontFamily: "sans-serif",
-                color: "#111",
-              }}
-            >
+            mapaPaginas.length === 0 ? (
+              <EmptyState
+                icon={<FileText className="h-5 w-5 text-[var(--navy)]" />}
+                title="Sem compensação nesta competência"
+                subtitle={
+                  mapaTese === "all"
+                    ? `Não há compensação em ${formatMesPT(mapaMes)}. Selecione outro mês.`
+                    : `Não há compensação de ${mapaTeseLabel} em ${formatMesPT(mapaMes)}. Selecione outro mês ou tese.`
+                }
+              />
+            ) : (
               <div
-                style={{
-                  background: "#08111d",
-                  color: "white",
-                  padding: "28px 32px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "24px",
-                }}
+                id="mapa-tributario-pdf"
+                className="mapa-tributario-report mx-auto overflow-hidden rounded-sm shadow-[0_8px_32px_rgba(15,17,23,0.18)]"
+                style={{ width: `${MAPA_PAGE_WIDTH}px`, background: "#f4efe6" }}
               >
-                <p
-                  style={{
-                    fontFamily: "Montserrat, sans-serif",
-                    fontSize: "38px",
-                    fontWeight: 700,
-                    letterSpacing: "-0.02em",
-                    lineHeight: 1,
-                    margin: 0,
-                  }}
-                >
-                  AGF FinTax
-                </p>
-                <div style={{ textAlign: "right" }}>
-                  <p style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "1px", margin: 0 }}>
-                    MAPA TRIBUTÁRIO DAS COMPENSAÇÕES
-                  </p>
-                </div>
+                {mapaPaginas.map((pagina) => (
+                  <MapaTributarioExecutivo
+                    key={pagina.codigo}
+                    data={pagina}
+                    empresa={cliente?.empresa || ""}
+                    cnpj={cliente?.cnpj || ""}
+                  />
+                ))}
               </div>
-
-              <div
-                style={{
-                  padding: "20px 32px",
-                  borderBottom: "1px solid #e5e7eb",
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "8px 24px",
-                  fontSize: "12px",
-                }}
-              >
-                <div>
-                  <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Razão Social</p>
-                  <p style={{ fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>{cliente?.empresa || "—"}</p>
-                </div>
-                <div>
-                  <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>CNPJ</p>
-                  <p style={{ fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>{cliente?.cnpj || "—"}</p>
-                </div>
-                <div>
-                  <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Competência</p>
-                  <p style={{ fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>{formatMesPT(mapaMes)}</p>
-                </div>
-                <div>
-                  <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Tese</p>
-                  <p style={{ fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>{mapaTeseLabel}</p>
-                </div>
-                <div>
-                  <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: "#6b7280", margin: 0 }}>Gerado em</p>
-                  <p style={{ fontWeight: 700, color: "#08111d", margin: "2px 0 0" }}>
-                    {new Date().toLocaleDateString("pt-BR")}
-                  </p>
-                </div>
-              </div>
-
-              {mesProcessos.length === 0 ? (
-                <p style={{ padding: "48px 32px", textAlign: "center", color: "#6b7280", fontSize: "13px" }}>
-                  {mapaTese === "all"
-                    ? `Não há processos com compensação em ${formatMesPT(mapaMes)}.`
-                    : `Não há compensação de ${mapaTeseLabel} em ${formatMesPT(mapaMes)}.`}
-                  {" "}Selecione outro mês ou tese, ou confira se as compensações estão vinculadas a um processo.
-                </p>
-              ) : (
-              mesProcessos.map((proc, procIdx) => {
-                const procCompsAll = compsForProcesso(proc);
-                const procComps = procCompsAll.filter((c) =>
-                  String(c.mes_referencia || "").startsWith(mapaMes),
-                );
-                const valorComp = procComps.reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
-                const acumulado = getCompensacoesAteOmes(proc, mapaMes);
-                const creditoBase = creditoProcesso(proc);
-                const saldo = creditoBase - acumulado;
-                const totalHonorariosMes = procComps.reduce(
-                  (s, c) => s + Number(c.honorario_valor ?? c.valor_nf_servico ?? 0),
-                  0,
-                );
-                // Um mesmo mês pode ter percentuais diferentes por tributo (MARAVISTA
-                // AGO/2026: INSS a 15%, PIS/COFINS a 20%). Pegar o percentual da
-                // primeira linha fazia o Mapa afirmar "15%" sobre a base inteira, e
-                // quem multiplicasse achava uma diferença inexistente.
-                const percLabel = formatPercentualHonorarios(procComps, proc?.percentual_honorario);
-                const isSub = isSubvencao(proc.tese);
-
-                return (
-                  <div
-                    key={proc.id}
-                    style={{
-                      // primeiro processo continua na mesma página do letterhead; próximos quebram
-                      pageBreakBefore: procIdx === 0 ? "auto" : "always",
-                      padding: "24px 32px",
-                      fontSize: "12px",
-                      lineHeight: "1.55",
-                    }}
-                  >
-                    {/* Título do processo (substitui o header duplicado) */}
-                    <div
-                      style={{
-                        marginBottom: "18px",
-                        paddingBottom: "8px",
-                        borderBottom: "2px solid #08111d",
-                      }}
-                    >
-                      <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "2px", color: "#6b7280", margin: 0 }}>
-                        Processo {procIdx + 1} de {mesProcessos.length}
-                      </p>
-                      <p style={{ fontWeight: 700, fontSize: "15px", color: "#08111d", margin: "2px 0 0" }}>
-                        {proc.nome_exibicao}
-                      </p>
-                    </div>
-
-                    {/* Section 1 */}
-                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#08111d", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>1. DADOS GERAIS DO TRABALHO</h3>
-                    <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px" }}>
-                      <thead>
-                        <tr style={{ background: "#08111d", color: "white" }}>
-                          <th style={{ padding: "6px 10px", textAlign: "left", fontSize: "11px" }}>Descrição</th>
-                          <th style={{ padding: "6px 10px", textAlign: "right", fontSize: "11px" }}>Detalhe</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {([
-                          ["Escopo do Trabalho", proc.nome_exibicao, false],
-                          ["Competência", formatMesPT(mapaMes), false],
-                          ["Modalidade do Benefício", "Compensação", false],
-                          ["Valor Total do Benefício Tributário", formatCurrencyBR(creditoBase), true],
-                          ["Valor Utilizado na Compensação do Mês", formatCurrencyBR(valorComp), true],
-                          ["Honorários", percLabel, true],
-                          ["Valor dos Honorários do Mês", formatCurrencyBR(totalHonorariosMes), true],
-                          ["Economia Líquida do Mês", formatCurrencyBR(valorComp - totalHonorariosMes), true],
-                          ["Saldo Disp. para Compensações Futuras", formatCurrencyBR(saldo), true],
-                        ] as [string, string, boolean][]).map(([desc, val, bold], i) => (
-                          <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#f9f9f9" : "white" }}>
-                            <td style={{ padding: "6px 10px", fontSize: "12px" }}>{desc}</td>
-                            <td style={{ padding: "6px 10px", textAlign: "right", fontSize: "12px", fontWeight: bold ? "bold" : "normal" }}>{val}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-
-                    {/* Section 2 */}
-                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#08111d", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>2. DÉBITOS COMPENSADOS</h3>
-                    <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px" }}>
-                      <thead>
-                        <tr style={{ background: "#08111d", color: "white" }}>
-                          {["Tributo", "DCOMP", "Valor Débito", "Multa", "Juros"].map((h) => (
-                            <th key={h} style={{ padding: "6px 10px", textAlign: h === "Tributo" || h === "DCOMP" ? "left" : "right", fontSize: "11px" }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {procComps.map((c, i) => (
-                          <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
-                            <td style={{ padding: "6px 10px", fontSize: "12px" }}>{getTributo(c)}</td>
-                            <td style={{ padding: "6px 10px", textAlign: "left", fontSize: "10px", whiteSpace: "pre-line", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{formatDcomps(c)}</td>
-                            <td style={{ padding: "6px 10px", textAlign: "right", fontSize: "12px", fontWeight: "bold" }}>{formatCurrencyBR(Number(c.valor_compensado || 0))}</td>
-                            <td style={{ padding: "6px 10px", textAlign: "right", fontSize: "12px" }}>—</td>
-                            <td style={{ padding: "6px 10px", textAlign: "right", fontSize: "12px" }}>—</td>
-                          </tr>
-                        ))}
-                        <tr style={{ background: "#f0f0f0", fontWeight: "bold" }}>
-                          <td style={{ padding: "6px 10px", fontSize: "12px" }}>Total</td>
-                          <td style={{ padding: "6px 10px" }}></td>
-                          <td style={{ padding: "6px 10px", textAlign: "right", fontSize: "12px" }}>{formatCurrencyBR(valorComp)}</td>
-                          <td style={{ padding: "6px 10px" }}></td>
-                          <td style={{ padding: "6px 10px" }}></td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    {/* Section 3 */}
-                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#08111d", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>3. CONTROLE DOS CRÉDITOS — 3.1 Créditos Apurados</h3>
-                    <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px" }}>
-                      <thead>
-                        <tr style={{ background: "#08111d", color: "white" }}>
-                          <th style={{ padding: "6px 10px", textAlign: "left", fontSize: "11px" }}>Descrição</th>
-                          <th style={{ padding: "6px 10px", textAlign: "right", fontSize: "11px" }}>Valor R$</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          ["Total de Créditos Apurados", formatCurrencyBR(creditoBase), false],
-                          ["Total de Créditos Utilizados", formatCurrencyBR(acumulado), false],
-                          ["Total de Créditos a Compensar", formatCurrencyBR(saldo), false],
-                          ["Saldo Final de Créditos", formatCurrencyBR(saldo), true],
-                        ].map(([desc, val, bold], i) => (
-                          <tr key={i} style={{ borderBottom: "1px solid #eee", fontWeight: bold ? "bold" : "normal", background: bold ? "#f0f0f0" : i % 2 === 0 ? "#f9f9f9" : "white" }}>
-                            <td style={{ padding: "6px 10px", fontSize: "12px" }}>{desc as string}</td>
-                            <td style={{ padding: "6px 10px", textAlign: "right", fontSize: "12px" }}>{val as string}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-
-                    {/* Section 4 */}
-                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#08111d", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>4. RESUMO DE COMPLIANCE FISCAL</h3>
-                    <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px" }}>
-                      <thead>
-                        <tr style={{ background: "#08111d", color: "white" }}>
-                          <th style={{ padding: "6px 10px", textAlign: "left", fontSize: "11px" }}>Item</th>
-                          <th style={{ padding: "6px 10px", textAlign: "left", fontSize: "11px" }}>Detalhe</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          ["Natureza da Operação", isSub ? "Subvenção para Investimento" : "Crédito Tributário"],
-                          ["Base Legal", isSub ? "Lei Nº 12.973/2014 e LC 160/2017" : proc.tese?.toLowerCase().includes("icms") ? "RE 574.706 — STF Tema 69" : "Legislação Tributária Vigente"],
-                          ["Tributos Envolvidos", isSub ? "IRPJ e CSLL" : "PIS e COFINS"],
-                          ["Obrigações Retificadas", isSub ? "ECF e DCTF" : "EFD Contribuições"],
-                          ["Procedimento Adotado", isSub ? "Exclusão da Base de Cálculo" : "Compensação Administrativa"],
-                          ["Situação Fiscal", "Regular e em Conformidade"],
-                          ["Crédito Tributário", "Formalmente Constituído"],
-                        ].map(([item, detail], i) => (
-                          <tr key={i} style={{ borderBottom: "1px solid #eee", background: i % 2 === 0 ? "#f9f9f9" : "white" }}>
-                            <td style={{ padding: "6px 10px", fontSize: "12px", fontWeight: "600" }}>{item}</td>
-                            <td style={{ padding: "6px 10px", fontSize: "12px" }}>{detail}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-
-                    {/* Section 5 */}
-                    <h3 style={{ fontSize: "12px", fontWeight: "bold", color: "#08111d", marginBottom: "8px", borderBottom: "1px solid #ddd", paddingBottom: "4px" }}>5. CONSIDERAÇÕES FINAIS</h3>
-                    <p style={{ fontSize: "11px", textAlign: "justify", marginBottom: "16px" }}>
-                      O trabalho realizado assegura que: Os créditos foram aproveitados em conformidade com a legislação vigente; As obrigações acessórias foram devidamente retificadas, refletindo a realidade fiscal da empresa; A empresa encontra-se em situação de compliance tributário, com redução de riscos fiscais e segurança jurídica quanto ao aproveitamento dos créditos. Sem mais para o momento, consideramos encerrado o trabalho de auditoria técnica e compliance fiscal, permanecendo à disposição para eventuais fiscalizações, esclarecimentos ou suportes futuros.
-                    </p>
-
-                    {/* Footer */}
-                    <div style={{ textAlign: "center", borderTop: "2px solid #08111d", paddingTop: "16px", marginTop: "32px" }}>
-                      <p
-                        style={{
-                          fontFamily: "Montserrat, sans-serif",
-                          fontWeight: 700,
-                          letterSpacing: "-0.02em",
-                          color: "#08111d",
-                          fontSize: "18px",
-                        }}
-                      >
-                        AGF FinTax
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
-              )}
-            </div>
+            )
           )}
           </div>
 
           <DialogFooter className="border-t border-[var(--ink-06)] px-6 py-4 sm:justify-between">
             <p className="hidden text-xs text-muted-foreground sm:block">
               {mapaMes
-                ? mesProcessos.length > 0
-                  ? `${mesProcessos.length} processo${mesProcessos.length > 1 ? "s" : ""} · ${mapaTeseLabel}`
-                  : "Nenhum processo neste recorte"
+                ? mapaPaginas.length > 0
+                  ? `${mapaPaginas.length} página${mapaPaginas.length > 1 ? "s" : ""} · ${mapaTeseLabel}`
+                  : "Nenhuma compensação neste recorte"
                 : "Selecione o mês para pré-visualizar"}
             </p>
             <div className="flex w-full gap-2 sm:w-auto">
@@ -1123,7 +957,7 @@ Equipe AGF.`;
               <Button
                 className="flex-1 gap-2 sm:flex-none"
                 onClick={handleDownloadMapaPdf}
-                disabled={!mapaMes || downloadingPdf || mesProcessos.length === 0}
+                disabled={!mapaMes || downloadingPdf || mapaPaginas.length === 0}
               >
                 <Printer className="h-4 w-4" />
                 {downloadingPdf ? "Gerando PDF..." : "Baixar PDF"}

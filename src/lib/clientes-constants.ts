@@ -420,6 +420,34 @@ export type TeseBreakdownRow = {
 };
 
 /**
+ * Contexto de atribuição de compensação → tese usado pelo saldo por tese.
+ * Exportado para que Mapa Tributário e aba Compensações atribuam cada
+ * lançamento exatamente como o card "Saldo restante".
+ */
+export function teseMatchContext(
+  creditos: CreditoApuradoRow[],
+  teseInfo: Map<string, { codigo?: string | null; label?: string | null }>,
+  reportoTeseIds?: Set<string>,
+): Pick<TeseMatchOpts, "tesesComCreditoCodigos" | "tesesNoCalculoCodigos"> & {
+  tesesComCreditoCodigos: Set<string>;
+  tesesNoCalculoCodigos: Set<string>;
+} {
+  const split = splitCreditosCalculo(creditos, reportoTeseIds);
+  return {
+    tesesComCreditoCodigos: new Set(
+      creditos
+        .map((c) => String(teseInfo.get(c.tese_id)?.codigo || "").toUpperCase())
+        .filter(Boolean),
+    ),
+    tesesNoCalculoCodigos: new Set(
+      [...split.teseIdsNoCalculo]
+        .map((id) => String(teseInfo.get(id)?.codigo || "").toUpperCase())
+        .filter(Boolean),
+    ),
+  };
+}
+
+/**
  * Apurado / compensado / saldo por tese, no mesmo recorte dos cards.
  *
  * Sem isso os KPIs somam Insumos + Subvenção num número só, o que cruza
@@ -437,16 +465,10 @@ export function breakdownPorTese(params: {
   const { creditos, comps, teseInfo, processoIdsByTese, reportoTeseIds, reportoProcessoIds } =
     params;
   const split = splitCreditosCalculo(creditos, reportoTeseIds);
-
-  const tesesComCreditoCodigos = new Set(
-    creditos
-      .map((c) => String(teseInfo.get(c.tese_id)?.codigo || "").toUpperCase())
-      .filter(Boolean),
-  );
-  const tesesNoCalculoCodigos = new Set(
-    [...split.teseIdsNoCalculo]
-      .map((id) => String(teseInfo.get(id)?.codigo || "").toUpperCase())
-      .filter(Boolean),
+  const { tesesComCreditoCodigos, tesesNoCalculoCodigos } = teseMatchContext(
+    creditos,
+    teseInfo,
+    reportoTeseIds,
   );
 
   const apuradoByTese = new Map<string, number>();
