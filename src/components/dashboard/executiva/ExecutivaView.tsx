@@ -24,7 +24,7 @@ import {
   honorarioDe,
   resumirFinanceiroPorCliente,
 } from "@/lib/operacional-analytics";
-import { normalizarStatusCompensacao } from "@/lib/gerencial-filters";
+import { STATUS_FILTRO_EXTRAS, normalizarStatusCompensacao } from "@/lib/gerencial-filters";
 import { makeRecorteGerencial } from "@/lib/recorte-gerencial";
 import { ramosDoCliente } from "@/lib/esteira-acompanhamento";
 import { TIPO_RECUPERACAO_LABEL } from "@/lib/tipo-recuperacao";
@@ -78,7 +78,6 @@ const TRIBUTO_LABELS: Record<string, string> = {
 };
 
 const AXIS_TICK = { fontSize: 10, fill: "var(--ink-35)", fontFamily: "'DM Mono', monospace", fontWeight: 500 };
-const MAX_SEM_TESE = 5;
 const MAX_RECORTE = 8;
 
 /**
@@ -87,7 +86,6 @@ const MAX_RECORTE = 8;
  * por mês; status da carteira; tributos; quem concentra o crédito.
  */
 export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Props) {
-  const [verTodosSemTese, setVerTodosSemTese] = useState(false);
   const [verTodosRecorte, setVerTodosRecorte] = useState(false);
   const [statusFiltro, setStatusFiltro] = useState<Set<StatusCompensacao>>(
     new Set(STATUS_FILTRO_VALUES),
@@ -188,11 +186,14 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
     const contagem = countByStatus(
       statusRows.map((row) => row.cliente_id),
       new Map(statusRows.map((row) => [row.cliente_id, normalizarStatusCompensacao(row)])),
+      ramosMap,
     );
     const statusRowsOrd = STATUS_COMPENSACAO_VALUES
       .map((status) => ({ status, count: contagem[status] }))
       .sort((a, b) => b.count - a.count);
     const totalStatus = statusRowsOrd.reduce((s, r) => s + r.count, 0);
+    const statusExtras = STATUS_FILTRO_EXTRAS.map((status) => ({ status, count: contagem[status] }));
+    const semOperacao = contagem.sem_operacao;
 
     const tributo = new Map<string, { compensado: number; clientes: Set<string> }>();
     for (const c of comps) {
@@ -207,9 +208,16 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       .filter((r) => r.compensado > 0)
       .sort((a, b) => b.compensado - a.compensado);
 
+    const saldoPorCliente = new Map(totais.map((t) => [t.cliente_id, t]));
     const semTese = clientes
       .filter((c) => !c.tese_ativa_id)
-      .map((c) => ({ id: c.id, empresa: c.empresa, status: statusMapCompleto.get(c.id) ?? "sem_operacao" }))
+      .map((c) => ({
+        id: c.id,
+        empresa: c.empresa,
+        status: statusMapCompleto.get(c.id) ?? "sem_operacao",
+        apurado: saldoPorCliente.get(c.id)?.credito_apurado ?? 0,
+        saldo: saldoPorCliente.get(c.id)?.saldo_restante ?? 0,
+      }))
       .sort((a, b) => a.empresa.localeCompare(b.empresa, "pt-BR"));
 
     const recorteLista = clientes
@@ -242,6 +250,8 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       tesesPeriodo,
       statusRowsOrd,
       totalStatus,
+      statusExtras,
+      semOperacao,
       porTributo,
       semTese,
       top,
@@ -256,7 +266,9 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
     };
   }, [data, periodo, ramoFiltro, statusFiltro, tipoTeseFiltro]);
 
-  const semTeseVisiveis = verTodosSemTese ? m.semTese : m.semTese.slice(0, MAX_SEM_TESE);
+  const semTeseSaldo = m.semTese.reduce((s, c) => s + c.saldo, 0);
+  const semTesePorStatus = [...m.semTese.reduce((acc, c) => acc.set(c.status, (acc.get(c.status) ?? 0) + 1), new Map<StatusCompensacao, number>())]
+    .sort((a, b) => b[1] - a[1]);
   const recorteAtivo =
     ramoFiltro !== "todas" ||
     (statusFiltro.size > 0 && statusFiltro.size < STATUS_FILTRO_VALUES.length);
@@ -412,30 +424,67 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
         </div>
       </div>
 
-      {/* items-start: lista e gráfico têm alturas próprias; esticar o mais curto
-          até o vizinho só criava um vão morto dentro do card. */}
-      <div className="animate-slide-up delay-3 grid grid-cols-1 items-start xl:grid-cols-2 gap-4">
-        <Panel eyebrow="Status" title="Distribuição por status de compensação" subtitle={`${m.totalStatus} clientes · status derivado da carteira`} action={<LinkMore onClick={() => navigate("/clientes")}>Ver carteira</LinkMore>}>
+      {/* Os dois cards da linha têm a mesma altura: o de status distribui
+          destaques, barras e ramos pelo espaço em vez de deixar vão em branco. */}
+      <div className="animate-slide-up delay-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <Panel className="h-full" bodyClassName="flex flex-col" eyebrow="Status" title="Distribuição por status de compensação" subtitle={`${m.totalStatus} clientes · status derivado da carteira`} action={<LinkMore onClick={() => navigate("/clientes")}>Ver carteira</LinkMore>}>
           {m.totalStatus === 0 ? (
             <InlineEmpty>Sem clientes com status calculado.</InlineEmpty>
           ) : (
-            <BarList
-              labelWidth={130}
-              rows={m.statusRowsOrd.map((r) => ({
-                key: r.status,
-                label: STATUS_COMPENSACAO_LABELS[r.status],
-                value: r.count,
-                display: `${r.count} · ${m.totalStatus > 0 ? Math.round((r.count / m.totalStatus) * 100) : 0}%`,
-                color: STATUS_BAR_COLORS[r.status],
-              }))}
-            />
+            <div className="flex flex-1 flex-col justify-between gap-4">
+              <div className="grid grid-cols-3 gap-2">
+                {STATUS_COMPENSACAO_VALUES.map((status) => {
+                  const count = m.statusRowsOrd.find((r) => r.status === status)?.count ?? 0;
+                  return (
+                    <div key={status} className="rounded-lg border border-ink-06 px-3 py-2.5 min-w-0">
+                      <p className="flex items-center gap-1.5 text-[10px] font-semibold text-ink-35 truncate">
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: STATUS_BAR_COLORS[status] }} />
+                        {STATUS_COMPENSACAO_LABELS[status]}
+                      </p>
+                      <p className="mt-1 font-mono-dm text-xl font-bold tabular-nums text-navy leading-none">
+                        {count}
+                        <span className="ml-1 text-[11px] font-medium text-ink-35">
+                          {m.totalStatus > 0 ? Math.round((count / m.totalStatus) * 100) : 0}%
+                        </span>
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+              <BarList
+                labelWidth={130}
+                className="gap-3"
+                rows={m.statusRowsOrd.map((r) => ({
+                  key: r.status,
+                  label: STATUS_COMPENSACAO_LABELS[r.status],
+                  value: r.count,
+                  display: `${r.count} · ${m.totalStatus > 0 ? Math.round((r.count / m.totalStatus) * 100) : 0}%`,
+                  color: STATUS_BAR_COLORS[r.status],
+                }))}
+              />
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-ink-06 pt-3 text-[11px] text-ink-60">
+                <span className="text-[10px] font-bold uppercase tracking-[1px] text-ink-35">Ramos</span>
+                {m.statusExtras.map((r) => (
+                  <span key={r.status} className="inline-flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full" style={{ background: STATUS_BAR_COLORS[r.status] }} />
+                    {STATUS_COMPENSACAO_LABELS[r.status]} <strong className="font-mono-dm text-navy">{r.count}</strong>
+                  </span>
+                ))}
+                {m.semOperacao > 0 && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full" style={{ background: STATUS_BAR_COLORS.sem_operacao }} />
+                    Dados incompletos <strong className="font-mono-dm text-navy">{m.semOperacao}</strong>
+                  </span>
+                )}
+              </div>
+            </div>
           )}
         </Panel>
-        <Panel eyebrow="Tributos" title="Compensações por tributo" subtitle="Total compensado acumulado por tributo">
+        <Panel className="h-full" bodyClassName="flex flex-col" eyebrow="Tributos" title="Compensações por tributo" subtitle="Total compensado acumulado por tributo">
           {m.porTributo.length === 0 ? (
             <InlineEmpty>Sem compensações registradas.</InlineEmpty>
           ) : (
-            <div style={{ height: Math.max(160, m.porTributo.length * 34 + 24) }}>
+            <div className="flex-1" style={{ minHeight: Math.max(180, m.porTributo.length * 34 + 24) }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={m.porTributo} layout="vertical" margin={{ top: 4, right: 72, bottom: 0, left: 0 }} barCategoryGap={8}>
                   <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="var(--ink-12)" />
@@ -453,9 +502,9 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
         </Panel>
       </div>
 
-      <div className="animate-slide-up delay-4 grid grid-cols-1 items-start xl:grid-cols-12 gap-4">
+      <div className="animate-slide-up delay-4 grid grid-cols-1 xl:grid-cols-12 gap-4">
         <div className="xl:col-span-7 min-w-0">
-          <Panel eyebrow="Concentração" title="Top 10 clientes por crédito apurado" subtitle={m.top.length ? `Os ${m.top.length} maiores concentram ${m.topShare.toFixed(0)}% do crédito` : "Relevância de cada cliente"} action={<LinkMore onClick={() => navigate("/clientes")}>Ver todos</LinkMore>} flush>
+          <Panel className="h-full" eyebrow="Concentração" title="Top 10 clientes por crédito apurado" subtitle={m.top.length ? `Os ${m.top.length} maiores concentram ${m.topShare.toFixed(0)}% do crédito` : "Relevância de cada cliente"} action={<LinkMore onClick={() => navigate("/clientes")}>Ver todos</LinkMore>} flush>
             {m.top.length === 0 ? (
               <InlineEmpty>Sem clientes com crédito apurado.</InlineEmpty>
             ) : (
@@ -492,26 +541,41 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
           </Panel>
         </div>
         <div className="xl:col-span-5 min-w-0">
-          <Panel eyebrow="Atenção" title="Sem tese em uso" subtitle="Clientes ativos sem tese ativa definida" action={<CountChip tom={m.semTese.length > 0 ? "amber" : "green"}>{m.semTese.length}</CountChip>} flush>
+          {/* Mesma altura do Top 10: a lista rola dentro do card em vez de
+              esticar a linha, e o rodapé resume o impacto. */}
+          <Panel className="h-full" bodyClassName="flex flex-col" eyebrow="Atenção" title="Sem tese em uso" subtitle="Clientes ativos sem tese ativa definida" action={<CountChip tom={m.semTese.length > 0 ? "amber" : "green"}>{m.semTese.length}</CountChip>} flush>
             {m.semTese.length === 0 ? (
               <InlineEmpty>Todos os ativos têm tese em uso.</InlineEmpty>
             ) : (
               <>
-                <ul className="divide-y divide-ink-06">
-                  {semTeseVisiveis.map((c) => (
-                    <li key={c.id}>
-                      <button type="button" onClick={() => navigate(`/clientes/${c.id}`)} className="w-full flex items-center justify-between gap-3 px-5 py-2.5 text-left hover:bg-ink-03 transition-colors group">
-                        <span className="text-xs font-medium text-ink truncate group-hover:underline">{c.empresa}</span>
-                        <Badge variant="outline" className={cn(STATUS_COMPENSACAO_COLORS[c.status], "text-[9px] shrink-0")}>{STATUS_COMPENSACAO_LABELS[c.status] ?? c.status}</Badge>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                {m.semTese.length > MAX_SEM_TESE && (
-                  <button type="button" onClick={() => setVerTodosSemTese((v) => !v)} aria-expanded={verTodosSemTese} className="w-full flex items-center justify-center gap-1 text-[11px] font-semibold text-gold-deep hover:underline py-2.5 border-t border-ink-06">
-                    {verTodosSemTese ? <>Mostrar menos <ChevronUp className="w-3 h-3" /></> : <>Ver todos ({m.semTese.length}) <ChevronDown className="w-3 h-3" /></>}
-                  </button>
-                )}
+                <div className="relative flex-1 min-h-0">
+                  {/* Linhas crescem até preencher a altura do Top 10 (com teto) e rolam quando não cabem. */}
+                  <ul className="flex flex-col divide-y divide-ink-06 max-h-[360px] overflow-y-auto xl:absolute xl:inset-0 xl:max-h-none">
+                    {m.semTese.map((c) => (
+                      <li key={c.id} className="flex flex-1 min-h-[52px] xl:max-h-[76px]">
+                        <button type="button" onClick={() => navigate(`/clientes/${c.id}`)} className="w-full flex items-center justify-between gap-3 px-5 py-2.5 text-left hover:bg-ink-03 transition-colors group">
+                          <span className="min-w-0">
+                            <span className="block text-xs font-medium text-ink truncate group-hover:underline">{c.empresa}</span>
+                            <span className="block text-[10px] text-ink-35 font-mono-dm tabular-nums">
+                              {c.apurado > 0 ? `Saldo ${formatCurrencyBR(c.saldo)}` : "Sem crédito apurado"}
+                            </span>
+                          </span>
+                          <Badge variant="outline" className={cn(STATUS_COMPENSACAO_COLORS[c.status], "text-[9px] shrink-0")}>{STATUS_COMPENSACAO_LABELS[c.status] ?? c.status}</Badge>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="border-t border-ink-06 bg-ink-03 px-5 py-3 space-y-1.5">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-[10px] font-bold uppercase tracking-[1px] text-ink-35">Saldo sem tese definida</span>
+                    <span className="font-mono-dm text-sm font-bold tabular-nums text-navy">{formatCurrencyBR(semTeseSaldo)}</span>
+                  </div>
+                  <p className="text-[10px] text-ink-60">
+                    {semTesePorStatus.map(([status, n]) => `${n} ${STATUS_COMPENSACAO_LABELS[status] ?? status}`).join(" · ")}
+                    {" · "}defina a tese em uso na ficha do cliente.
+                  </p>
+                </div>
               </>
             )}
           </Panel>
