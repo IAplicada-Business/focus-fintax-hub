@@ -102,18 +102,33 @@ export function tributoKey(c: { tributo?: string | null; tributo_enum?: string |
     .replace(/\s+/g, "_");
 }
 
-/** Códigos do enum `tese_tributaria` (catálogo financeiro / tese em uso). */
-export const TESE_CATALOG_CODIGOS = [
-  "INSUMOS",
-  "SUBVENCAO",
-  "ICMS_ST",
-  "EXCLUSAO_ICMS_BC",
-  "PIS_COFINS_JUD",
-  "PREVIDENCIARIO",
-  "REPORTO",
+/**
+ * As 6 teses oficiais do Grupo AGF (padronização set/2026), na ordem do
+ * filtro. `EXCLUSAO_ICMS_BC` segue no enum do banco por compatibilidade, mas
+ * foi fundida em `PIS_COFINS_JUD` e não aparece mais em nenhum seletor.
+ */
+export const TESES_OFICIAIS = [
+  { codigo: "INSUMOS", label: "Insumos de PIS/COFINS" },
+  { codigo: "SUBVENCAO", label: "Subvenção IRPJ/CSLL" },
+  { codigo: "PREVIDENCIARIO", label: "Créditos Previdenciários" },
+  { codigo: "ICMS_ST", label: "Exclusão ICMS-ST da base PIS/COFINS" },
+  { codigo: "PIS_COFINS_JUD", label: "PIS/COFINS da Base — Via Judicial" },
+  { codigo: "REPORTO", label: "Reporto" },
 ] as const;
 
-export type TeseCatalogCodigo = (typeof TESE_CATALOG_CODIGOS)[number];
+/** Códigos do enum `tese_tributaria` em uso (catálogo financeiro / tese em uso). */
+export const TESE_CATALOG_CODIGOS = TESES_OFICIAIS.map((t) => t.codigo);
+
+export type TeseCatalogCodigo = (typeof TESES_OFICIAIS)[number]["codigo"];
+
+const TESE_OFICIAL_LABEL = new Map<string, string>(
+  TESES_OFICIAIS.map((t) => [t.codigo, t.label]),
+);
+
+/** Nome oficial da tese pelo código do catálogo (null se não for oficial). */
+export function teseOficialLabel(codigo: string | null | undefined): string | null {
+  return TESE_OFICIAL_LABEL.get(String(codigo || "").toUpperCase()) ?? null;
+}
 
 /**
  * Motor usa slugs livres (`pis_cofins_insumos`); o catálogo usa INSUMOS / SUBVENCAO.
@@ -129,9 +144,17 @@ export function normalizeTeseCatalogCodigo(
   if (blob.includes("reporto")) return "REPORTO";
   if (blob.includes("insumo")) return "INSUMOS";
   if (blob.includes("subvenc")) return "SUBVENCAO";
-  if (blob.includes("exclusao") && blob.includes("icms")) return "EXCLUSAO_ICMS_BC";
+  // ICMS-ST antes de "exclusão ICMS": `exclusao_icms_st` é ICMS-ST, não a
+  // exclusão do ICMS da base (que é a tese judicial).
   if (blob.includes("icms_st") || blob.includes("icmsst")) return "ICMS_ST";
-  if (blob.includes("pis_cofins_jud") || (blob.includes("jud") && blob.includes("pis"))) {
+  if (
+    blob.includes("pis_cofins_jud") ||
+    (blob.includes("jud") && blob.includes("pis")) ||
+    (blob.includes("exclusao") && blob.includes("icms")) ||
+    blob.includes("pis_cofins_bc") ||
+    blob.includes("pis/cofins_bc") ||
+    blob.includes("pis_cofins_da_base")
+  ) {
     return "PIS_COFINS_JUD";
   }
   if (blob.includes("previdenc")) return "PREVIDENCIARIO";
@@ -397,6 +420,34 @@ export type TeseBreakdownRow = {
 };
 
 /**
+ * Contexto de atribuição de compensação → tese usado pelo saldo por tese.
+ * Exportado para que Mapa Tributário e aba Compensações atribuam cada
+ * lançamento exatamente como o card "Saldo restante".
+ */
+export function teseMatchContext(
+  creditos: CreditoApuradoRow[],
+  teseInfo: Map<string, { codigo?: string | null; label?: string | null }>,
+  reportoTeseIds?: Set<string>,
+): Pick<TeseMatchOpts, "tesesComCreditoCodigos" | "tesesNoCalculoCodigos"> & {
+  tesesComCreditoCodigos: Set<string>;
+  tesesNoCalculoCodigos: Set<string>;
+} {
+  const split = splitCreditosCalculo(creditos, reportoTeseIds);
+  return {
+    tesesComCreditoCodigos: new Set(
+      creditos
+        .map((c) => String(teseInfo.get(c.tese_id)?.codigo || "").toUpperCase())
+        .filter(Boolean),
+    ),
+    tesesNoCalculoCodigos: new Set(
+      [...split.teseIdsNoCalculo]
+        .map((id) => String(teseInfo.get(id)?.codigo || "").toUpperCase())
+        .filter(Boolean),
+    ),
+  };
+}
+
+/**
  * Apurado / compensado / saldo por tese, no mesmo recorte dos cards.
  *
  * Sem isso os KPIs somam Insumos + Subvenção num número só, o que cruza
@@ -414,16 +465,10 @@ export function breakdownPorTese(params: {
   const { creditos, comps, teseInfo, processoIdsByTese, reportoTeseIds, reportoProcessoIds } =
     params;
   const split = splitCreditosCalculo(creditos, reportoTeseIds);
-
-  const tesesComCreditoCodigos = new Set(
-    creditos
-      .map((c) => String(teseInfo.get(c.tese_id)?.codigo || "").toUpperCase())
-      .filter(Boolean),
-  );
-  const tesesNoCalculoCodigos = new Set(
-    [...split.teseIdsNoCalculo]
-      .map((id) => String(teseInfo.get(id)?.codigo || "").toUpperCase())
-      .filter(Boolean),
+  const { tesesComCreditoCodigos, tesesNoCalculoCodigos } = teseMatchContext(
+    creditos,
+    teseInfo,
+    reportoTeseIds,
   );
 
   const apuradoByTese = new Map<string, number>();

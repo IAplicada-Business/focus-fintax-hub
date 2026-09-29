@@ -8,10 +8,10 @@ import {
   STATUS_COMPENSACAO_COLORS,
   STATUS_COMPENSACAO_LABELS,
   STATUS_COMPENSACAO_VALUES,
+  STATUS_FILTRO_VALUES,
   StatusCompensacaoFilter,
   TipoRecuperacaoFilter,
   buildRamoFlagsPorCliente,
-  countByRamo,
   countByStatus,
   type RamoGerencialFiltro,
   type StatusCompensacao,
@@ -24,17 +24,16 @@ import {
   honorarioDe,
   resumirFinanceiroPorCliente,
 } from "@/lib/operacional-analytics";
-import {
-  filtrarIdsRecorteGerencial,
-  normalizarStatusCompensacao,
-} from "@/lib/gerencial-filters";
+import { normalizarStatusCompensacao } from "@/lib/gerencial-filters";
+import { makeRecorteGerencial } from "@/lib/recorte-gerencial";
+import { ramosDoCliente } from "@/lib/esteira-acompanhamento";
+import { TIPO_RECUPERACAO_LABEL } from "@/lib/tipo-recuperacao";
 import { compactCurrency } from "../dashboard-utils";
 import { BarList, KpiCard, LinkMore, Panel, InlineEmpty, CountChip } from "../ui/primitives";
 import { cn } from "@/lib/utils";
 import { TipoTeseFilter } from "@/components/TipoTeseFilter";
 import {
   filtrarCreditosPorTipoTese,
-  filtrarIdsPorTipoTese,
   filtrarProcessosPorTipoTese,
   listarTiposTese,
   rotuloFiltroTese,
@@ -47,7 +46,6 @@ import {
   dashboardPeriodLabel,
   dashboardPeriodOptions,
   defaultDashboardPeriod,
-  filterClientIdsByDashboardPeriod,
   filterCompsByDashboardPeriod,
   filterProcessosByDashboardPeriod,
   type DashboardPeriod,
@@ -63,6 +61,8 @@ const STATUS_BAR_COLORS: Record<StatusCompensacao, string> = {
   prevista: "#1c3150",
   reporto: "#8a8f98",
   encerrado: "#8a8f98",
+  recuperacao_judicial: "#4f46e5",
+  ressarcimento_concluido: "#0f766e",
   sem_operacao: "#c9c9c9",
 };
 
@@ -79,6 +79,7 @@ const TRIBUTO_LABELS: Record<string, string> = {
 
 const AXIS_TICK = { fontSize: 10, fill: "var(--ink-35)", fontFamily: "'DM Mono', monospace", fontWeight: 500 };
 const MAX_SEM_TESE = 5;
+const MAX_RECORTE = 8;
 
 /**
  * Visão Executiva: a carteira pelo ângulo das teses — quanto cada tese
@@ -87,8 +88,9 @@ const MAX_SEM_TESE = 5;
  */
 export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Props) {
   const [verTodosSemTese, setVerTodosSemTese] = useState(false);
+  const [verTodosRecorte, setVerTodosRecorte] = useState(false);
   const [statusFiltro, setStatusFiltro] = useState<Set<StatusCompensacao>>(
-    new Set(STATUS_COMPENSACAO_VALUES),
+    new Set(STATUS_FILTRO_VALUES),
   );
   const [ramoFiltro, setRamoFiltro] = useState<RamoGerencialFiltro>("todas");
   const [tipoTeseFiltro, setTipoTeseFiltro] = useState<TipoTeseFiltro>([]);
@@ -101,26 +103,19 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       data.statusRows.map((row) => [row.cliente_id, normalizarStatusCompensacao(row)]),
     );
     const ramosMap = buildRamoFlagsPorCliente(data.processos);
-    const idsGerenciais = filtrarIdsRecorteGerencial(
-      data.clientes.map((cliente) => cliente.id),
-      statusFiltro,
-      ramoFiltro,
-      statusMapCompleto,
+    const recorte = makeRecorteGerencial({
+      clienteIds: data.clientes.map((cliente) => cliente.id),
+      statusMap: statusMapCompleto,
       ramosMap,
-    );
-    const idsTese = filtrarIdsPorTipoTese(
-      idsGerenciais,
-      tipoTeseFiltro,
-      data.processos,
-      data.creditos,
-      data.teses,
-    );
-    const ids = filterClientIdsByDashboardPeriod(
-      idsTese,
+      tipoTese: tipoTeseFiltro,
       periodo,
-      data.compsRaw,
-      data.processos,
-    );
+      processos: data.processos,
+      creditos: data.creditos,
+      teses: data.teses,
+      comps: data.compsRaw,
+    });
+    const ids = recorte.recortePara(ramoFiltro, statusFiltro);
+    const { ramoCounts, statusCounts } = recorte.contagens(ramoFiltro, statusFiltro);
     const clientes = data.clientes.filter((cliente) => ids.has(cliente.id));
     const compsRawPeriodo = filterCompsByDashboardPeriod(
       data.compsRaw.filter((row) => ids.has(row.cliente_id)),
@@ -217,6 +212,17 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       .map((c) => ({ id: c.id, empresa: c.empresa, status: statusMapCompleto.get(c.id) ?? "sem_operacao" }))
       .sort((a, b) => a.empresa.localeCompare(b.empresa, "pt-BR"));
 
+    const recorteLista = clientes
+      .map((c) => ({
+        id: c.id,
+        empresa: c.empresa,
+        status: statusMapCompleto.get(c.id) ?? ("sem_operacao" as StatusCompensacao),
+        ramos: ramosDoCliente(ramosMap.get(c.id) ?? {})
+          .map((ramo) => TIPO_RECUPERACAO_LABEL[ramo])
+          .join(" · "),
+      }))
+      .sort((a, b) => a.empresa.localeCompare(b.empresa, "pt-BR"));
+
     const nome = new Map(clientes.map((c) => [c.id, c.empresa]));
     const top = [...totais]
       .filter((t) => t.credito_apurado > 0)
@@ -241,8 +247,9 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       top,
       topShare,
       clientes: clientes.length,
-      statusCounts: countByStatus(data.clientes.map((c) => c.id), statusMapCompleto),
-      ramoCounts: countByRamo(data.clientes.map((c) => c.id), ramosMap),
+      statusCounts,
+      ramoCounts,
+      recorteLista,
       tiposTese: listarTiposTese(data.processos, data.creditos, data.teses),
       periodoOptions,
       periodoLabel: dashboardPeriodLabel(periodo),
@@ -250,6 +257,10 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
   }, [data, periodo, ramoFiltro, statusFiltro, tipoTeseFiltro]);
 
   const semTeseVisiveis = verTodosSemTese ? m.semTese : m.semTese.slice(0, MAX_SEM_TESE);
+  const recorteAtivo =
+    ramoFiltro !== "todas" ||
+    (statusFiltro.size > 0 && statusFiltro.size < STATUS_FILTRO_VALUES.length);
+  const recorteVisiveis = verTodosRecorte ? m.recorteLista : m.recorteLista.slice(0, MAX_RECORTE);
   const maxTeseApurado = Math.max(...m.porTese.map((t) => t.apurado), 1);
 
   return (
@@ -285,6 +296,41 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
         <KpiCard label="Honorários acumulados" raw={m.honorarios} format={compactCurrency} sub={`economia líquida dos clientes ${compactCurrency(m.compensado - m.honorarios)}`} tom="gold" icon={<Coins />} />
         <KpiCard label="Saldo remanescente" raw={m.saldo} format={compactCurrency} sub="a compensar em contratos abertos" tom={m.saldo > 0 ? "navy" : "muted"} icon={<PieChart />} />
       </div>
+
+      {recorteAtivo && (
+        <Panel
+          eyebrow="Recorte"
+          title="Clientes no recorte"
+          subtitle="Exatamente os clientes contados nos filtros de status e tipo de recuperação"
+          action={<CountChip tom="gold">{m.recorteLista.length}</CountChip>}
+          flush
+        >
+          {m.recorteLista.length === 0 ? (
+            <InlineEmpty>Nenhum cliente neste recorte.</InlineEmpty>
+          ) : (
+            <>
+              <ul className="divide-y divide-ink-06">
+                {recorteVisiveis.map((c) => (
+                  <li key={c.id}>
+                    <button type="button" onClick={() => navigate(`/clientes/${c.id}`)} className="w-full flex items-center justify-between gap-3 px-5 py-2.5 text-left hover:bg-ink-03 transition-colors group">
+                      <span className="min-w-0">
+                        <span className="block text-xs font-medium text-ink truncate group-hover:underline">{c.empresa}</span>
+                        <span className="block text-[10px] text-ink-35 truncate">{c.ramos}</span>
+                      </span>
+                      <Badge variant="outline" className={cn(STATUS_COMPENSACAO_COLORS[c.status], "text-[9px] shrink-0")}>{STATUS_COMPENSACAO_LABELS[c.status] ?? c.status}</Badge>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {m.recorteLista.length > MAX_RECORTE && (
+                <button type="button" onClick={() => setVerTodosRecorte((v) => !v)} aria-expanded={verTodosRecorte} className="w-full flex items-center justify-center gap-1 text-[11px] font-semibold text-gold-deep hover:underline py-2.5 border-t border-ink-06">
+                  {verTodosRecorte ? <>Mostrar menos <ChevronUp className="w-3 h-3" /></> : <>Ver todos ({m.recorteLista.length}) <ChevronDown className="w-3 h-3" /></>}
+                </button>
+              )}
+            </>
+          )}
+        </Panel>
+      )}
 
       <div className="animate-slide-up delay-2 grid grid-cols-1 xl:grid-cols-12 gap-4">
         <div className="xl:col-span-7 min-w-0">

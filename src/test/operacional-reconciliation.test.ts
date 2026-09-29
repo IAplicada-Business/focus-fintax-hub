@@ -194,8 +194,9 @@ describe("reconciliação financeira da Visão Operacional", () => {
       total_compensado: 0,
       saldo_restante: 5_000,
     });
+    // Filtro de tese = sempre as 6 teses oficiais, na ordem padronizada.
     expect(listarTiposTese(PROCESSOS, creditos, TESES).map((option) => option.value))
-      .toEqual(["INSUMOS", "SUBVENCAO", "REPORTO"]);
+      .toEqual(["INSUMOS", "SUBVENCAO", "PREVIDENCIARIO", "ICMS_ST", "PIS_COFINS_JUD", "REPORTO"]);
   });
 
   it("mostra valores de REPORTO na carteira por tese sem contaminar o saldo padrão", () => {

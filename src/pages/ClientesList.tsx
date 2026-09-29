@@ -24,7 +24,7 @@ import {
   useStatusCompensacao,
   makeStatusFilterPredicate,
   countByStatus,
-  STATUS_COMPENSACAO_VALUES,
+  STATUS_FILTRO_VALUES,
   STATUS_COMPENSACAO_LABELS,
   STATUS_COMPENSACAO_COLORS,
   type StatusCompensacao,
@@ -81,10 +81,10 @@ export default function ClientesList() {
   const [search, setSearch] = useState("");
   const [filterSegmento, setFilterSegmento] = useState("all");
   const [filterStatusCompensacao, setFilterStatusCompensacao] = useState<Set<StatusCompensacao>>(
-    new Set(STATUS_COMPENSACAO_VALUES)
+    new Set(STATUS_FILTRO_VALUES)
   );
   const [filterTipoTese, setFilterTipoTese] = useState<TipoTeseFiltro>([]);
-  const { statusMap: statusCompMap } = useStatusCompensacao();
+  const { statusMap: statusCompMap, ramosMap: ramosCompMap } = useStatusCompensacao();
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 25;
 
@@ -137,7 +137,11 @@ export default function ClientesList() {
       next = next.filter((c) => c.empresa?.toLowerCase().includes(q) || c.cnpj?.includes(q));
     }
     if (filterSegmento !== "all") next = next.filter((c) => c.segmento === filterSegmento);
-    const statusCompPredicate = makeStatusFilterPredicate(filterStatusCompensacao, statusCompMap);
+    const statusCompPredicate = makeStatusFilterPredicate(
+      filterStatusCompensacao,
+      statusCompMap,
+      ramosCompMap,
+    );
     const idsTipoTese = filtrarIdsPorTipoTese(
       next.map((cliente) => cliente.id),
       filterTipoTese,
@@ -146,7 +150,7 @@ export default function ClientesList() {
       teses,
     );
     return next.filter((c) => statusCompPredicate(c.id) && idsTipoTese.has(c.id));
-  }, [allStats, search, filterSegmento, filterStatusCompensacao, filterTipoTese, statusCompMap, processos, creditos, teses]);
+  }, [allStats, search, filterSegmento, filterStatusCompensacao, filterTipoTese, statusCompMap, ramosCompMap, processos, creditos, teses]);
 
   const totalClientes = filtered.length;
   const totalCompensando = filtered.filter((c) => c.totalCompensado > 0).length;
@@ -154,8 +158,8 @@ export default function ClientesList() {
   const globalCompensado = filtered.reduce((s, c) => s + c.totalCompensado, 0);
 
   const statusCompCounts = useMemo(
-    () => countByStatus(allStats.map((c) => c.id), statusCompMap),
-    [allStats, statusCompMap]
+    () => countByStatus(allStats.map((c) => c.id), statusCompMap, ramosCompMap),
+    [allStats, statusCompMap, ramosCompMap]
   );
   const tiposTese = useMemo(
     () => listarTiposTese(processos, creditos, teses),

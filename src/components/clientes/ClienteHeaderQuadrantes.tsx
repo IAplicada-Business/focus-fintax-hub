@@ -5,16 +5,11 @@ import { Button } from "@/components/ui/button";
 import { MonthPicker } from "@/components/ui/month-picker";
 import { TrendingUp, TrendingDown, PieChart, Layers, RefreshCw, Plus } from "lucide-react";
 import {
-  breakdownPorTese,
-  buildProcessoIdsByTese,
   formatCurrencyBR,
   formatCompetenciaPT,
-  isReportoCompensacao,
-  isReportoProcesso,
-  mergeCreditosComProcessosFallback,
   splitCreditosCalculo,
-  sumCompensadoCanonical,
 } from "@/lib/clientes-constants";
+import { calcularSaldosCliente } from "@/lib/saldos-cliente";
 import {
   STATUS_COMPENSACAO_LABELS,
   STATUS_COMPENSACAO_COLORS,
@@ -108,51 +103,26 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
     void qc.invalidateQueries({ queryKey: ["cliente", clienteId, "record"] });
   }, [refreshToken, clienteId, qc]);
 
-  const creditosRaw = (creditosQ.data ?? []) as CreditoRow[];
-  const compsRaw = (compsQ.data ?? []) as CompRow[];
-  const processos = processosQ.data ?? [];
-  const teses = tesesQ.data ?? [];
-  const teseIdByCodigo = useMemo(
+  const processos = useMemo(() => processosQ.data ?? [], [processosQ.data]);
+  const teses = useMemo(() => tesesQ.data ?? [], [tesesQ.data]);
+  // Mesma conta do filtro de tese da aba Compensações e do Mapa Tributário.
+  const saldos = useMemo(
     () =>
-      new Map(
-        teses
-          .filter((t) => t.codigo)
-          .map((t) => [String(t.codigo).toUpperCase(), t.id] as const),
-      ),
-    [teses],
-  );
-  const creditos = useMemo(
-    () =>
-      mergeCreditosComProcessosFallback({
-        creditos: creditosRaw,
+      calcularSaldosCliente({
+        creditos: (creditosQ.data ?? []) as CreditoRow[],
+        comps: (compsQ.data ?? []) as CompRow[],
         processos,
-        teseIdByCodigo,
+        teses,
+        mesInicio,
+        mesFim,
       }),
-    [creditosRaw, processos, teseIdByCodigo],
+    [creditosQ.data, compsQ.data, processos, teses, mesInicio, mesFim],
   );
+  const { creditos, reportoTeseIds, comps, porTese } = saldos;
   const opcoesTese = motorQ.data ?? [];
   const view = statusQ.data;
   const teseAtivaId = (clienteQ.data as { tese_ativa_id?: string | null } | undefined)?.tese_ativa_id ?? null;
   const teseAtivaLabel = teses.find((t) => t.id === teseAtivaId)?.label ?? null;
-
-  const reportoTeseIds = useMemo(
-    () => new Set(teses.filter((t) => (t.codigo || "").toUpperCase() === "REPORTO").map((t) => t.id)),
-    [teses],
-  );
-  const reportoProcessoIds = useMemo(
-    () =>
-      new Set(
-        processos
-          .filter(isReportoProcesso)
-          .map((p) => p.id),
-      ),
-    [processos],
-  );
-
-  const comps = useMemo(
-    () => compsRaw.filter((c) => !isReportoCompensacao(c, { reportoTeseIds, reportoProcessoIds })),
-    [compsRaw, reportoTeseIds, reportoProcessoIds],
-  );
 
   const dadosBase = useMemo<Dados>(() => {
     if (!creditosQ.data && !compsQ.data) return EMPTY;
@@ -191,35 +161,6 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
   const loading =
     !hasCached && (compsQ.isPending || creditosQ.isPending || processosQ.isPending);
 
-  const compsNoPeriodo = useMemo(
-    () =>
-      comps.filter((c) => {
-        const mes = (c.mes_referencia || "").slice(0, 7);
-        if (mesInicio && mes < mesInicio) return false;
-        if (mesFim && mes > mesFim) return false;
-        return true;
-      }),
-    [comps, mesInicio, mesFim],
-  );
-
-  const processoIdsByTese = useMemo(
-    () => buildProcessoIdsByTese(processos as { id: string; tese?: string | null; nome_exibicao?: string | null }[]),
-    [processos],
-  );
-
-  const porTese = useMemo(
-    () =>
-      breakdownPorTese({
-        creditos,
-        comps: compsNoPeriodo,
-        teseInfo: new Map(teses.map((t) => [t.id, { codigo: t.codigo, label: t.label }])),
-        processoIdsByTese,
-        reportoTeseIds,
-        reportoProcessoIds,
-      }),
-    [creditos, compsNoPeriodo, teses, processoIdsByTese, reportoTeseIds, reportoProcessoIds],
-  );
-
   const tesesFiltroValidas = useMemo(() => {
     const idsDisponiveis = new Set(porTese.map((t) => t.teseId));
     return tesesFiltro.filter((id) => idsDisponiveis.has(id));
@@ -232,10 +173,7 @@ export function ClienteHeaderQuadrantes({ clienteId, onAddTese, refreshToken = 0
     () => porTese.map((t) => ({ value: t.teseId, label: t.label, clientes: 0 })),
     [porTese],
   );
-  const totalCompensadoLancado = useMemo(
-    () => sumCompensadoCanonical(compsNoPeriodo, { reportoTeseIds, reportoProcessoIds }),
-    [compsNoPeriodo, reportoTeseIds, reportoProcessoIds],
-  );
+  const totalCompensadoLancado = saldos.compensadoTotal;
 
   // Filtro por tese existe porque somar Insumos + Subvenção num card só cruza
   // o apurado de uma tese com o compensado de outra.
