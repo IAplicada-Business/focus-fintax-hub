@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { loadXlsx } from "@/lib/lazy-libs";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,7 +14,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, AlertTriangle, FileText, Printer, Pencil, Trash2, Upload, Download, ChevronDown, Building2 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import * as XLSX from "xlsx";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { ImportCompensacoesModal } from "@/components/clientes/ImportCompensacoesModal";
@@ -211,7 +211,8 @@ export default function ClientesList() {
     return 'verde';
   };
 
-  const exportClientesSimples = () => {
+  const exportClientesSimples = async () => {
+    const XLSX = await loadXlsx();
     const rows = filtered.map((c) => ({
       'Empresa': c.empresa,
       'CNPJ': c.cnpj ?? '',
@@ -237,6 +238,7 @@ export default function ClientesList() {
   };
 
   const exportClientesPorTese = async () => {
+    const XLSX = await loadXlsx();
     const { data: processosData } = await supabase
       .from('processos_teses')
       .select('*, clientes(empresa, cnpj, segmento)')

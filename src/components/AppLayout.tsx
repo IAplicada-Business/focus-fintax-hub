@@ -28,7 +28,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         {!isDashboardShell && <AppHeader />}
         <main
           className={cn(
-            "flex-1 overflow-auto animate-fade-up",
+            "flex-1 overflow-auto",
             !isDashboardShell && !isInboxShell && "p-4 md:p-6",
             isInboxShell && "p-0 overflow-hidden",
             isMobile && "pt-14",

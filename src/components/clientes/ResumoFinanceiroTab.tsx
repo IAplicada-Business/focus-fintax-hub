@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { loadXlsx } from "@/lib/lazy-libs";
 import {
   formatCurrencyBR,
   isReportoCompensacao,
@@ -9,7 +10,6 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/EmptyState";
 import { FileDown, TrendingUp, BarChart3, Download, Loader2 } from "lucide-react";
-import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useClienteCompensacoes, useClienteProcessos } from "@/hooks/data/useClienteOperacional";
@@ -126,7 +126,8 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
       {/* EXPORT BUTTON */}
       <div className="flex justify-end gap-2 print:hidden">
         <button
-          onClick={() => {
+          onClick={async () => {
+            const XLSX = await loadXlsx();
             const rows = compensacoes.map((c) => ({
               'Competência': c.mes_referencia
                 ? new Date(c.mes_referencia).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })

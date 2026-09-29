@@ -1,5 +1,5 @@
 import { useState } from "react";
-import * as XLSX from "xlsx";
+import { loadXlsx } from "@/lib/lazy-libs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -47,6 +47,7 @@ export function ImportFluxoCaixaModal({ open, onOpenChange, onImported }: Props)
 
   const handleFile = async (file: File) => {
     try {
+      const XLSX = await loadXlsx();
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, { type: "array", cellDates: true });
       const parsed = parseAbasFluxo(wb, XLSX);

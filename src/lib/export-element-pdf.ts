@@ -1,6 +1,4 @@
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
-
+// html2canvas + jspdf somam ~800 kB: só entram quando alguém exporta de fato.
 /** Limite seguro de dimensão do canvas (Chrome ~16384; usamos margem). */
 const MAX_CANVAS_EDGE = 8192;
 
@@ -42,6 +40,11 @@ export async function exportElementToPdf(
   },
 ): Promise<void> {
   if (!source) throw new Error("Elemento do mapa não encontrado na tela.");
+
+  const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+    import("html2canvas"),
+    import("jspdf"),
+  ]);
 
   const clone = source.cloneNode(true) as HTMLElement;
   clone.removeAttribute("id");

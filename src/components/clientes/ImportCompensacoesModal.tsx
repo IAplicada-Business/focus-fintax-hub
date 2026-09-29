@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { loadXlsx } from "@/lib/lazy-libs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,7 +10,6 @@ import { Upload, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { logClienteHistorico } from "@/lib/cliente-historico";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 
 const TRIBUTO_OPTIONS = ["INSS", "PIS/COFINS", "IRPJ", "CSLL", "ICMS", "Outros"];
 
@@ -68,6 +68,7 @@ export function ImportCompensacoesModal({ open, onOpenChange, onImported }: Prop
   const [tributoInSheet, setTributoInSheet] = useState(false);
 
   const handleFile = async (file: File) => {
+    const XLSX = await loadXlsx();
     const buffer = await file.arrayBuffer();
     const wb = XLSX.read(buffer, { type: "array" });
     const ws = wb.Sheets[wb.SheetNames[0]];

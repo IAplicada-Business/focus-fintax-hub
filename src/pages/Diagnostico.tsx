@@ -2,8 +2,6 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import logoAgf from "@/assets/logo-agf-fintax.svg";
 import logoAgfWhite from "@/assets/logo-agf-fintax-white.svg";
 import { useParams } from "react-router-dom";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Tese {
@@ -277,6 +275,10 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
     });
 
     try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,

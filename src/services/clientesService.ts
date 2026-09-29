@@ -226,3 +226,41 @@ export async function listStatusCompensacaoRows() {
     processos: processosPorCliente.get(row.cliente_id as string) ?? [],
   })) as (StatusCompensacaoRow & { processos: ProcessoTipoRecuperacaoRow[] })[];
 }
+
+export interface ClienteHistoricoItem {
+  id: string;
+  tipo: string | null;
+  descricao: string | null;
+  created_at: string;
+  usuario_id: string | null;
+  usuario_nome: string;
+}
+
+/** Últimos 20 eventos do cliente, já com o nome de quem fez. */
+export async function getClienteHistorico(clienteId: string): Promise<ClienteHistoricoItem[]> {
+  const { data, error } = await supabase
+    .from("cliente_historico")
+    .select("id, tipo, descricao, created_at, usuario_id")
+    .eq("cliente_id", clienteId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  const rows = (data ?? []) as Omit<ClienteHistoricoItem, "usuario_nome">[];
+
+  const userIds = [...new Set(rows.map((h) => h.usuario_id).filter((v): v is string => !!v))];
+  const userMap: Record<string, string> = {};
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, full_name")
+      .in("user_id", userIds);
+    profiles?.forEach((p) => {
+      userMap[p.user_id] = p.full_name;
+    });
+  }
+
+  return rows.map((h) => ({
+    ...h,
+    usuario_nome: h.usuario_id ? userMap[h.usuario_id] || "Usuário" : "Sistema",
+  }));
+}
