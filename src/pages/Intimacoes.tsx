@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
+import { loadXlsx } from "@/lib/lazy-libs";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, differenceInDays, addDays, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AlertTriangle, Download, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -83,7 +83,8 @@ export default function Intimacoes() {
     deleteIntimacaoMutation.mutate(id);
   };
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
+    const XLSX = await loadXlsx();
     const rows = filtered.map((i) => ({
       'Empresa': i.empresa_nome,
       'Data da Intimação': i.data_intimacao ? format(parseISO(i.data_intimacao), "dd/MM/yyyy") : "",

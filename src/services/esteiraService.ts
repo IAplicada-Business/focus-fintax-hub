@@ -130,3 +130,28 @@ export async function listEsteiraHistorico(clienteId: string): Promise<EsteiraHi
   }
   return rows.map((r) => ({ ...r, responsavel_nome: r.responsavel_id ? nomes.get(r.responsavel_id) ?? null : null }));
 }
+
+export interface EsteiraClienteResumo {
+  estagio_esteira: string | null;
+  data_entrada_estagio: string | null;
+  dias_na_etapa: number | null;
+  sla_dias: number | null;
+  atrasado: boolean | null;
+  responsavel_nome: string | null;
+  motivo_parada: string | null;
+}
+
+/**
+ * Posição de um único cliente na esteira (etapa, dias, SLA, atrasado).
+ * Retorna null quando a view não está disponível pro papel do usuário —
+ * a ficha do cliente então mostra só a etapa gravada no cadastro.
+ */
+export async function getEsteiraCliente(clienteId: string): Promise<EsteiraClienteResumo | null> {
+  const { data, error } = await supabase
+    .from("v_esteira_clientes")
+    .select("estagio_esteira, data_entrada_estagio, dias_na_etapa, sla_dias, atrasado, responsavel_nome, motivo_parada")
+    .eq("id", clienteId)
+    .maybeSingle();
+  if (error) return null;
+  return (data as EsteiraClienteResumo | null) ?? null;
+}

@@ -2,8 +2,6 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 import {
   CRONOGRAMA_TRANSICAO,
   detalharPorEsfera,
@@ -579,6 +577,10 @@ function ResultadoView({
 
     try {
       await new Promise((r) => setTimeout(r, 50));
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
       const canvas = await html2canvas(el, {
         scale: 2,
         useCORS: true,

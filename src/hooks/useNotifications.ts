@@ -1,7 +1,11 @@
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { listClientes, listCompensacoesMensais, listProcessosTeses } from "@/services/clientesService";
+
+const NOTIF_DELAY_MS = 4_000;
+const NOTIF_INTERVAL_MS = 15 * 60_000;
 
 export interface AppNotification {
   id: string;
@@ -69,13 +73,21 @@ export function useNotifications() {
   const { userRole } = useAuth();
   const qc = useQueryClient();
   const canSee = ["admin", "comercial", "pmo"].includes(userRole ?? "");
+  // As notificações varrem clientes, processos e compensações inteiros. Isso
+  // disputava banda com a tela que o usuário abriu; agora só começa depois
+  // que a tela teve alguns segundos pra carregar o que é dela.
+  const [pronto, setPronto] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setPronto(true), NOTIF_DELAY_MS);
+    return () => clearTimeout(t);
+  }, []);
 
   const { data = [], isPending } = useQuery({
     queryKey: ["notifications"],
     queryFn: () => fetchAppNotifications(qc),
-    enabled: canSee,
-    staleTime: 5 * 60_000,
-    refetchInterval: 5 * 60_000,
+    enabled: canSee && pronto,
+    staleTime: NOTIF_INTERVAL_MS,
+    refetchInterval: NOTIF_INTERVAL_MS,
   });
 
   return { notifications: canSee ? data : [], loading: canSee && isPending && data.length === 0 };

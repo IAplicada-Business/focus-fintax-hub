@@ -3,6 +3,7 @@ import {
   getCliente,
   getClienteCompensacoes,
   getClienteCreditos,
+  getClienteHistorico,
   getClienteProcessos,
   getClienteStatusCompensacao,
   listMotorTesesAtivas,
@@ -82,4 +83,18 @@ export function useClienteStatusCompensacao(clienteId: string | undefined) {
 export function useInvalidateClienteOperacional(clienteId: string) {
   const qc = useQueryClient();
   return () => invalidateClienteOperacional(qc, clienteId);
+}
+
+export function clienteHistoricoKey(clienteId: string) {
+  return ["cliente", clienteId, "historico"] as const;
+}
+
+/** Histórico só é buscado quando a aba correspondente abre (`enabled`). */
+export function useClienteHistorico(clienteId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: clienteHistoricoKey(clienteId ?? ""),
+    queryFn: () => getClienteHistorico(clienteId!),
+    enabled: !!clienteId && enabled,
+    staleTime: 30_000,
+  });
 }

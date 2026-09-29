@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   aplicarRealocacaoEsteira,
+  getEsteiraCliente,
   listEsteiraClientes,
   listEsteiraHistorico,
   listEsteiraResponsaveis,
@@ -114,6 +115,15 @@ export function useEsteiraHistorico(clienteId: string | undefined) {
   return useQuery({
     queryKey: ["esteira", "historico", clienteId],
     queryFn: () => listEsteiraHistorico(clienteId!),
+    enabled: !!clienteId,
+    staleTime: 30_000,
+  });
+}
+
+export function useEsteiraCliente(clienteId: string | undefined) {
+  return useQuery({
+    queryKey: ["esteira", "cliente", clienteId],
+    queryFn: () => getEsteiraCliente(clienteId!),
     enabled: !!clienteId,
     staleTime: 30_000,
   });

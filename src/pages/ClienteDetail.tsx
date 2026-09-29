@@ -1,34 +1,18 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { cn } from "@/lib/utils";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  ArrowLeft,
-  ExternalLink,
-  MessageCircle,
-  Upload,
-  Pencil,
-  Trash2,
-  AlertTriangle,
-  FileText,
-  PanelRightOpen,
-  PanelRightClose,
-  Save,
-} from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ArrowLeft, Upload, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { ProcessosTesesTab } from "@/components/clientes/ProcessosTesesTab";
 import { ClienteHeaderQuadrantes } from "@/components/clientes/ClienteHeaderQuadrantes";
 import { CompensacoesTab } from "@/components/clientes/CompensacoesTab";
 import { ResumoFinanceiroTab } from "@/components/clientes/ResumoFinanceiroTab";
-import { SEGMENTO_LABELS } from "@/lib/pipeline-constants";
-import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { ClienteDadosDrawer } from "@/components/clientes/ClienteDadosDrawer";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -42,32 +26,34 @@ import {
   AlertDialogTitle as AlertTitle,
 } from "@/components/ui/alert-dialog";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
-import { EsteiraTimeline } from "@/components/clientes/EsteiraTimeline";
 import { isReportoProcesso, sumCompensadoCanonical } from "@/lib/clientes-constants";
 import {
+  clienteHistoricoKey,
   useClienteCompensacoes,
   useClienteProcessos,
+  useClienteRecord,
   useTesesTributarias,
   invalidateClienteOperacional,
 } from "@/hooks/data/useClienteOperacional";
-import { useUpdateClienteMotivoParada } from "@/hooks/data/useClientes";
-import { useQueryClient } from "@tanstack/react-query";
 import { podeEditarFichaCliente } from "@/lib/client-operation";
+
+const INTIMACOES_PENDENTES = ["pendente", "informado_aline", "em_andamento"];
 
 export default function ClienteDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { userRole, permissions } = useAuth();
   const queryClient = useQueryClient();
-  const [cliente, setCliente] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [historico, setHistorico] = useState<any[]>([]);
-  const obsDebounce = useRef<NodeJS.Timeout>();
   const [drawerOpen, setDrawerOpen] = useState(true);
-  const [obsSaved, setObsSaved] = useState(false);
-  const [motivoParada, setMotivoParada] = useState("");
-  const updateMotivoParada = useUpdateClienteMotivoParada();
   const canEdit = podeEditarFichaCliente(userRole, permissions);
+
+  // Mesmo cache que o cabeçalho de quadrantes usa — o cadastro vem uma vez só.
+  const clienteQ = useClienteRecord(id);
+  const cliente = clienteQ.data ?? null;
+
+  useEffect(() => {
+    if (clienteQ.isError) navigate("/clientes");
+  }, [clienteQ.isError, navigate]);
 
   const { data: compensacoesCached = [] } = useClienteCompensacoes(id);
   const { data: processosCached = [] } = useClienteProcessos(id);
@@ -85,37 +71,15 @@ export default function ClienteDetail() {
     return sumCompensadoCanonical(compensacoesCached as any[], { reportoTeseIds, reportoProcessoIds });
   }, [compensacoesCached, processosCached, tesesCached]);
 
-  const fetchHistorico = useCallback(async () => {
+  const invalidateHistorico = useCallback(() => {
+    if (id) void queryClient.invalidateQueries({ queryKey: clienteHistoricoKey(id) });
+  }, [id, queryClient]);
+
+  const invalidateCadastro = useCallback(() => {
     if (!id) return;
-    const { data } = await supabase
-      .from("cliente_historico" as any)
-      .select("*")
-      .eq("cliente_id", id)
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    const userIds = [...new Set((data || []).map((h: any) => h.usuario_id).filter(Boolean))];
-    const userMap: Record<string, string> = {};
-    if (userIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, full_name")
-        .in("user_id", userIds);
-      profiles?.forEach((p) => {
-        userMap[p.user_id] = p.full_name;
-      });
-    }
-
-    const enriched = (data || []).map((h: any) => ({
-      ...h,
-      usuario_nome: h.usuario_id ? userMap[h.usuario_id] || "Usuário" : "Sistema",
-    }));
-    setHistorico(enriched);
-  }, [id]);
-
-  useEffect(() => {
-    fetchHistorico();
-  }, [fetchHistorico]);
+    void queryClient.invalidateQueries({ queryKey: ["cliente", id, "record"] });
+    void queryClient.invalidateQueries({ queryKey: ["esteira", "cliente", id] });
+  }, [id, queryClient]);
 
   // Laratex CSV import state
   const [laratexOpen, setLatatexOpen] = useState(false);
@@ -136,7 +100,6 @@ export default function ClienteDetail() {
   const [visitedTabs, setVisitedTabs] = useState({ processos: true, compensacoes: false, resumo: false });
   const [addTeseSignal, setAddTeseSignal] = useState(0);
   const [addTesePreset, setAddTesePreset] = useState<string | null>(null);
-  const [intimacoesPendentes, setIntimacoesPendentes] = useState(0);
 
   const requestAddTese = useCallback((teseCodigo?: string) => {
     setActiveTab("processos");
@@ -145,71 +108,20 @@ export default function ClienteDetail() {
     setAddTeseSignal((n) => n + 1);
   }, []);
 
-  useEffect(() => {
-    if (!cliente?.empresa || !id) return;
-    supabase
-      .from("intimacoes")
-      .select("id, status")
-      .or(`cliente_id.eq.${id},empresa_nome.ilike.${cliente.empresa}`)
-      .then(({ data }) => {
-        const pendentes = (data || []).filter((i: any) =>
-          ["pendente", "informado_aline", "em_andamento"].includes(i.status),
-        ).length;
-        setIntimacoesPendentes(pendentes);
-      });
-  }, [id, cliente?.empresa]);
-
-  useEffect(() => {
-    if (!id) return;
-    supabase
-      .from("clientes")
-      .select("*")
-      .eq("id", id)
-      .single()
-      .then(({ data, error }) => {
-        if (error || !data) {
-          navigate("/clientes");
-          return;
-        }
-        setCliente(data);
-        setMotivoParada(data.motivo_parada || "");
-        setLoading(false);
-      });
-  }, [id, navigate]);
-
-  const handleObsChange = (value: string) => {
-    setCliente((prev: any) => ({ ...prev, observacoes: value }));
-    setObsSaved(false);
-    if (obsDebounce.current) clearTimeout(obsDebounce.current);
-    obsDebounce.current = setTimeout(async () => {
-      const { error } = await supabase
-        .from("clientes")
-        .update({ observacoes: value, atualizado_em: new Date().toISOString() } as any)
-        .eq("id", id!);
-      if (!error) {
-        setObsSaved(true);
-        setTimeout(() => setObsSaved(false), 2000);
-      }
-    }, 800);
-  };
-
-  const handleMotivoParadaSave = async () => {
-    if (!id) return;
-    const normalized = motivoParada.trim() || null;
-    try {
-      const saved = await updateMotivoParada.mutateAsync({
-        clienteId: id,
-        motivoParada: normalized,
-      });
-      setMotivoParada(saved || "");
-      setCliente((prev: Record<string, unknown> | null) => ({
-        ...(prev ?? {}),
-        motivo_parada: saved,
-      }));
-    } catch {
-      // O hook apresenta o erro e mantém o texto para nova tentativa.
-    }
-  };
+  const empresa = cliente?.empresa ?? null;
+  const intimacoesQ = useQuery({
+    queryKey: ["cliente", id, "intimacoes-pendentes", empresa],
+    enabled: !!id && !!empresa,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("intimacoes")
+        .select("id, status")
+        .or(`cliente_id.eq.${id},empresa_nome.ilike.${empresa}`);
+      return (data ?? []).filter((i) => INTIMACOES_PENDENTES.includes(i.status)).length;
+    },
+  });
+  const intimacoesPendentes = intimacoesQ.data ?? 0;
 
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -309,10 +221,9 @@ export default function ClienteDetail() {
       setLatatexOpen(false);
       setCsvData([]);
       setCsvHeaders([]);
-      fetchHistorico();
+      invalidateHistorico();
       if (id) void invalidateClienteOperacional(queryClient, id);
       setTabKey((k) => k + 1);
-      setCliente((prev: any) => ({ ...prev, atualizado_em: new Date().toISOString() }));
     } catch (err: any) {
       toast.error("Erro na importação: " + (err.message || err));
     } finally {
@@ -320,7 +231,7 @@ export default function ClienteDetail() {
     }
   };
 
-  if (loading || !cliente) {
+  if (!cliente) {
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex items-center justify-between gap-3 border-b px-6 py-4">
@@ -334,10 +245,6 @@ export default function ClienteDetail() {
       </div>
     );
   }
-
-  const whatsappLink = cliente.whatsapp
-    ? `https://wa.me/55${cliente.whatsapp.replace(/\D/g, "")}`
-    : null;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -412,7 +319,7 @@ export default function ClienteDetail() {
                   editable={canEdit}
                   addTeseSignal={addTeseSignal}
                   presetTese={addTesePreset}
-                  onProcessosChanged={() => { void fetchHistorico(); }}
+                  onProcessosChanged={invalidateHistorico}
                 />
               </TabsContent>
               {visitedTabs.compensacoes && (
@@ -420,7 +327,7 @@ export default function ClienteDetail() {
                   <CompensacoesTab
                     clienteId={id!}
                     cliente={cliente}
-                    onCompensacoesChanged={() => { void fetchHistorico(); }}
+                    onCompensacoesChanged={invalidateHistorico}
                   />
                 </TabsContent>
               )}
@@ -434,213 +341,16 @@ export default function ClienteDetail() {
         })()}
       </div>
 
-      {/* Dados do cliente — drawer à direita */}
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent side="right" className="w-[340px] p-0 sm:max-w-[380px]">
-          <SheetHeader className="space-y-1 border-b px-5 py-4 pr-12 text-left">
-            <SheetTitle className="text-base leading-tight">{cliente.empresa}</SheetTitle>
-            <SheetDescription className="text-xs">Dados cadastrais, ações e histórico</SheetDescription>
-          </SheetHeader>
-
-          <div className="h-[calc(100vh-5.5rem)] space-y-4 overflow-y-auto p-5">
-            {canEdit && (
-              <div className="flex gap-1">
-                <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => setEditOpen(true)}>
-                  <Pencil className="h-3.5 w-3.5" /> Editar
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1 text-destructive hover:text-destructive"
-                  onClick={() => setDeleteOpen(true)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Excluir
-                </Button>
-              </div>
-            )}
-
-            {canEdit && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start gap-2 text-muted-foreground"
-                onClick={() => setLatatexOpen(true)}
-              >
-                <Upload className="h-4 w-4" /> Importar dados Laratex
-              </Button>
-            )}
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start gap-2"
-              onClick={() => navigate(`/clientes/${id}/mapa-creditos`)}
-            >
-              <FileText className="h-4 w-4" /> Mapa de Créditos
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start gap-2"
-              onClick={() => navigate(`/clientes/${id}/compensacoes`)}
-            >
-              <FileText className="h-4 w-4" /> Compensações (tabela linear)
-            </Button>
-
-            {intimacoesPendentes > 0 && (
-              <Link
-                to="/intimacoes"
-                className="flex items-center gap-2 rounded-lg border border-destructive/15 bg-destructive/5 px-3 py-2 transition-colors hover:bg-destructive/10"
-              >
-                <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-                <span className="text-xs font-semibold text-destructive">
-                  {intimacoesPendentes}{" "}
-                  {intimacoesPendentes === 1 ? "intimação pendente" : "intimações pendentes"}
-                </span>
-              </Link>
-            )}
-
-            <div className="space-y-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">CNPJ:</span> {cliente.cnpj}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Regime:</span> {cliente.regime_tributario || "—"}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Segmento:</span>{" "}
-                {SEGMENTO_LABELS[cliente.segmento] || cliente.segmento || "—"}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Contato:</span> {cliente.nome_contato || "—"}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Telefone:</span>
-                {whatsappLink ? (
-                  <a
-                    href={whatsappLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-green-600 hover:underline"
-                  >
-                    {cliente.whatsapp} <MessageCircle className="h-3 w-3" />
-                  </a>
-                ) : (
-                  "—"
-                )}
-              </div>
-              <div>
-                <span className="text-muted-foreground text-xs">Comp. outro escritório:</span>
-                <p className="text-xs">{cliente.compensacao_outro_escritorio || "—"}</p>
-              </div>
-              <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
-                <div className="flex items-center gap-1.5">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-700" />
-                  <span className="text-xs font-semibold text-amber-900">Motivo da parada</span>
-                </div>
-                <textarea
-                  value={motivoParada}
-                  onChange={(e) => setMotivoParada(e.target.value)}
-                  disabled={!canEdit}
-                  className="min-h-[72px] w-full resize-y rounded-md border border-amber-200 bg-background p-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="Ex.: aguardando documentos do cliente"
-                  aria-label="Motivo da parada"
-                />
-                <p className="text-[10px] leading-snug text-amber-800/80">
-                  Este texto aparece na esteira e no pulso semanal.
-                </p>
-                {canEdit && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-7 w-full gap-1.5 text-xs"
-                    disabled={
-                      updateMotivoParada.isPending ||
-                      (motivoParada.trim() || null) === (cliente.motivo_parada?.trim() || null)
-                    }
-                    onClick={handleMotivoParadaSave}
-                  >
-                    <Save className="h-3.5 w-3.5" />
-                    {updateMotivoParada.isPending ? "Salvando..." : "Salvar motivo"}
-                  </Button>
-                )}
-              </div>
-              <div className="relative">
-                <span className="text-muted-foreground text-xs">Observações:</span>
-                <textarea
-                  value={cliente.observacoes || ""}
-                  onChange={(e) => handleObsChange(e.target.value)}
-                  disabled={!canEdit}
-                  className="mt-1 min-h-[80px] w-full resize-none rounded-lg border border-border bg-background p-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="Observações internas sobre o cliente..."
-                />
-                <span
-                  className={cn(
-                    "absolute bottom-2 right-3 text-[10px] text-emerald-600 transition-opacity duration-300",
-                    obsSaved ? "opacity-100" : "opacity-0",
-                  )}
-                >
-                  Salvo ✓
-                </span>
-              </div>
-              <div>
-                <span className="text-muted-foreground text-xs">Cadastrado em:</span>
-                <p className="text-xs">{new Date(cliente.criado_em).toLocaleDateString("pt-BR")}</p>
-              </div>
-              {cliente.lead_id && (
-                <Link to="/pipeline" className="flex items-center gap-1 text-xs text-primary hover:underline">
-                  Ver lead original <ExternalLink className="h-3 w-3" />
-                </Link>
-              )}
-            </div>
-
-            {id && <EsteiraTimeline clienteId={id} />}
-
-            {historico.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Histórico
-                </h3>
-                <ScrollArea className={historico.length > 5 ? "h-[200px]" : ""}>
-                  <div className="space-y-2">
-                    {historico.map((h: any) => {
-                      const dotColor =
-                        h.tipo === "compensacao_adicionada"
-                          ? "bg-emerald-500"
-                          : h.tipo === "compensacao_editada"
-                            ? "bg-sky-500"
-                          : h.tipo === "status_mudado"
-                            ? "bg-amber-500"
-                            : h.tipo === "comunicado_enviado"
-                              ? "bg-blue-500"
-                              : "bg-muted-foreground";
-                      return (
-                        <div key={h.id} className="flex items-start gap-2">
-                          <div className="mt-1 flex flex-col items-center">
-                            <div className={`h-2 w-2 rounded-full ${dotColor}`} />
-                            <div className="h-full w-px bg-border" />
-                          </div>
-                          <div className="min-w-0 pb-2">
-                            <p className="text-[11px] leading-tight text-foreground">{h.descricao}</p>
-                            <p className="text-[10px] text-muted-foreground">
-                              {h.usuario_nome} ·{" "}
-                              {formatDistanceToNow(new Date(h.created_at), {
-                                addSuffix: true,
-                                locale: ptBR,
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-              </div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
+      <ClienteDadosDrawer
+        cliente={cliente}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        canEdit={canEdit}
+        intimacoesPendentes={intimacoesPendentes}
+        onEdit={() => setEditOpen(true)}
+        onDelete={() => setDeleteOpen(true)}
+        onImportLaratex={() => setLatatexOpen(true)}
+      />
 
       {/* Laratex CSV Import Modal */}
       <Dialog
@@ -749,19 +459,7 @@ export default function ClienteDetail() {
       <ClienteFormModal
         open={editOpen}
         onOpenChange={setEditOpen}
-        onSuccess={() => {
-          supabase
-            .from("clientes")
-            .select("*")
-            .eq("id", id!)
-            .single()
-            .then(({ data }) => {
-              if (data) {
-                setCliente(data);
-                setMotivoParada(data.motivo_parada || "");
-              }
-            });
-        }}
+        onSuccess={invalidateCadastro}
         cliente={cliente}
       />
 
@@ -790,6 +488,7 @@ export default function ClienteDetail() {
                   return;
                 }
                 toast.success("Cliente excluído com sucesso!");
+                void queryClient.invalidateQueries({ queryKey: ["clientes"] });
                 navigate("/clientes");
               }}
             >
