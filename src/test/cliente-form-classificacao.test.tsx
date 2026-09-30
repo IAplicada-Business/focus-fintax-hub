@@ -70,10 +70,11 @@ describe("classificação geral do cliente", () => {
     expect(screen.queryByText("Compensando pela Fintax")).not.toBeInTheDocument();
   });
 
-  it("não classifica durante o cadastro inicial", () => {
+  it("já classifica durante o cadastro inicial", () => {
     renderModal();
 
     expect(screen.getByRole("heading", { name: "Cadastrar Cliente" })).toBeInTheDocument();
-    expect(screen.queryByText("Classificação do cliente")).not.toBeInTheDocument();
+    expect(screen.getByText("Classificação do cliente")).toBeInTheDocument();
+    expect(screen.getByText("Status geral")).toBeInTheDocument();
   });
 });

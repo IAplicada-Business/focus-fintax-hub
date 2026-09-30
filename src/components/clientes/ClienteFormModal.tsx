@@ -137,15 +137,41 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
     };
 
     let error;
+    let novoId: string | null = null;
     if (isEdit) {
       ({ error } = await supabase.from("clientes").update({ ...payload, atualizado_em: new Date().toISOString() }).eq("id", cliente.id));
     } else {
-      ({ error } = await supabase.from("clientes").insert(payload));
+      const res = await supabase.from("clientes").insert(payload).select("id").single();
+      error = res.error;
+      novoId = res.data?.id ?? null;
     }
     if (error) {
       setSaving(false);
       toast.error(isEdit ? "Erro ao atualizar cliente." : "Erro ao cadastrar cliente.");
       return;
+    }
+    // Cadastro novo: status geral, etapa e responsável escolhidos no form
+    // também são gravados (antes só a edição salvava a classificação).
+    if (!isEdit && novoId) {
+      const status = isClienteStatusCompensacao(form.status_compensacao)
+        ? (form.status_compensacao as ClienteStatusCompensacao)
+        : undefined;
+      const estagio = isEstagioEsteira(form.estagio_esteira)
+        ? (form.estagio_esteira as EstagioEsteira)
+        : undefined;
+      const responsavelId = form.responsavel_id || undefined;
+      if (status || estagio || responsavelId) {
+        try {
+          await updateClienteOperacao({ clienteId: novoId, statusCompensacao: status, estagio, responsavelId });
+        } catch {
+          setSaving(false);
+          toast.error("O cliente foi cadastrado, mas a classificação operacional não pôde ser salva.");
+          onSuccess();
+          onOpenChange(false);
+          return;
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: ["catalog", "status_compensacao"] });
     }
     if (isEdit) {
       const statusChanged =
@@ -251,7 +277,7 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
               <Input value={form.email} onChange={(e) => update("email", e.target.value)} />
             </div>
           </div>
-          {isEdit && (
+          {/* Classificação também no cadastro: status, responsável e etapa já saem definidos. */}
             <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
               <div>
                 <p className="text-sm font-semibold">Classificação do cliente</p>
@@ -351,7 +377,7 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
                 </p>
               </div>
             </div>
-          )}
+
           {/* Opt-out do envio mensal do Mapa. Cliente pede pra parar, o time marca
               aqui, e mapa_envios_pendentes() deixa de incluí-lo. */}
           <div className="flex items-center gap-3">

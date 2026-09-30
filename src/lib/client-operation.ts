@@ -9,6 +9,8 @@ export const CLIENTE_STATUS_COMPENSACAO = [
   { value: "compensando", label: "Total Compensados" },
   { value: "reporto", label: "Possíveis recebimentos" },
   { value: "encerrado", label: "Encerrado / Liquidado" },
+  { value: "recuperacao_judicial", label: "Recuperação Judicial" },
+  { value: "ressarcimento_concluido", label: "Ressarcimento concluído" },
 ] as const;
 
 export type ClienteStatusCompensacao =
@@ -21,6 +23,8 @@ export const CLIENTE_STATUS_COMPENSACAO_LABEL: Record<
   compensando: "Total Compensados",
   reporto: "Possíveis recebimentos",
   encerrado: "Encerrado / Liquidado",
+  recuperacao_judicial: "Recuperação Judicial",
+  ressarcimento_concluido: "Ressarcimento concluído",
 };
 
 export function isClienteStatusCompensacao(

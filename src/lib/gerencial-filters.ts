@@ -60,6 +60,11 @@ export interface ProcessoTipoRecuperacaoRow {
 
 export function normalizarStatusCompensacao(row: StatusCompensacaoRow): StatusCompensacao {
   const status = row.status_principal;
+  // Recuperação Judicial / Ressarcimento concluído marcados no cadastro são
+  // classificação explícita da equipe: valem mesmo com compensação no mês.
+  if (STATUS_FILTRO_EXTRAS.includes(status as StatusFiltroExtra)) {
+    return status as StatusFiltroExtra;
+  }
   // Movimento real no mês corrente é a evidência operacional mais forte.
   // REPORTO é tipo de tese/possível futuro e não pode esconder um cliente
   // que também está efetivamente compensando.
@@ -97,35 +102,47 @@ export function buildRamoFlagsPorCliente(
   return out;
 }
 
-/** Cliente entra numa opção extra do filtro de status? */
+/**
+ * Cliente entra numa opção extra do filtro de status? Vale o status marcado
+ * no cadastro ou o ramo das teses (processo judicial / ressarcimento concluído).
+ */
 export function pertenceAoStatusExtra(
   flags: ClienteRamoFlags | undefined,
   status: StatusFiltroExtra,
+  statusCliente?: StatusCompensacao,
 ): boolean {
+  if (statusCliente === status) return true;
   if (!flags) return false;
   if (status === "recuperacao_judicial") return !!flags.tem_ramo_judicial;
   return !!flags.tem_ressarcimento_concluido;
 }
+
+const isStatusExtra = (status: StatusCompensacao | undefined): status is StatusFiltroExtra =>
+  STATUS_FILTRO_EXTRAS.includes(status as StatusFiltroExtra);
 
 export function makeStatusFilterPredicate(
   selected: Set<StatusCompensacao>,
   statusMap: Map<string, StatusCompensacao>,
   ramosMap?: Map<string, ClienteRamoFlags>,
 ) {
-  // Os 3 status principais cobrem a carteira inteira; os extras são
-  // subconjuntos. Com os 3 marcados (ou nada marcado) não há recorte.
-  const semFiltro =
-    selected.size === 0 || STATUS_COMPENSACAO_VALUES.every((s) => selected.has(s));
+  const semFiltro = selected.size === 0 || STATUS_FILTRO_VALUES.every((s) => selected.has(s));
+  // Com os 3 principais marcados, quem não tem status extra passa inteiro
+  // (inclui legado sem classificação), como antes das opções novas.
+  const todosPrincipais = STATUS_COMPENSACAO_VALUES.every((s) => selected.has(s));
   const algumPrincipal = STATUS_COMPENSACAO_VALUES.some((s) => selected.has(s));
   const extras = STATUS_FILTRO_EXTRAS.filter((s) => selected.has(s));
   return (clienteId: string | null | undefined) => {
     if (semFiltro) return true;
     if (!clienteId) return algumPrincipal;
+    const status = statusMap.get(clienteId);
     const flags = ramosMap?.get(clienteId);
-    if (extras.some((s) => pertenceAoStatusExtra(flags, s))) return true;
+    if (extras.some((s) => pertenceAoStatusExtra(flags, s, status))) return true;
+    // Status extra marcado no cadastro só aparece quando a opção dele está marcada.
+    if (isStatusExtra(status)) return false;
+    if (todosPrincipais) return true;
     // Sem linha de status: fail-open só para os status principais.
-    if (!statusMap.has(clienteId)) return algumPrincipal;
-    return selected.has(statusMap.get(clienteId)!);
+    if (!status) return algumPrincipal;
+    return selected.has(status);
   };
 }
 
@@ -171,10 +188,11 @@ export function countByStatus(
     sem_operacao: 0,
   };
   for (const id of ids) {
-    counts[statusMap.get(id) ?? "sem_operacao"] += 1;
+    const status = statusMap.get(id) ?? "sem_operacao";
+    if (!isStatusExtra(status)) counts[status] += 1;
     const flags = ramosMap?.get(id);
     for (const extra of STATUS_FILTRO_EXTRAS) {
-      if (pertenceAoStatusExtra(flags, extra)) counts[extra] += 1;
+      if (pertenceAoStatusExtra(flags, extra, status)) counts[extra] += 1;
     }
   }
   return counts;
