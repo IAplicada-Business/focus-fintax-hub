@@ -143,3 +143,37 @@ describe("item 4 · Ressarcimento: badge = lista", () => {
     expect(ramoCounts.administrativo).toBe(recorte.recortePara("administrativo", todos).size);
   });
 });
+
+describe("item 1 · status escolhido no cadastro", () => {
+  it("o cadastro oferece as 5 opções", async () => {
+    const { CLIENTE_STATUS_COMPENSACAO } = await import("@/lib/client-operation");
+    expect(CLIENTE_STATUS_COMPENSACAO.map((s) => s.label)).toEqual([
+      "Total Compensados",
+      "Possíveis recebimentos",
+      "Encerrado / Liquidado",
+      "Recuperação Judicial",
+      "Ressarcimento concluído",
+    ]);
+  });
+
+  it("status extra gravado no cliente vale no filtro e no contador", async () => {
+    const { normalizarStatusCompensacao } = await import("@/lib/gerencial-filters");
+    const status = new Map<string, StatusCompensacao>([
+      ["jud", normalizarStatusCompensacao({ cliente_id: "jud", status_principal: "recuperacao_judicial", tem_compensacao_mes_corrente: true })],
+      ["res", normalizarStatusCompensacao({ cliente_id: "res", status_principal: "ressarcimento_concluido" })],
+      ["comp", normalizarStatusCompensacao({ cliente_id: "comp", status_principal: "compensando" })],
+    ]);
+    const ids = ["jud", "res", "comp"];
+    const filtra = (sel: StatusCompensacao[]) =>
+      ids.filter(makeStatusFilterPredicate(new Set(sel), status, new Map()));
+
+    expect(status.get("jud")).toBe("recuperacao_judicial");
+    expect(filtra(["recuperacao_judicial"])).toEqual(["jud"]);
+    expect(filtra(["ressarcimento_concluido"])).toEqual(["res"]);
+    expect(filtra([...STATUS_COMPENSACAO_VALUES])).toEqual(["comp"]);
+    expect(filtra([...STATUS_FILTRO_VALUES])).toEqual(ids);
+
+    const counts = countByStatus(ids, status, new Map());
+    expect(counts).toMatchObject({ compensando: 1, recuperacao_judicial: 1, ressarcimento_concluido: 1 });
+  });
+});

@@ -10,11 +10,13 @@ import {
 import { normalizarStatusCompensacao } from "@/lib/gerencial-filters";
 
 describe("modelo operacional da ficha do cliente", () => {
-  it("oferece somente os três status padrão de compensação", () => {
+  it("oferece os cinco status de compensação do filtro", () => {
     expect(CLIENTE_STATUS_COMPENSACAO.map((item) => item.value)).toEqual([
       "compensando",
       "reporto",
       "encerrado",
+      "recuperacao_judicial",
+      "ressarcimento_concluido",
     ]);
   });
 
