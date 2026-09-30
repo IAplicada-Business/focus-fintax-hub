@@ -29,6 +29,7 @@ import {
   formatCurrencyBR,
   getStatusContratoConfig,
   getStatusProcessoConfig,
+  isProcessoIncluirNoCalculo,
   isReportoProcesso,
   processoTeseCatalogCodigo,
 } from "@/lib/clientes-constants";
@@ -112,8 +113,8 @@ export function ProcessosTesesTab({
   const totalHonorarios = assinados.reduce((s, p) => s + Number(p.valor_honorario || 0), 0);
   const totalACompensar = totalProcessosACompensar(processos);
 
-  // Por que a tese não mexe nos cards do cabeçalho: sem crédito apurado ou
-  // com o checkbox do Mapa de Créditos desmarcado (caso ICMS-ST da São Fernando).
+  // Incluída no cálculo = creditos_apurados.incluir_no_calculo, espelhado da
+  // categoria da tese (compensação). Sem linha no Mapa, cai no tratamento do processo.
   const calculoPorCodigo = useMemo(() => {
     const creditos = creditosQ.data ?? [];
     const teses = tesesQ.data ?? [];
@@ -145,6 +146,14 @@ export function ProcessosTesesTab({
     processos.find((processo) => processo.id === selectedProcessoId) ??
     processos[0] ??
     null;
+  const codigoSelecionado = processoSelecionado
+    ? String(processoTeseCatalogCodigo(processoSelecionado) || "")
+    : "";
+  const noCalculoSelecionado = processoSelecionado
+    ? calculoPorCodigo.has(codigoSelecionado)
+      ? calculoPorCodigo.get(codigoSelecionado)
+      : isProcessoIncluirNoCalculo(processoSelecionado)
+    : undefined;
 
   const handleDelete = async (processo: ProcessoRow) => {
     const { error } = await supabase
@@ -295,9 +304,7 @@ export function ProcessosTesesTab({
               {processoSelecionado && (
                 <TeseDetailCard
                   processo={processoSelecionado}
-                  noCalculo={calculoPorCodigo.get(
-                    String(processoTeseCatalogCodigo(processoSelecionado) || ""),
-                  )}
+                  noCalculo={noCalculoSelecionado}
                   editable={editable}
                   onEdit={() => {
                     setEditProcesso(processoSelecionado);

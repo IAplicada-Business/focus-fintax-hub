@@ -287,6 +287,7 @@ export function ProcessoFormModal({
         tese: form.tese,
         nomeExibicao: form.nome_exibicao,
         valorCredito: payload.valor_credito,
+        categoria: form.categoria,
         previousTese: teseMudou ? processo.tese : undefined,
         previousNomeExibicao: teseMudou ? processo.nome_exibicao : undefined,
       });

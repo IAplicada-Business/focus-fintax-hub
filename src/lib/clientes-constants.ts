@@ -337,15 +337,27 @@ export function isTeseNoCalculoDefault(codigo: string | null | undefined): boole
   return c === "INSUMOS" || c === "SUBVENCAO";
 }
 
+/**
+ * Tratamento financeiro da tese (aba Teses): "Crédito no cálculo" entra no
+ * KPI; REPORTO / possíveis futuros ficam fora. Independente do código da tese
+ * — ICMS-ST com categoria compensação entra.
+ */
+export function isProcessoIncluirNoCalculo(processo: ReportoProcessoLike | null | undefined): boolean {
+  if (!processo) return false;
+  return !isReportoProcesso(processo);
+}
+
 export type ProcessoCreditoFallback = {
   tese?: string | null;
   nome_exibicao?: string | null;
   valor_credito?: number | null;
+  categoria?: string | null;
 };
 
 /**
- * Se o processo INSUMOS/SUBVENCAO ainda não tem linha em creditos_apurados,
- * usa valor_credito no apurado. Linha existente manda — não soma os dois.
+ * Se o processo ainda não tem linha em creditos_apurados e está no cálculo
+ * (não é REPORTO), usa valor_credito no apurado. Linha existente manda —
+ * não soma os dois.
  */
 export function mergeCreditosComProcessosFallback(params: {
   creditos: CreditoApuradoRow[];
@@ -361,7 +373,7 @@ export function mergeCreditosComProcessosFallback(params: {
 
   for (const p of params.processos) {
     const codigo = normalizeTeseCatalogCodigo(p.tese, p.nome_exibicao || "");
-    if (!codigo || !isTeseNoCalculoDefault(String(codigo))) continue;
+    if (!codigo || !isProcessoIncluirNoCalculo(p)) continue;
     const key = String(codigo).toUpperCase();
     if (seen.has(key)) continue;
     const teseId = params.teseIdByCodigo.get(key);

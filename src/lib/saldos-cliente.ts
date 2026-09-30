@@ -92,6 +92,7 @@ export function calcularSaldosCliente<C extends SaldoCompRow>(input: SaldosClien
       tese: p.tese,
       nome_exibicao: p.nome_exibicao,
       valor_credito: Number(p.valor_credito || 0),
+      categoria: p.categoria,
     })),
     teseIdByCodigo,
   });

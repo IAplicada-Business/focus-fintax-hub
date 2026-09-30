@@ -1,5 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
-import { isTeseNoCalculoDefault, normalizeTeseCatalogCodigo } from "@/lib/clientes-constants";
+import {
+  isProcessoIncluirNoCalculo,
+  normalizeTeseCatalogCodigo,
+} from "@/lib/clientes-constants";
 
 export async function resolveCatalogTeseId(slug: string, nome = ""): Promise<string | null> {
   const codigo = normalizeTeseCatalogCodigo(slug, nome);
@@ -32,8 +35,8 @@ export async function deleteCreditoApuradoForProcesso(opts: {
 
 /**
  * Espelha processos_teses.valor_credito em creditos_apurados (fonte dos cards do cabeçalho).
- * Create: incluir_no_calculo só para INSUMOS/SUBVENCAO.
- * Update: só o valor — não mexe no checkbox do Mapa.
+ * incluir_no_calculo segue o tratamento financeiro da tese: categoria compensação
+ * entra no KPI; REPORTO / possíveis futuros ficam fora. Vale no create e no update.
  * Troca de tese: remove o crédito antigo e upserta o novo.
  */
 export async function syncCreditoApuradoFromProcesso(opts: {
@@ -41,6 +44,7 @@ export async function syncCreditoApuradoFromProcesso(opts: {
   tese: string;
   nomeExibicao?: string | null;
   valorCredito: number;
+  categoria?: string | null;
   previousTese?: string | null;
   previousNomeExibicao?: string | null;
 }): Promise<void> {
@@ -68,11 +72,16 @@ export async function syncCreditoApuradoFromProcesso(opts: {
 
   const valor = Number(opts.valorCredito) || 0;
   const now = new Date().toISOString();
+  const incluir_no_calculo = isProcessoIncluirNoCalculo({
+    tese: opts.tese,
+    nome_exibicao: opts.nomeExibicao,
+    categoria: opts.categoria,
+  });
 
   if ((existing as { id?: string } | null)?.id) {
     await (supabase as any)
       .from("creditos_apurados")
-      .update({ valor_apurado_inicial: valor, atualizado_em: now })
+      .update({ valor_apurado_inicial: valor, incluir_no_calculo, atualizado_em: now })
       .eq("id", (existing as { id: string }).id);
     return;
   }
@@ -81,6 +90,6 @@ export async function syncCreditoApuradoFromProcesso(opts: {
     cliente_id: opts.clienteId,
     tese_id: teseId,
     valor_apurado_inicial: valor,
-    incluir_no_calculo: isTeseNoCalculoDefault(codigo),
+    incluir_no_calculo,
   });
 }

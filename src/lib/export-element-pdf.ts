@@ -95,6 +95,13 @@ export async function exportElementToPdf(
         /* ignore */
       }
     }
+    await Promise.all(
+      Array.from(clone.querySelectorAll("img")).map((node) => {
+        const img = node as HTMLImageElement;
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        return img.decode?.().catch(() => undefined) ?? Promise.resolve();
+      }),
+    );
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { ProcessosTesesTab } from "@/components/clientes/ProcessosTesesTab";
+import { ProcessosTesesTab, TeseDetailCard } from "@/components/clientes/ProcessosTesesTab";
 
 const PROCESSOS = [
   {
@@ -104,5 +104,46 @@ describe("ProcessosTesesTab organizado por tese", () => {
 
     expect(screen.getAllByRole("button", { name: "Editar tese" })).toHaveLength(1);
     expect(screen.queryByRole("combobox", { name: /tipo de recuperação/i })).not.toBeInTheDocument();
+  });
+
+  it("mostra Incluída no cálculo quando o crédito da tese está no mapa", () => {
+    renderTab();
+    expect(screen.getByText("Incluída no cálculo")).toBeInTheDocument();
+  });
+});
+
+describe("TeseDetailCard · ICMS-ST no cálculo", () => {
+  const icms = {
+    ...PROCESSOS[0],
+    id: "processo-icms",
+    tese: "ICMS_ST",
+    nome_exibicao: "Exclusão ICMS-ST da base PIS/COFINS",
+    categoria: "compensacao",
+  };
+
+  it("mostra Incluída no cálculo quando a flag do crédito está ligada", () => {
+    render(
+      <TeseDetailCard
+        processo={icms}
+        noCalculo
+        editable={false}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Incluída no cálculo")).toBeInTheDocument();
+  });
+
+  it("mostra Fora do cálculo quando a flag do crédito está desligada", () => {
+    render(
+      <TeseDetailCard
+        processo={icms}
+        noCalculo={false}
+        editable={false}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Fora do cálculo")).toBeInTheDocument();
   });
 });

@@ -6,6 +6,7 @@ import {
   filterCompensadoCanonical,
   filterCompsForTese,
   inferTeseCodigoFromTributo,
+  isProcessoIncluirNoCalculo,
   isTeseNoCalculoDefault,
   mergeCreditosComProcessosFallback,
   normalizeTeseCatalogCodigo,
@@ -324,6 +325,19 @@ describe("splitCreditosCalculo", () => {
   });
 });
 
+describe("isProcessoIncluirNoCalculo", () => {
+  it("crédito no cálculo inclui ICMS-ST e demais teses oficiais", () => {
+    expect(isProcessoIncluirNoCalculo({ tese: "ICMS_ST", categoria: "compensacao" })).toBe(true);
+    expect(isProcessoIncluirNoCalculo({ tese: "INSUMOS", categoria: "compensacao" })).toBe(true);
+    expect(isProcessoIncluirNoCalculo({ tese: "PREVIDENCIARIO" })).toBe(true);
+  });
+
+  it("REPORTO e possíveis futuros ficam fora", () => {
+    expect(isProcessoIncluirNoCalculo({ tese: "REPORTO", categoria: "reporto" })).toBe(false);
+    expect(isProcessoIncluirNoCalculo({ tese: "ICMS_ST", categoria: "reporto" })).toBe(false);
+  });
+});
+
 describe("isTeseNoCalculoDefault", () => {
   it("só INSUMOS e SUBVENCAO entram no cálculo por padrão", () => {
     expect(isTeseNoCalculoDefault("INSUMOS")).toBe(true);
@@ -343,12 +357,26 @@ describe("mergeCreditosComProcessosFallback", () => {
     ["ICMS_ST", "t-icms"],
   ]);
 
-  it("usa valor_credito do processo INSUMOS/SUBVENCAO quando não há linha de crédito", () => {
+  it("usa valor_credito do processo no cálculo, inclusive ICMS-ST", () => {
     const merged = mergeCreditosComProcessosFallback({
       creditos: [],
       processos: [
-        { tese: "INSUMOS", nome_exibicao: "Insumos", valor_credito: 933537.79 },
-        { tese: "ICMS_ST", nome_exibicao: "Exclusão ICMS ST", valor_credito: 100000 },
+        { tese: "INSUMOS", nome_exibicao: "Insumos", valor_credito: 933537.79, categoria: "compensacao" },
+        { tese: "ICMS_ST", nome_exibicao: "Exclusão ICMS ST", valor_credito: 100000, categoria: "compensacao" },
+      ],
+      teseIdByCodigo,
+    });
+    const split = splitCreditosCalculo(merged);
+    expect(split.creditoApurado).toBeCloseTo(1033537.79, 2);
+    expect(split.tesesNoCalculo).toBe(2);
+  });
+
+  it("não inclui processo marcado como possível futuro", () => {
+    const merged = mergeCreditosComProcessosFallback({
+      creditos: [],
+      processos: [
+        { tese: "INSUMOS", nome_exibicao: "Insumos", valor_credito: 933537.79, categoria: "compensacao" },
+        { tese: "ICMS_ST", nome_exibicao: "Exclusão ICMS ST", valor_credito: 100000, categoria: "reporto" },
       ],
       teseIdByCodigo,
     });

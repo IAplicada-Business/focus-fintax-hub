@@ -163,8 +163,22 @@ export function MapaTributarioExecutivo({ data, empresa, cnpj }: Props) {
           <path d="M330 120 C 500 96, 660 70, 794 22" fill="none" stroke={C.dourado} strokeOpacity="0.25" strokeWidth="1" />
         </svg>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative" }}>
-          <img src={logoGold} alt="AGF FinTax" style={{ height: "58px", width: "auto", display: "block" }} crossOrigin="anonymous" />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", position: "relative" }}>
+          <img
+            src={logoGold}
+            alt="AGF FinTax"
+            width={111}
+            height={58}
+            style={{
+              width: "111px",
+              height: "58px",
+              objectFit: "contain",
+              objectPosition: "left center",
+              flexShrink: 0,
+              display: "block",
+            }}
+            crossOrigin="anonymous"
+          />
           <div style={{ textAlign: "right" }}>
             <p style={eyebrow(C.dourado, { fontSize: "9px" })}>Relatório executivo · Compensações</p>
             <p style={{ fontFamily: SERIF, fontSize: "27px", color: C.cremeTexto, margin: "8px 0 0", lineHeight: 1 }}>
