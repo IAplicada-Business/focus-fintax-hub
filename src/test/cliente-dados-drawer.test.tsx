@@ -29,6 +29,12 @@ vi.mock("@/hooks/data/useClientes", () => ({
   useUpdateClienteMotivoParada: () => ({ mutateAsync: vi.fn(async (): Promise<string | null> => null), isPending: false }),
 }));
 
+vi.mock("@/hooks/data/useClienteDocumentos", () => ({
+  useClienteDocumentos: () => ({ data: [], isPending: false }),
+  useUploadClienteDocumento: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteClienteDocumento: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 vi.mock("@/components/clientes/EsteiraTimeline", () => ({
   EsteiraTimeline: (): null => null,
 }));
@@ -107,6 +113,12 @@ describe("Dados do cliente — painel em abas", () => {
     expect(screen.getByText("contato@rodrilagos.com.br")).toBeInTheDocument();
     expect(screen.getByText("Convertido de lead")).toBeInTheDocument();
     expect(screen.getByLabelText("Observações")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Documentos" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Editar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Excluir" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mapa de Créditos" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Compensações" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Importar Laratex" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Motivo da parada")).not.toBeInTheDocument();
   });
 
@@ -156,5 +168,15 @@ describe("Dados do cliente — painel em abas", () => {
 
     abrirAba("Histórico");
     expect(screen.getByText("Nenhuma ação registrada ainda.")).toBeInTheDocument();
+  });
+
+  it("mostra os anexos do cliente na aba Documentos", () => {
+    esteiraMock.mockReturnValue({ data: esteira({}), isPending: false });
+    renderDrawer();
+
+    abrirAba("Documentos");
+    expect(screen.getByRole("tab", { name: "Documentos" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText(/Nenhum anexo ainda/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Anexar arquivos" })).toBeInTheDocument();
   });
 });

@@ -328,6 +328,50 @@ export type Database = {
           },
         ]
       }
+      cliente_documentos: {
+        Row: {
+          cliente_id: string
+          criado_em: string
+          criado_por: string | null
+          id: string
+          mime_type: string | null
+          nome_arquivo: string
+          storage_path: string
+          tamanho_bytes: number | null
+          tipo: string
+        }
+        Insert: {
+          cliente_id: string
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          mime_type?: string | null
+          nome_arquivo: string
+          storage_path: string
+          tamanho_bytes?: number | null
+          tipo: string
+        }
+        Update: {
+          cliente_id?: string
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          mime_type?: string | null
+          nome_arquivo?: string
+          storage_path?: string
+          tamanho_bytes?: number | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_documentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cliente_historico: {
         Row: {
           cliente_id: string
@@ -421,6 +465,9 @@ export type Database = {
           taxa_honorario: number | null
           tentativas_abordagem: number
           tese_ativa_id: string | null
+          triagem_documento_nome: string | null
+          triagem_documento_path: string | null
+          triagem_realizada: boolean
           whatsapp: string | null
         }
         Insert: {
@@ -453,6 +500,9 @@ export type Database = {
           taxa_honorario?: number | null
           tentativas_abordagem?: number
           tese_ativa_id?: string | null
+          triagem_documento_nome?: string | null
+          triagem_documento_path?: string | null
+          triagem_realizada?: boolean
           whatsapp?: string | null
         }
         Update: {
@@ -485,6 +535,9 @@ export type Database = {
           taxa_honorario?: number | null
           tentativas_abordagem?: number
           tese_ativa_id?: string | null
+          triagem_documento_nome?: string | null
+          triagem_documento_path?: string | null
+          triagem_realizada?: boolean
           whatsapp?: string | null
         }
         Relationships: [
@@ -2409,6 +2462,9 @@ export type Database = {
           tem_ramo_ressarcimento: boolean | null
           tentativas_abordagem: number | null
           teses_assinadas: number | null
+          triagem_documento_nome: string | null
+          triagem_documento_path: string | null
+          triagem_realizada: boolean | null
           ultima_acao_descricao: string | null
           ultima_acao_em: string | null
           ultima_acao_tipo: string | null
@@ -2591,6 +2647,13 @@ export type Database = {
         Args: { p_itens: Json; p_motivo?: string }
         Returns: number
       }
+      esteira_avancar_pelo_funil: {
+        Args: {
+          p_cliente_id: string
+          p_destino: Database["public"]["Enums"]["estagio_esteira"]
+        }
+        Returns: Database["public"]["Enums"]["estagio_esteira"]
+      }
       esteira_exige_admin_pmo: { Args: never; Returns: undefined }
       esteira_reiniciar_sla: {
         Args: { p_cliente_ids: string[]; p_motivo?: string }
@@ -2643,6 +2706,7 @@ export type Database = {
         | "contrato_emitido"
         | "contrato_assinado"
         | "compensado"
+        | "devolucao_comercial"
       regime_tributario: "lucro_real" | "lucro_presumido" | "simples_nacional"
       status_cliente: "fechado" | "relatorio_enviado" | "em_analise" | "ativo"
       status_pagamento: "pendente" | "pago"
@@ -2814,6 +2878,7 @@ export const Constants = {
         "contrato_emitido",
         "contrato_assinado",
         "compensado",
+        "devolucao_comercial",
       ],
       regime_tributario: ["lucro_real", "lucro_presumido", "simples_nacional"],
       status_cliente: ["fechado", "relatorio_enviado", "em_analise", "ativo"],

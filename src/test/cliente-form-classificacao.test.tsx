@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import type { Database } from "@/integrations/supabase/types";
@@ -13,11 +13,26 @@ vi.mock("@/services/clientesService", () => ({
   updateClienteOperacao: vi.fn(),
 }));
 
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({ userRole: "admin", permissions: [] }),
+}));
+
+vi.mock("@/hooks/data/useClienteDocumentos", () => ({
+  useClienteDocumentos: () => ({ data: [], isPending: false }),
+  useUploadClienteDocumento: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteClienteDocumento: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 vi.mock("@/hooks/data/useEsteira", () => ({
   useEsteiraSlaConfig: () => ({
     data: [
       { estagio: "triagem", label: "Triagem", ordem: 1, ativo: true },
-      { estagio: "levantamento", label: "Levantamento", ordem: 2, ativo: true },
+      { estagio: "devolucao_comercial", label: "Devolução Comercial", ordem: 2, ativo: true },
+      { estagio: "contrato_emitido", label: "Contrato Emitido", ordem: 3, ativo: true },
+      { estagio: "contrato_assinado", label: "Contrato Assinado", ordem: 4, ativo: true },
+      { estagio: "em_compensacao", label: "Em Compensação", ordem: 5, ativo: true },
+      { estagio: "compensado", label: "Compensado", ordem: 6, ativo: true },
+      { estagio: "concluido", label: "Concluído", ordem: 7, ativo: true },
     ],
     isPending: false,
   }),
@@ -67,6 +82,7 @@ describe("classificação geral do cliente", () => {
     expect(screen.getByText("Status geral")).toBeInTheDocument();
     expect(screen.getByText("Responsável da empresa")).toBeInTheDocument();
     expect(screen.getByText("Etapa atual da esteira")).toBeInTheDocument();
+    expect(screen.getByText("Anexos")).toBeInTheDocument();
     expect(screen.queryByText("Compensando pela Fintax")).not.toBeInTheDocument();
   });
 
@@ -76,5 +92,34 @@ describe("classificação geral do cliente", () => {
     expect(screen.getByRole("heading", { name: "Cadastrar Cliente" })).toBeInTheDocument();
     expect(screen.getByText("Classificação do cliente")).toBeInTheDocument();
     expect(screen.getByText("Status geral")).toBeInTheDocument();
+    expect(screen.getByText("Anexos")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Anexar arquivos" })).toBeInTheDocument();
+  });
+
+  it("abre o Status geral com os 5 valores da ficha, inclusive os extras", () => {
+    renderModal(CLIENTE);
+    fireEvent.click(screen.getByRole("combobox", { name: "Status geral" }));
+
+    expect(screen.getByRole("option", { name: "Total Compensados" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Possíveis recebimentos" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Encerrado / Liquidado" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Recuperação Judicial" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Ressarcimento concluído" })).toBeInTheDocument();
+  });
+
+  it("abre a etapa da esteira com Devolução Comercial entre Triagem e Contrato Emitido", () => {
+    renderModal(CLIENTE);
+    fireEvent.click(screen.getByRole("combobox", { name: "Etapa atual da esteira" }));
+
+    const opcoes = screen.getAllByRole("option").map((item) => item.textContent);
+    expect(opcoes).toEqual([
+      "Triagem",
+      "Devolução Comercial",
+      "Contrato Emitido",
+      "Contrato Assinado",
+      "Em Compensação",
+      "Compensado",
+      "Concluído",
+    ]);
   });
 });

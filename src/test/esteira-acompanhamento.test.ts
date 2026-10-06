@@ -16,11 +16,12 @@ import {
 
 const CONFIG = [
   { estagio: "triagem", label: "Triagem", ordem: 1, ativo: true },
-  { estagio: "contrato_emitido", label: "Contrato Emitido", ordem: 2, ativo: true },
-  { estagio: "contrato_assinado", label: "Contrato Assinado", ordem: 3, ativo: true },
-  { estagio: "em_compensacao", label: "Em Compensação", ordem: 4, ativo: true },
-  { estagio: "compensado", label: "Compensado", ordem: 5, ativo: true },
-  { estagio: "concluido", label: "Concluído", ordem: 6, ativo: true },
+  { estagio: "devolucao_comercial", label: "Devolução Comercial", ordem: 2, ativo: true },
+  { estagio: "contrato_emitido", label: "Contrato Emitido", ordem: 3, ativo: true },
+  { estagio: "contrato_assinado", label: "Contrato Assinado", ordem: 4, ativo: true },
+  { estagio: "em_compensacao", label: "Em Compensação", ordem: 5, ativo: true },
+  { estagio: "compensado", label: "Compensado", ordem: 6, ativo: true },
+  { estagio: "concluido", label: "Concluído", ordem: 7, ativo: true },
 ];
 
 const hoje = new Date();
@@ -81,7 +82,7 @@ describe("slaInfo (semáforo)", () => {
 
 describe("proximaEtapa / proximaAcao", () => {
   it("pula etapa inativa e a devolutiva", () => {
-    expect(proximaEtapa("triagem", CONFIG)?.estagio).toBe("contrato_emitido");
+    expect(proximaEtapa("triagem", CONFIG)?.estagio).toBe("devolucao_comercial");
     expect(proximaEtapa("compensado", CONFIG)?.estagio).toBe("concluido");
   });
 
@@ -91,8 +92,8 @@ describe("proximaEtapa / proximaAcao", () => {
   });
 
   it("texto muda conforme o semáforo", () => {
-    expect(proximaAcao({ estagio_esteira: "triagem", dias_na_etapa: 6, sla_dias: 1 }, CONFIG)).toBe("Mover para Contrato Emitido — venceu há 5d");
-    expect(proximaAcao({ estagio_esteira: "triagem", dias_na_etapa: 1, sla_dias: 1, data_entrada_estagio: diasAtras(1) }, CONFIG)).toBe("Mover para Contrato Emitido — vence hoje");
+    expect(proximaAcao({ estagio_esteira: "triagem", dias_na_etapa: 6, sla_dias: 1 }, CONFIG)).toBe("Mover para Devolução Comercial — venceu há 5d");
+    expect(proximaAcao({ estagio_esteira: "triagem", dias_na_etapa: 1, sla_dias: 1, data_entrada_estagio: diasAtras(1) }, CONFIG)).toBe("Mover para Devolução Comercial — vence hoje");
     expect(proximaAcao({ estagio_esteira: "em_compensacao", dias_na_etapa: 2, sla_dias: 30, data_entrada_estagio: diasAtras(2) }, CONFIG)).toMatch(/^Mover para Compensado até \d{2}\/\d{2}$/);
   });
 });

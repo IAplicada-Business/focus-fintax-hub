@@ -58,13 +58,17 @@ export interface ProcessoTipoRecuperacaoRow {
   status_processo?: string | null;
 }
 
+export function isStatusFiltroExtra(
+  value: string | null | undefined,
+): value is StatusFiltroExtra {
+  return STATUS_FILTRO_EXTRAS.some((item) => item === value);
+}
+
 export function normalizarStatusCompensacao(row: StatusCompensacaoRow): StatusCompensacao {
   const status = row.status_principal;
   // Recuperação Judicial / Ressarcimento concluído marcados no cadastro são
   // classificação explícita da equipe: valem mesmo com compensação no mês.
-  if (STATUS_FILTRO_EXTRAS.includes(status as StatusFiltroExtra)) {
-    return status as StatusFiltroExtra;
-  }
+  if (isStatusFiltroExtra(status)) return status;
   // Movimento real no mês corrente é a evidência operacional mais forte.
   // REPORTO é tipo de tese/possível futuro e não pode esconder um cliente
   // que também está efetivamente compensando.

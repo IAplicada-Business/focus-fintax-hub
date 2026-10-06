@@ -15,11 +15,19 @@ import {
   type ClienteStatusCompensacao,
 } from "@/lib/client-operation";
 import { isEstagioEsteira, type EstagioEsteira } from "@/lib/esteira-constants";
+import { podeMoverNaEsteira } from "@/lib/esteira-movimento";
+import { useAuth } from "@/hooks/useAuth";
 import {
   listClienteResponsaveisElegiveis,
   updateClienteOperacao,
 } from "@/services/clientesService";
 import { useEsteiraSlaConfig } from "@/hooks/data/useEsteira";
+import {
+  ClienteDocumentosPanel,
+  type PendingClienteDocumento,
+} from "@/components/clientes/ClienteDocumentosPanel";
+import { uploadClienteDocumento } from "@/services/clienteDocumentosService";
+import { clienteDocumentosKey } from "@/hooks/data/useClienteDocumentos";
 import type { Database } from "@/integrations/supabase/types";
 
 type ClienteRow = Database["public"]["Tables"]["clientes"]["Row"];
@@ -53,15 +61,17 @@ const emptyForm = {
 
 export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Props) {
   const queryClient = useQueryClient();
+  const { userRole } = useAuth();
   const slaConfigQ = useEsteiraSlaConfig();
   const responsaveisQ = useQuery({
     queryKey: ["clientes", "responsaveis-elegiveis"],
     queryFn: listClienteResponsaveisElegiveis,
-    enabled: open && !!cliente,
+    enabled: open,
     staleTime: 5 * 60_000,
   });
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [pendingDocs, setPendingDocs] = useState<PendingClienteDocumento[]>([]);
   const isEdit = !!cliente;
 
   useEffect(() => {
@@ -89,6 +99,7 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
     } else if (open && !cliente) {
       setForm(emptyForm);
     }
+    if (open) setPendingDocs([]);
   }, [open, cliente]);
 
   const update = (field: string, value: string | boolean) => setForm((p) => ({ ...p, [field]: value }));
@@ -137,7 +148,7 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
     };
 
     let error;
-    let novoId: string | null = null;
+    let novoId: string | null = cliente?.id ?? null;
     if (isEdit) {
       ({ error } = await supabase.from("clientes").update({ ...payload, atualizado_em: new Date().toISOString() }).eq("id", cliente.id));
     } else {
@@ -171,6 +182,20 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
           return;
         }
       }
+      if (pendingDocs.length > 0) {
+        try {
+          for (const item of pendingDocs) {
+            await uploadClienteDocumento({ clienteId: novoId, file: item.file, tipo: item.tipo });
+          }
+          await queryClient.invalidateQueries({ queryKey: clienteDocumentosKey(novoId) });
+        } catch {
+          setSaving(false);
+          toast.error("O cliente foi cadastrado, mas alguns anexos não foram enviados. Abra a ficha para tentar de novo.");
+          onSuccess();
+          onOpenChange(false);
+          return;
+        }
+      }
       await queryClient.invalidateQueries({ queryKey: ["catalog", "status_compensacao"] });
     }
     if (isEdit) {
@@ -180,6 +205,20 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
       const stageChanged =
         isEstagioEsteira(form.estagio_esteira) &&
         form.estagio_esteira !== cliente.estagio_esteira;
+      if (stageChanged) {
+        const permitido = podeMoverNaEsteira({
+          de: cliente.estagio_esteira,
+          para: form.estagio_esteira,
+          origem: "ficha",
+          role: userRole,
+          cliente,
+        });
+        if (!permitido.ok) {
+          setSaving(false);
+          toast.error(permitido.motivo);
+          return;
+        }
+      }
       const responsibleChanged =
         !!form.responsavel_id &&
         form.responsavel_id !== (cliente.responsavel_id ?? "");
@@ -292,7 +331,7 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
                     value={form.status_compensacao}
                     onValueChange={(value) => update("status_compensacao", value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger aria-label="Status geral">
                       <SelectValue placeholder="Classificação pendente" />
                     </SelectTrigger>
                     <SelectContent>
@@ -361,7 +400,7 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
                   onValueChange={(value) => update("estagio_esteira", value)}
                   disabled={slaConfigQ.isPending}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Etapa atual da esteira">
                     <SelectValue placeholder="Etapa não configurada" />
                   </SelectTrigger>
                   <SelectContent>
@@ -390,6 +429,21 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
           <div className="space-y-1.5">
             <Label>Compensação por outro escritório</Label>
             <Input value={form.compensacao_outro_escritorio} onChange={(e) => update("compensacao_outro_escritorio", e.target.value)} />
+          </div>
+          <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+            <div>
+              <p className="text-sm font-semibold">Anexos</p>
+              <p className="text-[11px] text-muted-foreground">
+                Contrato, procuração, contrato social e certidões. Vários arquivos por cliente.
+              </p>
+            </div>
+            <ClienteDocumentosPanel
+              clienteId={cliente?.id}
+              editable
+              compact
+              pending={pendingDocs}
+              onPendingChange={setPendingDocs}
+            />
           </div>
         </div>
         <DialogFooter>

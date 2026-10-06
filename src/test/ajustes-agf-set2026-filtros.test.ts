@@ -102,6 +102,21 @@ describe("item 1 · status compensação", () => {
     expect(counts.recuperacao_judicial).toBe(filtra(["recuperacao_judicial"]).length);
     expect(counts.ressarcimento_concluido).toBe(filtra(["ressarcimento_concluido"]).length);
   });
+
+  it("status gravado na ficha entra no recorte mesmo sem processo daquele ramo", () => {
+    const status = new Map<string, StatusCompensacao>([
+      ["ficha-jud", "recuperacao_judicial"],
+      ["comp", "compensando"],
+    ]);
+    const ids = ["ficha-jud", "comp"];
+    const filtra = (sel: StatusCompensacao[]) =>
+      ids.filter(makeStatusFilterPredicate(new Set(sel), status, new Map()));
+
+    expect(filtra(["recuperacao_judicial"])).toEqual(["ficha-jud"]);
+    const counts = countByStatus(ids, status, new Map());
+    expect(counts.recuperacao_judicial).toBe(1);
+    expect(counts.compensando).toBe(1);
+  });
 });
 
 describe("item 3 · tipo de recuperação", () => {

@@ -83,14 +83,12 @@ export async function entregarLeadNaEsteira(params: {
     }
   }
 
-  const estagio = avancarEstagioEsteira(existente.estagio_esteira, destino);
-  if (estagio !== existente.estagio_esteira) {
-    const { error } = await supabase
-      .from("clientes")
-      .update({ estagio_esteira: estagio })
-      .eq("id", existente.id);
-    if (error) throw error;
-  }
+  const { data: avancado, error: avancoErr } = await supabase.rpc("esteira_avancar_pelo_funil", {
+    p_cliente_id: existente.id,
+    p_destino: destino,
+  });
+  if (avancoErr) throw avancoErr;
+  const estagio = (avancado ?? avancarEstagioEsteira(existente.estagio_esteira, destino)) as EstagioEsteira;
 
   const { error: leadErr } = await supabase
     .from("leads")

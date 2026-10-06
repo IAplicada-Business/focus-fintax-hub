@@ -26,6 +26,7 @@ import {
   AlertDialogTitle as AlertTitle,
 } from "@/components/ui/alert-dialog";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
+import { ClienteDocumentosPanel } from "@/components/clientes/ClienteDocumentosPanel";
 import { isReportoProcesso, sumCompensadoCanonical } from "@/lib/clientes-constants";
 import {
   clienteHistoricoKey,
@@ -97,7 +98,12 @@ export default function ClienteDetail() {
   const [importing, setImporting] = useState(false);
   const [tabKey, setTabKey] = useState(0);
   const [activeTab, setActiveTab] = useState("processos");
-  const [visitedTabs, setVisitedTabs] = useState({ processos: true, compensacoes: false, resumo: false });
+  const [visitedTabs, setVisitedTabs] = useState({
+    processos: true,
+    compensacoes: false,
+    resumo: false,
+    documentos: false,
+  });
   const [addTeseSignal, setAddTeseSignal] = useState(0);
   const [addTesePreset, setAddTesePreset] = useState<string | null>(null);
 
@@ -295,6 +301,7 @@ export default function ClienteDetail() {
             { value: "processos", label: "Processos por Tese" },
             { value: "compensacoes", label: "Compensações" },
             { value: "resumo", label: "Resumo Financeiro" },
+            { value: "documentos", label: "Documentos" },
           ];
           return (
             <Tabs
@@ -334,6 +341,13 @@ export default function ClienteDetail() {
               {visitedTabs.resumo && (
                 <TabsContent value="resumo" forceMount className={activeTab !== "resumo" ? "hidden" : undefined}>
                   <ResumoFinanceiroTab clienteId={id!} cliente={cliente} />
+                </TabsContent>
+              )}
+              {visitedTabs.documentos && (
+                <TabsContent value="documentos" forceMount className={activeTab !== "documentos" ? "hidden" : undefined}>
+                  <div className="mt-4">
+                    <ClienteDocumentosPanel clienteId={id!} editable={canEdit} />
+                  </div>
                 </TabsContent>
               )}
             </Tabs>

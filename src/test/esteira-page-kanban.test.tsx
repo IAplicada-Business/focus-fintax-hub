@@ -10,7 +10,9 @@ const useEsteiraSlaConfig = vi.fn();
 vi.mock("@/hooks/data/useEsteira", () => ({
   useEsteiraClientes: () => useEsteiraClientes(),
   useEsteiraSlaConfig: () => useEsteiraSlaConfig(),
-  useUpdateEstagioEsteira: () => ({ mutateAsync: vi.fn() }),
+  useUpdateEstagioEsteira: () => ({ mutateAsync: vi.fn(), mutate: vi.fn() }),
+  useUpdateTriagemRealizada: () => ({ mutateAsync: vi.fn(), mutate: vi.fn() }),
+  useUploadTriagemDocumento: () => ({ mutateAsync: vi.fn(), mutate: vi.fn() }),
 }));
 
 vi.mock("@/hooks/useAuth", () => ({
@@ -82,7 +84,11 @@ describe("/esteira — quadro visível", () => {
 
     expect(screen.getByRole("region", { name: "Esteira administrativa" })).toBeInTheDocument();
     expect(screen.getByRole("list", { name: /Triagem/ })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: /Devolução Comercial/ })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: /Contrato Emitido/ })).toBeInTheDocument();
     expect(screen.getByText("Mercado Central")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Triagem não" })).toBeInTheDocument();
+    expect(screen.getByText("Anexar")).toBeInTheDocument();
   });
 
   it("respeita a preferência salva de tabela", async () => {

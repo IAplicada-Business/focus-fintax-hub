@@ -13,6 +13,7 @@ import {
 describe("ESTEIRA_SLA_DIAS (épica Painel SLA)", () => {
   it("bate com as metas das etapas conectadas ao comercial", () => {
     expect(ESTEIRA_SLA_DIAS.triagem).toBe(1);
+    expect(ESTEIRA_SLA_DIAS.devolucao_comercial).toBe(3);
     expect(ESTEIRA_SLA_DIAS.contrato_emitido).toBe(3);
     expect(ESTEIRA_SLA_DIAS.contrato_assinado).toBe(3);
   });

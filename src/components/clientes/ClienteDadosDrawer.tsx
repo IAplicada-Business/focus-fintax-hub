@@ -11,6 +11,7 @@ import {
   Mail,
   MessageCircle,
   Pencil,
+  Receipt,
   Save,
   Trash2,
   Upload,
@@ -21,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ClienteDocumentosPanel } from "@/components/clientes/ClienteDocumentosPanel";
 import { EsteiraTimeline } from "@/components/clientes/EsteiraTimeline";
 import { ResponsavelAvatar } from "@/components/esteira/ResponsavelAvatar";
 import { useClienteHistorico } from "@/hooks/data/useClienteOperacional";
@@ -44,7 +46,7 @@ interface Props {
   onImportLaratex: () => void;
 }
 
-type Aba = "resumo" | "esteira" | "historico";
+type Aba = "resumo" | "esteira" | "documentos" | "historico";
 
 const FAIXA_LABEL: Record<string, string> = Object.fromEntries(
   FATURAMENTO_FAIXAS.map((f) => [f.value, f.label]),
@@ -204,44 +206,54 @@ export function ClienteDadosDrawer({
           </div>
         </SheetHeader>
 
-        <div className="flex flex-wrap items-center gap-1.5 border-b px-6 py-3">
+        <div className="space-y-1.5 border-b px-6 py-3">
           {canEdit && (
-            <>
-              <Button size="sm" className="gap-1" onClick={onEdit}>
+            <div className="grid grid-cols-2 gap-1.5">
+              <Button size="sm" className="w-full gap-1" onClick={onEdit}>
                 <Pencil className="h-3.5 w-3.5" /> Editar
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1 text-destructive hover:text-destructive"
+                className="w-full gap-1 text-destructive hover:text-destructive"
                 onClick={onDelete}
               >
                 <Trash2 className="h-3.5 w-3.5" /> Excluir
               </Button>
-              <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
-            </>
+            </div>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1"
-            onClick={() => navigate(`/clientes/${cliente.id}/mapa-creditos`)}
-          >
-            <FileText className="h-3.5 w-3.5" /> Mapa de Créditos
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1"
-            onClick={() => navigate(`/clientes/${cliente.id}/compensacoes`)}
-          >
-            <FileText className="h-3.5 w-3.5" /> Compensações
-          </Button>
-          {canEdit && (
-            <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground" onClick={onImportLaratex}>
-              <Upload className="h-3.5 w-3.5" /> Importar Laratex
+          <div className={cn("grid gap-1.5", canEdit ? "grid-cols-3" : "grid-cols-2")}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-1 px-2 text-xs"
+              aria-label="Mapa de Créditos"
+              title="Mapa de Créditos"
+              onClick={() => navigate(`/clientes/${cliente.id}/mapa-creditos`)}
+            >
+              <FileText className="h-3.5 w-3.5" /> Mapa
             </Button>
-          )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-1 px-2 text-xs"
+              onClick={() => navigate(`/clientes/${cliente.id}/compensacoes`)}
+            >
+              <Receipt className="h-3.5 w-3.5" /> Compensações
+            </Button>
+            {canEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-1 px-2 text-xs"
+                aria-label="Importar Laratex"
+                title="Importar Laratex"
+                onClick={onImportLaratex}
+              >
+                <Upload className="h-3.5 w-3.5" /> Laratex
+              </Button>
+            )}
+          </div>
         </div>
 
         <Tabs
@@ -253,12 +265,13 @@ export function ClienteDadosDrawer({
           className="flex min-h-0 flex-1 flex-col"
         >
           <div className="border-b px-6 pt-3">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="resumo">Resumo</TabsTrigger>
               <TabsTrigger value="esteira" className="gap-1.5">
                 Esteira
                 {atrasado && <span className="h-1.5 w-1.5 rounded-full bg-dash-red" aria-hidden title="SLA estourado" />}
               </TabsTrigger>
+              <TabsTrigger value="documentos">Documentos</TabsTrigger>
               <TabsTrigger value="historico">Histórico</TabsTrigger>
             </TabsList>
           </div>
@@ -411,6 +424,10 @@ export function ClienteDadosDrawer({
               )}
 
               <EsteiraTimeline clienteId={cliente.id} />
+            </TabsContent>
+
+            <TabsContent value="documentos" className="mt-0">
+              <ClienteDocumentosPanel clienteId={cliente.id} editable={canEdit} compact />
             </TabsContent>
 
             <TabsContent value="historico" className="mt-0">

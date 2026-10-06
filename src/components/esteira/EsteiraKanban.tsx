@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
-import { AlertTriangle, Building2, ChevronsLeft, ChevronsRight, Clock, UserX } from "lucide-react";
+import { AlertTriangle, Building2, ChevronsLeft, ChevronsRight, Clock, FileText, Paperclip, UserX } from "lucide-react";
+import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
 import { ESTEIRA_STAGES, ORIGEM_LABELS, isEstagioEsteira } from "@/lib/esteira-constants";
+import { podeMoverNaEsteira } from "@/lib/esteira-movimento";
 import { TIPO_RECUPERACAO_BADGE, TIPO_RECUPERACAO_LABEL } from "@/lib/tipo-recuperacao";
 import { ramosDoCliente, type SlaInfo } from "@/lib/esteira-acompanhamento";
 import {
@@ -14,8 +16,12 @@ import {
 } from "@/lib/esteira-board";
 import { lerColapsadas, salvarColapsadas } from "@/lib/pipeline-board";
 import { ResponsavelAvatar } from "@/components/esteira/ResponsavelAvatar";
-import { useUpdateEstagioEsteira } from "@/hooks/data/useEsteira";
-import type { EsteiraCliente } from "@/services/esteiraService";
+import {
+  useUpdateEstagioEsteira,
+  useUpdateTriagemRealizada,
+  useUploadTriagemDocumento,
+} from "@/hooks/data/useEsteira";
+import { urlTriagemDocumento, type EsteiraCliente } from "@/services/esteiraService";
 import { cn } from "@/lib/utils";
 
 export interface EsteiraKanbanStage {
@@ -49,6 +55,8 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
   const [colapsadas, setColapsadas] = useState<Set<string>>(() => lerColapsadas(typeof localStorage !== "undefined" ? localStorage : null, ESTEIRA_COLAPSO_KEY));
   const [optimisticMoves, setOptimisticMoves] = useState<Record<string, string>>({});
   const updateEstagio = useUpdateEstagioEsteira();
+  const updateTriagem = useUpdateTriagemRealizada();
+  const uploadTriagem = useUploadTriagemDocumento();
   const focusRef = useRef<HTMLDivElement | null>(null);
   const jaRolou = useRef(false);
 
@@ -95,6 +103,16 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
     if (!isEstagioEsteira(newStage)) return;
     const cliente = clientes.find((c) => c.id === clienteId);
     if (!cliente || cliente.estagio_esteira === newStage) return;
+    const permitido = podeMoverNaEsteira({
+      de: cliente.estagio_esteira,
+      para: newStage,
+      origem: "kanban",
+      cliente,
+    });
+    if (!permitido.ok) {
+      toast.error(permitido.motivo);
+      return;
+    }
 
     setOptimisticMoves((prev) => ({ ...prev, [clienteId]: newStage }));
     try {
@@ -203,6 +221,12 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
                         index={index}
                         sla={slaDoClienteEsteira(cliente, stage.sla_dias)}
                         onClick={() => onClienteClick?.(cliente.id)}
+                        onToggleTriagem={(realizada) =>
+                          updateTriagem.mutate({ clienteId: cliente.id, realizada })
+                        }
+                        onUploadTriagem={(file) =>
+                          uploadTriagem.mutate({ clienteId: cliente.id, file })
+                        }
                       />
                     ))}
                     {provided.placeholder}
@@ -224,9 +248,26 @@ const SLA_BADGE: Record<SlaInfo["status"], string> = {
   sem_sla: "bg-ink-06 text-ink-35 border-transparent",
 };
 
-function ClienteCard({ cliente, index, sla, onClick }: { cliente: EsteiraCliente; index: number; sla: SlaInfo; onClick: () => void }) {
+function ClienteCard({
+  cliente,
+  index,
+  sla,
+  onClick,
+  onToggleTriagem,
+  onUploadTriagem,
+}: {
+  cliente: EsteiraCliente;
+  index: number;
+  sla: SlaInfo;
+  onClick: () => void;
+  onToggleTriagem: (realizada: boolean) => void;
+  onUploadTriagem: (file: File) => void;
+}) {
   const ramos = ramosDoCliente(cliente);
   const atrasado = sla.status === "estourado";
+  const naTriagem = cliente.estagio_esteira === "triagem";
+  const triagemOk = !!cliente.triagem_realizada;
+  const temDocumento = !!cliente.triagem_documento_path?.trim();
 
   return (
     <Draggable draggableId={cliente.id} index={index}>
@@ -266,6 +307,61 @@ function ClienteCard({ cliente, index, sla, onClick }: { cliente: EsteiraCliente
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-700 font-semibold">{cliente.tentativas_abordagem}ª tentativa</span>
             )}
           </div>
+
+          {naTriagem && (
+            <div
+              className="mt-2 flex flex-wrap items-center gap-1.5"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                aria-pressed={triagemOk}
+                onClick={() => onToggleTriagem(!triagemOk)}
+                className={cn(
+                  "inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold",
+                  triagemOk
+                    ? "border-dash-green/30 bg-dash-green/10 text-dash-green"
+                    : "border-ink-06 bg-ink-03 text-ink-60",
+                )}
+              >
+                Triagem {triagemOk ? "sim" : "não"}
+              </button>
+              {temDocumento ? (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full border border-ink-06 px-1.5 py-0.5 text-[10px] font-medium text-navy hover:bg-ink-03"
+                  title={cliente.triagem_documento_nome || "Documento de conclusão"}
+                  onClick={async () => {
+                    try {
+                      const url = await urlTriagemDocumento(cliente.triagem_documento_path!);
+                      window.open(url, "_blank", "noopener");
+                    } catch {
+                      toast.error("Não foi possível abrir o documento da triagem.");
+                    }
+                  }}
+                >
+                  <FileText className="h-3 w-3" />
+                  {cliente.triagem_documento_nome || "Documento"}
+                </button>
+              ) : (
+                <label className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-dashed border-ink-06 px-1.5 py-0.5 text-[10px] font-medium text-ink-60 hover:border-navy hover:text-navy">
+                  <Paperclip className="h-3 w-3" />
+                  Anexar
+                  <input
+                    type="file"
+                    className="sr-only"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,application/pdf,image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) onUploadTriagem(file);
+                      e.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+          )}
 
           {atrasado && (
             <div

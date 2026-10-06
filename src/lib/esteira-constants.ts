@@ -4,6 +4,7 @@
  */
 export const ESTEIRA_STAGES = [
   { value: "triagem", label: "Triagem" },
+  { value: "devolucao_comercial", label: "Devolução Comercial" },
   { value: "contrato_emitido", label: "Contrato Emitido" },
   { value: "contrato_assinado", label: "Contrato Assinado" },
   { value: "em_compensacao", label: "Em Compensação" },
@@ -37,6 +38,7 @@ export type EstagioEsteira = (typeof ESTEIRA_ALL_STAGES)[number]["value"];
 export const ESTEIRA_SLA_DIAS: Record<EstagioEsteira, number | null> = {
   nova_abordagem: 5,
   triagem: 1,
+  devolucao_comercial: 3,
   levantamento: 3,
   emitir_contrato: 1,
   receber_assinado: 3,

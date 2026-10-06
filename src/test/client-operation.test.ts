@@ -46,6 +46,19 @@ describe("modelo operacional da ficha do cliente", () => {
     ).toBe("compensando");
     expect(
       normalizarStatusCompensacao({
+        cliente_id: "ficha-judicial",
+        status_principal: "recuperacao_judicial",
+        tem_compensacao_mes_corrente: true,
+      }),
+    ).toBe("recuperacao_judicial");
+    expect(
+      normalizarStatusCompensacao({
+        cliente_id: "ficha-ressarcimento",
+        status_principal: "ressarcimento_concluido",
+      }),
+    ).toBe("ressarcimento_concluido");
+    expect(
+      normalizarStatusCompensacao({
         cliente_id: "reporto-minusculo",
         status_principal: null,
         tem_reporto: true,

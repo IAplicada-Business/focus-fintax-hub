@@ -7,6 +7,8 @@ import {
   listEsteiraResponsaveis,
   reiniciarSlaEsteira,
   updateEstagioEsteira,
+  updateTriagemRealizada,
+  uploadTriagemDocumento,
   type RealocacaoItem,
 } from "@/services/esteiraService";
 import { listStatusCompensacaoRows } from "@/services/clientesService";
@@ -62,6 +64,32 @@ export function useUpdateEstagioEsteira() {
       qc.invalidateQueries({ queryKey: ["esteira"] });
     },
     onError: (err) => toastError(err, "Erro ao mover cliente na esteira"),
+  });
+}
+
+export function useUpdateTriagemRealizada() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ clienteId, realizada }: { clienteId: string; realizada: boolean }) =>
+      updateTriagemRealizada(clienteId, realizada),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["esteira"] });
+      qc.invalidateQueries({ queryKey: ["clientes"] });
+    },
+    onError: (err) => toastError(err, "Erro ao atualizar a triagem"),
+  });
+}
+
+export function useUploadTriagemDocumento() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ clienteId, file }: { clienteId: string; file: File }) =>
+      uploadTriagemDocumento(clienteId, file),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["esteira"] });
+      qc.invalidateQueries({ queryKey: ["clientes"] });
+    },
+    onError: (err) => toastError(err, "Erro ao anexar o documento da triagem"),
   });
 }
 

@@ -22,6 +22,11 @@ describe("handoff funil comercial → esteira operacional", () => {
     expect(estagioEsteiraDoFunil("ganho")).toBe("em_compensacao");
   });
 
+  it("não regride quem já está em Devolução Comercial quando o funil segue em Triagem", () => {
+    expect(avancarEstagioEsteira("devolucao_comercial", "triagem")).toBe("devolucao_comercial");
+    expect(avancarEstagioEsteira("devolucao_comercial", "contrato_emitido")).toBe("contrato_emitido");
+  });
+
   it("nunca volta etapa da esteira já avançada", () => {
     expect(avancarEstagioEsteira("em_compensacao", "contrato_assinado")).toBe("em_compensacao");
     expect(avancarEstagioEsteira("triagem", "contrato_assinado")).toBe("contrato_assinado");

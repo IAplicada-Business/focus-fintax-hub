@@ -12,6 +12,16 @@ vi.mock("@/services/clientesService", () => ({
   updateClienteOperacao: vi.fn(),
 }));
 
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({ userRole: "admin", permissions: [] }),
+}));
+
+vi.mock("@/hooks/data/useClienteDocumentos", () => ({
+  useClienteDocumentos: () => ({ data: [], isPending: false }),
+  useUploadClienteDocumento: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteClienteDocumento: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 vi.mock("@/hooks/data/useEsteira", () => ({
   useEsteiraSlaConfig: () => ({
     data: [{ estagio: "triagem", label: "Triagem", ordem: 1, ativo: true }],

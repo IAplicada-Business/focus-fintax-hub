@@ -16,6 +16,7 @@ describe("separação entre funil comercial e esteira operacional", () => {
     expect(values[0]).toBe("triagem");
     expect(values).toEqual([
       "triagem",
+      "devolucao_comercial",
       "contrato_emitido",
       "contrato_assinado",
       "em_compensacao",

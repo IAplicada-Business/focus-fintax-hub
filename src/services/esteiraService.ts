@@ -32,6 +32,9 @@ export interface EsteiraCliente {
   ultima_acao_em?: string | null;
   ultima_acao_descricao?: string | null;
   ultima_acao_tipo?: string | null;
+  triagem_realizada?: boolean | null;
+  triagem_documento_path?: string | null;
+  triagem_documento_nome?: string | null;
 }
 
 export async function listEsteiraClientes() {
@@ -49,6 +52,45 @@ export async function updateEstagioEsteira(clienteId: string, estagio: EstagioEs
     .update({ estagio_esteira: estagio })
     .eq("id", clienteId);
   if (error) throw error;
+}
+
+export async function updateTriagemRealizada(clienteId: string, realizada: boolean) {
+  const { error } = await supabase
+    .from("clientes")
+    .update({ triagem_realizada: realizada, atualizado_em: new Date().toISOString() })
+    .eq("id", clienteId);
+  if (error) throw error;
+}
+
+const BUCKET_TRIAGEM = "cliente-documentos";
+
+function sanitizeFileName(name: string) {
+  return name.replace(/[^\w.\-]+/g, "_").slice(0, 80) || "documento";
+}
+
+export async function uploadTriagemDocumento(clienteId: string, file: File) {
+  const path = `${clienteId}/triagem/${Date.now()}-${sanitizeFileName(file.name)}`;
+  const { error: upErr } = await supabase.storage.from(BUCKET_TRIAGEM).upload(path, file, {
+    upsert: false,
+    contentType: file.type || undefined,
+  });
+  if (upErr) throw upErr;
+  const { error } = await supabase
+    .from("clientes")
+    .update({
+      triagem_documento_path: path,
+      triagem_documento_nome: file.name,
+      atualizado_em: new Date().toISOString(),
+    })
+    .eq("id", clienteId);
+  if (error) throw error;
+  return { path, nome: file.name };
+}
+
+export async function urlTriagemDocumento(path: string) {
+  const { data, error } = await supabase.storage.from(BUCKET_TRIAGEM).createSignedUrl(path, 60);
+  if (error) throw error;
+  return data.signedUrl;
 }
 
 export interface EsteiraResponsavel {

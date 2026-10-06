@@ -74,6 +74,7 @@ export const SCREENS: ScreenDef[] = [
       { key: "clientes.processos",    label: "Processos por Tese", defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial", "sdr", "gestor_comercial"] },
       { key: "clientes.compensacoes", label: "Compensações",       defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial", "sdr", "gestor_comercial"] },
       { key: "clientes.resumo",       label: "Resumo Financeiro",  defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial", "sdr", "gestor_comercial"] },
+      { key: "clientes.documentos",   label: "Documentos",         defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial", "sdr", "gestor_comercial"] },
       { key: "intimacoes",            label: "Intimações",         defaultRoles: ["admin", "pmo", "gestor_tributario"], defaultReadOnlyRoles: ["comercial", "sdr", "gestor_comercial"] },
     ],
   },
