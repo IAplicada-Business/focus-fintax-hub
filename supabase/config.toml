@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.submit-calculadora-lead]
 verify_jwt = false
+
+[functions.atendimento-zapi]
+verify_jwt = false
