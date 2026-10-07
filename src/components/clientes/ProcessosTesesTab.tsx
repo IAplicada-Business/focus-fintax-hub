@@ -30,6 +30,7 @@ import {
   getStatusContratoConfig,
   getStatusProcessoConfig,
   isProcessoIncluirNoCalculo,
+  isProcessoJudicialForaCalculo,
   isReportoProcesso,
   processoTeseCatalogCodigo,
 } from "@/lib/clientes-constants";
@@ -350,6 +351,7 @@ export function TeseDetailCard({
   const etapa = getStatusProcessoConfig(processo.status_processo);
   const tipo = processo.tipo_recuperacao as TipoRecuperacao;
   const reporto = isReportoProcesso(processo);
+  const judicialForaCalculo = isProcessoJudicialForaCalculo(processo);
   const percentual = Number(processo.percentual_honorario || 0);
   const percentualLabel = percentual <= 1 ? percentual * 100 : percentual;
 
@@ -371,6 +373,10 @@ export function TeseDetailCard({
               {reporto ? (
                 <Badge variant="outline" className="border-slate-200 bg-slate-100 text-slate-700">
                   Possíveis futuros
+                </Badge>
+              ) : judicialForaCalculo ? (
+                <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-800">
+                  Recuperação judicial · fora do cálculo
                 </Badge>
               ) : noCalculo === true ? (
                 <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800">

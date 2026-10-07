@@ -11,14 +11,12 @@ import {
 } from "@/lib/esteira-constants";
 import {
   filterCompensadoCanonical,
-  isReportoProcesso,
-  mergeCreditosComProcessosFallback,
+  isProcessoForaDoCalculo,
   processoTeseCatalogCodigo,
 } from "@/lib/clientes-constants";
-import { buildLinhasMapa, calcularTotais } from "@/lib/mapa-creditos";
+import { calcularSaldosCliente } from "@/lib/saldos-cliente";
 import { currentMonthKey, monthKeyBrt, shiftMonthKey } from "@/lib/month-key";
 import {
-  codigoNoFiltroTese,
   filtrarCompensacoesPorTipoTese,
   teseFiltroAtivo,
   type TipoTeseFiltro,
@@ -73,10 +71,22 @@ export interface ResumoFinanceiroCliente {
   sem_base_financeira: boolean;
 }
 
+export interface ResumirFinanceiroOpts {
+  /**
+   * `YYYY-MM` inclusive: saldo é estoque, então o compensado subtraído vai do
+   * início até o fim do período escolhido — nunca só o mês selecionado.
+   * Vazio = acumulado até hoje.
+   */
+  mesFim?: string | null;
+}
+
 /**
- * Consolida a carteira com a mesma régua do mapa do cliente:
- * teses marcadas em `incluir_no_calculo`, compensação canônica por tese,
- * snapshot manual quando maior e os mesmos fallbacks de processo/REPORTO.
+ * Consolida a carteira com a MESMA conta do card "Saldo restante" da ficha
+ * (`calcularSaldosCliente`): teses marcadas em `incluir_no_calculo`,
+ * compensação canônica (sem Reporto / Recuperação judicial / órfã duplicada)
+ * e os mesmos fallbacks de processo. Nada de snapshot manual
+ * (`valor_compensado_manual`): a ficha não usa, e era por isso que o Top 10
+ * da Executiva mostrava outro saldo para o mesmo cliente.
  */
 export function resumirFinanceiroPorCliente(
   clienteIds: Iterable<string>,
@@ -85,90 +95,51 @@ export function resumirFinanceiroPorCliente(
   teses: TeseLike[],
   processos: ProcessoLike[],
   tipoTese: TipoTeseFiltro = [],
+  opts: ResumirFinanceiroOpts = {},
 ): ResumoFinanceiroCliente[] {
   const ids = new Set(clienteIds);
   const compsAtivas = comps.filter((row) => ids.has(row.cliente_id));
   const creditosAtivos = creditos.filter((row) => ids.has(row.cliente_id));
   const processosAtivos = processos.filter((row) => ids.has(row.cliente_id));
-  const teseIdByCodigo = new Map(
-    teses
-      .filter((t) => t.id && t.codigo)
-      .map((t) => [String(t.codigo).toUpperCase(), t.id]),
-  );
-  const reportoTeseIds = new Set(
-    teses.filter((t) => String(t.codigo || "").toUpperCase() === "REPORTO").map((t) => t.id),
-  );
+  const filtroAtivo = teseFiltroAtivo(tipoTese);
+  const codigosFiltro = [...new Set(tipoTese.map((codigo) => String(codigo).toUpperCase()))];
+  const mesFim = opts.mesFim || undefined;
 
   return [...ids].map((clienteId) => {
     const compsCliente = compsAtivas.filter((row) => row.cliente_id === clienteId);
     const processosCliente = processosAtivos.filter((row) => row.cliente_id === clienteId);
     const creditosCliente = creditosAtivos.filter((row) => row.cliente_id === clienteId);
-    const reportoProcessoIds = new Set(
-      processosCliente
-        .filter(isReportoProcesso)
-        .map((p) => p.id),
-    );
-    const creditosComFallback = mergeCreditosComProcessosFallback({
+    const saldos = calcularSaldosCliente({
       creditos: creditosCliente,
+      comps: compsCliente,
       processos: processosCliente,
-      teseIdByCodigo,
+      teses,
+      mesFim,
     });
-    const teseInfo = new Map(teses.map((t) => [t.id, t]));
-    const linhasMapa = buildLinhasMapa({
-      mapa: creditosComFallback.map((credito) => {
-        const tese = teseInfo.get(credito.tese_id);
-        return {
-          cliente_id: clienteId,
-          tese_id: credito.tese_id,
-          tese_codigo: String(tese?.codigo || credito.tese_id).toUpperCase(),
-          tese_label: tese?.label || tese?.codigo || "Tese",
-          visivel_cliente: true,
-          valor_apurado_inicial: Number(credito.valor_apurado_inicial ?? 0),
-          total_compensado: 0,
-          saldo_final: Number(credito.valor_apurado_inicial ?? 0),
-          incluir_no_calculo: credito.incluir_no_calculo ?? undefined,
-        };
-      }),
-      compensacoes: compsCliente,
-      processos: processosCliente.map((p) => ({
-        id: p.id,
-        tese: p.tese,
-        nome_exibicao: p.nome_exibicao,
-        categoria: p.categoria,
-      })),
-      creditos: creditosCliente.map((credito) => ({
-        tese_id: credito.tese_id,
-        valor_compensado_manual: credito.valor_compensado_manual ?? null,
-      })),
-    });
-    const filtroAtivo = teseFiltroAtivo(tipoTese);
-    const linhasDoRecorte = linhasMapa.filter((linha) =>
-      codigoNoFiltroTese(linha.tese_codigo, tipoTese),
-    );
-    // Sem filtro, conserva a régua do mapa (`incluir_no_calculo`) e exclui
-    // REPORTO. Teses explicitamente escolhidas são inspecionadas isoladamente,
-    // mesmo quando não participam do cálculo padrão.
-    const totaisMapa = filtroAtivo
-      ? linhasDoRecorte.reduce(
-          (acc, linha) => ({
-            apurado: acc.apurado + Number(linha.valor_apurado_inicial || 0),
-            compensado: acc.compensado + Number(linha.total_compensado || 0),
-            saldo: acc.saldo + Number(linha.saldo_final || 0),
-          }),
-          { apurado: 0, compensado: 0, saldo: 0 },
-        )
-      : calcularTotais(linhasDoRecorte);
+    // Tese escolhida no filtro é inspecionada isoladamente, mesmo fora do
+    // cálculo padrão (ex.: REPORTO) — igual ao filtro de tese do cabeçalho.
+    const recorte = filtroAtivo
+      ? codigosFiltro
+          .map((codigo) => saldos.saldoDaTese(codigo))
+          .reduce(
+            (acc, tese) => ({
+              apurado: acc.apurado + tese.apurado,
+              compensado: acc.compensado + tese.compensado,
+            }),
+            { apurado: 0, compensado: 0 },
+          )
+      : { apurado: saldos.apuradoTotal, compensado: saldos.compensadoTotal };
     const compsCanonicas = compensacoesCanonicas(
-      compsCliente,
+      compsCliente.filter((row) => !mesFim || String(row.mes_referencia).slice(0, 7) <= mesFim),
       teses,
       processosCliente,
       tipoTese,
     );
     return {
       cliente_id: clienteId,
-      credito_apurado: totaisMapa.apurado,
-      total_compensado: totaisMapa.compensado,
-      saldo_restante: totaisMapa.saldo,
+      credito_apurado: recorte.apurado,
+      total_compensado: recorte.compensado,
+      saldo_restante: recorte.apurado - recorte.compensado,
       honorarios: compsCanonicas.reduce((sum, row) => sum + honorarioDe(row), 0),
       sem_base_financeira:
         creditosCliente.length === 0 &&
@@ -189,7 +160,7 @@ export function compensacoesCanonicas(
   );
   const reportoProcessoIds = new Set(
     processos
-      .filter(isReportoProcesso)
+      .filter(isProcessoForaDoCalculo)
       .map((p) => p.id),
   );
   const compsDoTipo = filtrarCompensacoesPorTipoTese(comps, processos, teses, tipoTese);

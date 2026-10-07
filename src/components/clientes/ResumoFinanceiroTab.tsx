@@ -3,6 +3,7 @@ import { loadXlsx } from "@/lib/lazy-libs";
 import {
   formatCurrencyBR,
   isReportoCompensacao,
+  isProcessoForaDoCalculo,
   isReportoProcesso,
 } from "@/lib/clientes-constants";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -35,9 +36,9 @@ export function ResumoFinanceiroTab({ clienteId, cliente }: Props) {
 
   // Fox: gráficos/KPIs do cliente excluem Reporto (possíveis futuros) — nunca entra em compensado
   const assinados = processos.filter((p) => p.status_contrato === "assinado");
-  const assinadosCalculo = assinados.filter((p) => !isReportoProcesso(p));
+  const assinadosCalculo = assinados.filter((p) => !isProcessoForaDoCalculo(p));
   const processoIdsCalculo = new Set(assinadosCalculo.map((p) => p.id));
-  const reportoProcessoIds = new Set(processos.filter(isReportoProcesso).map((p) => p.id));
+  const reportoProcessoIds = new Set(processos.filter(isProcessoForaDoCalculo).map((p) => p.id));
   const compsCalculo = compensacoes.filter((c) => {
     if (isReportoCompensacao(c, { reportoProcessoIds })) return false;
     if (!c.processo_tese_id) return true; // fluxo sem processo vinculado

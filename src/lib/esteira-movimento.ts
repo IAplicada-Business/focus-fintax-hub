@@ -7,12 +7,25 @@ export type MotivoMovimentoEsteira =
 export interface ClienteTriagemLike {
   triagem_realizada?: boolean | null;
   triagem_documento_path?: string | null;
+  /** Status geral da ficha (compensando, reporto, encerrado…). Definido = cliente já em operação. */
+  status_compensacao?: string | null;
+}
+
+/**
+ * Cliente com status geral definido já está em operação (a base legada foi
+ * importada direto em Triagem, já compensando). Exigir "triagem realizada +
+ * documento" dele travava a ficha sem motivo: a triagem é etapa de quem
+ * chega do funil comercial, não de quem já compensa.
+ */
+export function triagemDispensada(cliente: ClienteTriagemLike): boolean {
+  return !!String(cliente.status_compensacao ?? "").trim();
 }
 
 const PAPEIS_COMERCIAIS = ["comercial", "sdr", "gestor_comercial"] as const;
 const PAPEIS_OVERRIDE = ["admin", "pmo"] as const;
 
 export function podeSairDaTriagem(cliente: ClienteTriagemLike): MotivoMovimentoEsteira {
+  if (triagemDispensada(cliente)) return { ok: true };
   const realizada = !!cliente.triagem_realizada;
   const documento = !!cliente.triagem_documento_path?.trim();
   if (realizada && documento) return { ok: true };
