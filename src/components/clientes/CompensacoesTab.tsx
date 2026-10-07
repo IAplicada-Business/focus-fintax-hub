@@ -33,6 +33,7 @@ import {
   formatCompetenciaPT,
   getStatusPagamentoConfig,
   isReportoCompensacao,
+  isProcessoForaDoCalculo,
   isReportoProcesso,
   processoTeseCatalogCodigo,
   sumCompensadoCanonical,
@@ -224,7 +225,7 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
       teses.filter((t) => (t.codigo || "").toUpperCase() === "REPORTO").map((t) => t.id),
     );
     const reportoProcessoIds = new Set(
-      processos.filter(isReportoProcesso).map((p) => p.id),
+      processos.filter(isProcessoForaDoCalculo).map((p) => p.id),
     );
     onTotalChange?.(sumCompensadoCanonical(compensacoes, { reportoTeseIds, reportoProcessoIds }));
   }, [compensacoes, processos, teses, onTotalChange]);
@@ -244,7 +245,7 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
       .map(([, id]) => id),
   );
   const reportoProcessoIds = new Set(
-    processos.filter(isReportoProcesso).map((p) => p.id),
+    processos.filter(isProcessoForaDoCalculo).map((p) => p.id),
   );
   // Total da tabela = mesmo critério do card Total Compensado
   const totalFiltered = sumCompensadoCanonical(filtered, { reportoTeseIds, reportoProcessoIds });

@@ -19,6 +19,8 @@ export interface EsteiraCliente {
   origem: string;
   status: string;
   status_operacional: string | null;
+  /** Status geral da ficha; presente após a migration que dispensa a triagem de quem já opera. */
+  status_compensacao?: string | null;
   criado_em: string;
   /** Ramos agregados (Épica 3); opcional até a migration. */
   tem_ramo_compensacao?: boolean;

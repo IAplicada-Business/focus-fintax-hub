@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
 import { ClienteDocumentosPanel } from "@/components/clientes/ClienteDocumentosPanel";
-import { isReportoProcesso, sumCompensadoCanonical } from "@/lib/clientes-constants";
+import { isProcessoForaDoCalculo, sumCompensadoCanonical } from "@/lib/clientes-constants";
 import {
   clienteHistoricoKey,
   useClienteCompensacoes,
@@ -66,7 +66,7 @@ export default function ClienteDetail() {
     );
     const reportoProcessoIds = new Set(
       processosCached
-        .filter(isReportoProcesso)
+        .filter(isProcessoForaDoCalculo)
         .map((p) => p.id),
     );
     return sumCompensadoCanonical(compensacoesCached as any[], { reportoTeseIds, reportoProcessoIds });

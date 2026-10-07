@@ -100,6 +100,7 @@ export function totalProcessosACompensar(
     .filter((processo) => {
       const reporto =
         String(processo.categoria ?? "").toLowerCase() === "reporto" ||
+        String(processo.categoria ?? "").toLowerCase() === "recuperacao_judicial" ||
         String(processo.tese ?? "").toUpperCase() === "REPORTO" ||
         String(processo.nome_exibicao ?? "").toUpperCase() === "REPORTO";
       return (

@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import {
   STATUS_CONTRATO,
   TESES_OFICIAIS,
+  isProcessoJudicialForaCalculo,
   isReportoProcesso,
   normalizeTeseCatalogCodigo,
   processoTeseCatalogCodigo,
@@ -51,6 +52,17 @@ interface TeseOption {
   tese: string;
   nome_exibicao: string;
   tipo_recuperacao_padrao?: string | null;
+}
+
+/**
+ * Tratamento financeiro sugerido ao escolher a tese/ramo: Reporto é "possível
+ * futuro"; ramo judicial fica fora do cálculo como recuperação judicial; o
+ * resto entra no cálculo. O usuário pode trocar no seletor.
+ */
+function categoriaPadrao(isReporto: boolean, tipo: TipoRecuperacao): string {
+  if (isReporto) return "reporto";
+  if (tipo === "recuperacao_judicial") return "recuperacao_judicial";
+  return "compensacao";
 }
 
 const EMPTY_FORM = {
@@ -113,7 +125,11 @@ export function ProcessoFormModal({
         status_contrato: processo.status_contrato,
         status_processo: processo.status_processo,
         observacao: processo.observacao || "",
-        categoria: isReportoProcesso(processo) ? "reporto" : "compensacao",
+        categoria: isReportoProcesso(processo)
+          ? "reporto"
+          : isProcessoJudicialForaCalculo(processo)
+            ? "recuperacao_judicial"
+            : "compensacao",
         tipo_recuperacao: isTipoRecuperacao(processo.tipo_recuperacao)
           ? processo.tipo_recuperacao
           : "compensacao",
@@ -129,12 +145,13 @@ export function ProcessoFormModal({
     const t = teses.find((x) => x.tese === codigo);
     const nome = t?.nome_exibicao || presetTese;
     const isReporto = isReportoProcesso({ tese: codigo, nome_exibicao: nome });
+    const tipo = resolveTipoRecuperacao(t?.tipo_recuperacao_padrao, codigo, nome);
     setForm({
       ...EMPTY_FORM,
       tese: codigo,
       nome_exibicao: nome,
-      categoria: isReporto ? "reporto" : "compensacao",
-      tipo_recuperacao: resolveTipoRecuperacao(t?.tipo_recuperacao_padrao, codigo, nome),
+      categoria: categoriaPadrao(isReporto, tipo),
+      tipo_recuperacao: tipo,
     });
   }, [open, processo, presetTese, teses]);
 
@@ -166,12 +183,13 @@ export function ProcessoFormModal({
     const t = teses.find((x) => x.tese === value);
     const nome = t?.nome_exibicao || value;
     const isReporto = isReportoProcesso({ tese: value, nome_exibicao: nome });
+    const tipo = resolveTipoRecuperacao(t?.tipo_recuperacao_padrao, value, nome);
     setForm((p) => ({
       ...p,
       tese: value,
       nome_exibicao: nome,
-      categoria: isReporto ? "reporto" : "compensacao",
-      tipo_recuperacao: resolveTipoRecuperacao(t?.tipo_recuperacao_padrao, value, nome),
+      categoria: categoriaPadrao(isReporto, tipo),
+      tipo_recuperacao: tipo,
     }));
   };
 
@@ -329,7 +347,21 @@ export function ProcessoFormModal({
             <Select
               value={form.tipo_recuperacao}
               onValueChange={(v) => {
-                if (isTipoRecuperacao(v)) update("tipo_recuperacao", v);
+                if (!isTipoRecuperacao(v)) return;
+                setForm((current) => ({
+                  ...current,
+                  tipo_recuperacao: v,
+                  // Ramo judicial acompanha o tratamento (e volta ao cálculo ao sair dele),
+                  // a não ser que a tese seja Reporto.
+                  categoria:
+                    current.categoria === "reporto"
+                      ? current.categoria
+                      : v === "recuperacao_judicial"
+                        ? "recuperacao_judicial"
+                        : current.categoria === "recuperacao_judicial"
+                          ? "compensacao"
+                          : current.categoria,
+                }));
               }}
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -367,10 +399,12 @@ export function ProcessoFormModal({
               <SelectContent>
                 <SelectItem value="compensacao">Crédito no cálculo</SelectItem>
                 <SelectItem value="reporto">Possível futuro (REPORTO)</SelectItem>
+                <SelectItem value="recuperacao_judicial">Recuperação judicial (fora do cálculo)</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-[11px] text-muted-foreground">
-              Define se o crédito entra nos totais ou fica separado como possibilidade futura.
+              Define se o crédito entra nos totais ou fica separado: possibilidade futura (Reporto)
+              ou tese judicial ainda em julgamento, que não soma no apurado nem no compensado.
             </p>
           </div>
           <div className="space-y-1.5">

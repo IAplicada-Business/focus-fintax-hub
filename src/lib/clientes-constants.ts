@@ -80,7 +80,36 @@ export function isReportoProcesso(processo: ReportoProcessoLike | null | undefin
   return normalizeTeseCatalogCodigo(processo.tese, processo.nome_exibicao || "") === "REPORTO";
 }
 
-/** REPORTO / possíveis futuros — fora do Total Compensado (mesmo com tese_origem_id nulo). */
+/**
+ * Tratamento financeiro "Recuperação judicial" (review AGF 02/10/2026): a tese
+ * judicial (PIS/COFINS da própria base) ainda vai ser julgada, então fica fora
+ * do somatório como o Reporto — mas não vira Reporto: mantém a própria tese,
+ * o próprio ramo e aparece rotulada como recuperação judicial.
+ */
+export const CATEGORIA_RECUPERACAO_JUDICIAL = "recuperacao_judicial";
+
+export function isProcessoJudicialForaCalculo(
+  processo: ReportoProcessoLike | null | undefined,
+): boolean {
+  if (!processo) return false;
+  return String(processo.categoria || "").trim().toLowerCase() === CATEGORIA_RECUPERACAO_JUDICIAL;
+}
+
+/**
+ * Fora do cálculo = Reporto ou Recuperação judicial: o crédito não entra no
+ * apurado e as compensações do processo não entram no Total Compensado.
+ */
+export function isProcessoForaDoCalculo(
+  processo: ReportoProcessoLike | null | undefined,
+): boolean {
+  return isReportoProcesso(processo) || isProcessoJudicialForaCalculo(processo);
+}
+
+/**
+ * REPORTO / possíveis futuros e Recuperação judicial — fora do Total Compensado
+ * (mesmo com tese_origem_id nulo). `reportoProcessoIds` recebe os ids de todo
+ * processo fora do cálculo (ver `isProcessoForaDoCalculo`).
+ */
 export function isReportoCompensacao(
   c: CompensacaoSumRow,
   opts?: {
@@ -88,7 +117,7 @@ export function isReportoCompensacao(
     reportoProcessoIds?: Set<string>;
   },
 ): boolean {
-  if (isReportoProcesso(c.processos_teses)) return true;
+  if (isProcessoForaDoCalculo(c.processos_teses)) return true;
   if (c.tese_origem_id && opts?.reportoTeseIds?.has(c.tese_origem_id)) return true;
   if (c.processo_tese_id && opts?.reportoProcessoIds?.has(c.processo_tese_id)) return true;
   return false;
@@ -344,7 +373,7 @@ export function isTeseNoCalculoDefault(codigo: string | null | undefined): boole
  */
 export function isProcessoIncluirNoCalculo(processo: ReportoProcessoLike | null | undefined): boolean {
   if (!processo) return false;
-  return !isReportoProcesso(processo);
+  return !isProcessoForaDoCalculo(processo);
 }
 
 export type ProcessoCreditoFallback = {

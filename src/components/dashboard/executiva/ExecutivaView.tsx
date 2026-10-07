@@ -119,13 +119,17 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       data.compsRaw.filter((row) => ids.has(row.cliente_id)),
       periodo,
     );
+    // Apurado, compensado e saldo são estoque: subtraem tudo que foi compensado
+    // até o fim do período (não só o mês escolhido), como o card da ficha.
+    const periodoOptionsBase = dashboardPeriodOptions(data.compsRaw);
     const totaisCalculados = resumirFinanceiroPorCliente(
       ids,
-      compsRawPeriodo,
+      data.compsRaw.filter((row) => ids.has(row.cliente_id)),
       data.creditos,
       data.teses,
       data.processos,
       tipoTeseFiltro,
+      { mesFim: periodo.mode === "accumulated" ? null : dashboardPeriodEndMonth(periodo, periodoOptionsBase) },
     );
     const totaisBase = new Map(data.totais.map((total) => [total.cliente_id, total]));
     const totais = totaisCalculados.map((total) =>

@@ -19,6 +19,7 @@ import {
   buildProcessoIdsByTese,
   filterCompsForTese,
   isReportoCompensacao,
+  isProcessoForaDoCalculo,
   isReportoProcesso,
   mergeCreditosComProcessosFallback,
   normalizeTeseCatalogCodigo,
@@ -103,7 +104,7 @@ export function calcularSaldosCliente<C extends SaldoCompRow>(input: SaldosClien
       .map((t) => t.id),
   );
   const reportoProcessoIds = new Set(
-    input.processos.filter(isReportoProcesso).map((p) => p.id),
+    input.processos.filter(isProcessoForaDoCalculo).map((p) => p.id),
   );
   const reportoOpts = { reportoTeseIds, reportoProcessoIds };
 

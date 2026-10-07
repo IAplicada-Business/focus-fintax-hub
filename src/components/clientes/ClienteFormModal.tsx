@@ -211,7 +211,14 @@ export function ClienteFormModal({ open, onOpenChange, onSuccess, cliente }: Pro
           para: form.estagio_esteira,
           origem: "ficha",
           role: userRole,
-          cliente,
+          // O status geral escolhido no próprio formulário já conta: quem marca
+          // "Total Compensados" e move a etapa no mesmo salvar não vê a trava.
+          cliente: {
+            ...cliente,
+            status_compensacao: isClienteStatusCompensacao(form.status_compensacao)
+              ? form.status_compensacao
+              : cliente.status_compensacao,
+          },
         });
         if (!permitido.ok) {
           setSaving(false);

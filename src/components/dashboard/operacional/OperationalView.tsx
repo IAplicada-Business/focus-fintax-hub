@@ -96,6 +96,8 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       tipoTeseFiltro,
     );
     const comps = filterCompsByDashboardPeriod(compsDoRecorte, periodo);
+    // Saldo é estoque: desconta tudo que foi compensado até o fim do período.
+    const periodoOptionsBase = dashboardPeriodOptions(data.compsRaw);
     const totaisCalculados = resumirFinanceiroPorCliente(
       idsRecorte,
       data.compsRaw,
@@ -103,6 +105,7 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       data.teses,
       data.processos,
       tipoTeseFiltro,
+      { mesFim: periodo.mode === "accumulated" ? null : dashboardPeriodEndMonth(periodo, periodoOptionsBase) },
     );
     const totaisBase = new Map(data.totais.map((total) => [total.cliente_id, total]));
     const totaisRecorte = totaisCalculados.map((total) =>

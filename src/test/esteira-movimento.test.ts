@@ -78,3 +78,37 @@ describe("podeMoverNaEsteira", () => {
     ).toBe(true);
   });
 });
+
+describe("triagem dispensada para cliente em operação", () => {
+  it("status geral definido libera a saída da Triagem sem realizada/documento", () => {
+    expect(podeSairDaTriagem({ status_compensacao: "compensando" }).ok).toBe(true);
+    expect(podeSairDaTriagem({ status_compensacao: "encerrado" }).ok).toBe(true);
+    expect(podeSairDaTriagem({ status_compensacao: "   " }).ok).toBe(false);
+    expect(podeSairDaTriagem({ status_compensacao: null }).ok).toBe(false);
+  });
+
+  it("ficha e kanban movem Triagem → Concluído quem já compensa", () => {
+    for (const origem of ["ficha", "kanban"] as const) {
+      expect(
+        podeMoverNaEsteira({
+          de: "triagem",
+          para: "concluido",
+          origem,
+          role: "gestor_tributario",
+          cliente: { status_compensacao: "compensando", triagem_realizada: false },
+        }).ok,
+      ).toBe(true);
+    }
+  });
+
+  it("quem chega do funil sem status continua precisando concluir a triagem", () => {
+    expect(
+      podeMoverNaEsteira({
+        de: "triagem",
+        para: "devolucao_comercial",
+        origem: "kanban",
+        cliente: { status_compensacao: null, triagem_realizada: true },
+      }),
+    ).toMatchObject({ ok: false, motivo: expect.stringMatching(/documento/) });
+  });
+});

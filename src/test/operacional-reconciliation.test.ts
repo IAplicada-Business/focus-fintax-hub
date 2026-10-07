@@ -327,7 +327,7 @@ describe("reconciliação financeira da Visão Operacional", () => {
     expect(rows.map((row) => row.cliente_id).sort()).toEqual(["a", "b"]);
   });
 
-  it("usa o snapshot manual quando o mapa do cliente o considera maior", () => {
+  it("ignora o snapshot manual, como o card da ficha", () => {
     const [total] = resumirFinanceiroPorCliente(
       ["a"],
       COMPS,
@@ -344,9 +344,27 @@ describe("reconciliação financeira da Visão Operacional", () => {
 
     expect(total).toMatchObject({
       credito_apurado: 1_000,
-      total_compensado: 450,
-      saldo_restante: 550,
+      total_compensado: 100,
+      saldo_restante: 900,
     });
+  });
+
+  it("saldo desconta tudo que foi compensado até o fim do período, não só o mês", () => {
+    const creditos = [
+      { cliente_id: "a", tese_id: "t-insumos", valor_apurado_inicial: 1_000, incluir_no_calculo: true },
+    ];
+    const comps = [
+      { ...COMPS[0], mes_referencia: "2026-08-01", valor_compensado: 300 },
+      { ...COMPS[0], mes_referencia: "2026-09-01", valor_compensado: 100 },
+      { ...COMPS[0], mes_referencia: "2026-10-01", valor_compensado: 50 },
+    ];
+    const [setembro] = resumirFinanceiroPorCliente(["a"], comps, creditos, TESES, PROCESSOS, [], {
+      mesFim: "2026-09",
+    });
+    expect(setembro).toMatchObject({ total_compensado: 400, saldo_restante: 600 });
+
+    const [acumulado] = resumirFinanceiroPorCliente(["a"], comps, creditos, TESES, PROCESSOS);
+    expect(acumulado).toMatchObject({ total_compensado: 450, saldo_restante: 550 });
   });
 });
 
