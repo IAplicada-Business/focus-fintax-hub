@@ -59,9 +59,11 @@ interface Props {
   onClose: () => void;
   onSaved: () => void;
   lead?: LeadFormFields | null;
+  /** Prefill ao criar (ex.: WhatsApp da conversa no atendimento). */
+  defaults?: Partial<typeof EMPTY_FORM>;
 }
 
-export function LeadFormModal({ open, onClose, onSaved, lead }: Props) {
+export function LeadFormModal({ open, onClose, onSaved, lead, defaults }: Props) {
   const { user } = useAuth();
   const updateLeadMutation = useUpdateLead();
   const [saving, setSaving] = useState(false);
@@ -84,9 +86,9 @@ export function LeadFormModal({ open, onClose, onSaved, lead }: Props) {
         observacoes: lead.observacoes ?? "",
       });
     } else {
-      setForm(EMPTY_FORM);
+      setForm({ ...EMPTY_FORM, ...defaults });
     }
-  }, [open, lead]);
+  }, [open, lead, defaults]);
 
   const set = (key: string, value: string) => setForm((f) => ({ ...f, [key]: value }));
 
