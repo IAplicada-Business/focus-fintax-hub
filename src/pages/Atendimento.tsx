@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Bot, MessageCircle, Search, Users, ArrowLeft } from "lucide-react";
+import { Bot, MessageCircle, Search, Users, ArrowLeft, UserPlus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { useLeadsPipeline } from "@/hooks/data/useLeads";
 import { phonesMatch, phoneDigits } from "@/lib/phone-match";
 import AtendimentoTab from "@/components/pipeline/AtendimentoTab";
 import { AtendimentoLeadPanel } from "@/components/atendimento/AtendimentoLeadPanel";
+import { LeadFormModal } from "@/components/pipeline/LeadFormModal";
 import type { PipelineLead } from "@/pages/Pipeline";
 import type { InboxConversa } from "@/services/atendimentoService";
 
@@ -89,6 +90,7 @@ export default function Atendimento() {
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
   const [filtroResponsavel, setFiltroResponsavel] = useState<string>("todos");
   const [busca, setBusca] = useState("");
+  const [criarLeadAberto, setCriarLeadAberto] = useState(false);
 
   const inboxQ = useAtendimentoInbox();
   const leadsQ = useLeadsPipeline();
@@ -145,6 +147,10 @@ export default function Atendimento() {
   const selecionada = conversas.find((c) => c.telefone === selectedTel) ?? null;
   const leadsSel = selectedTel ? leadsDoTelefone(leads, selectedTel) : [];
   const leadAtivo = leadsSel[0] ?? null;
+  const leadDefaults = useMemo(
+    () => (selectedTel ? { whatsapp: selectedTel, origem: "prospeccao_ativa" } : undefined),
+    [selectedTel],
+  );
 
   const abrir = (c: InboxConversa) => {
     setSearchParams({ tel: c.telefone });
@@ -321,6 +327,17 @@ export default function Atendimento() {
                   {leadAtivo ? ` · ${leadAtivo.nome}` : ""}
                 </p>
               </div>
+              {!leadAtivo && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs shrink-0"
+                  onClick={() => setCriarLeadAberto(true)}
+                >
+                  <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                  Criar lead
+                </Button>
+              )}
             </header>
             <div className="flex-1 min-h-0">
               <AtendimentoTab whatsapp={selectedTel} />
@@ -349,8 +366,18 @@ export default function Atendimento() {
           leadsCount={leadsSel.length}
           conversa={selecionada}
           onAtualizarConversa={() => inboxQ.refetch()}
+          onCriarLead={() => setCriarLeadAberto(true)}
         />
       </aside>
+
+      <LeadFormModal
+        open={criarLeadAberto}
+        onClose={() => setCriarLeadAberto(false)}
+        onSaved={() => {
+          void leadsQ.refetch();
+        }}
+        defaults={leadDefaults}
+      />
     </div>
   );
 }

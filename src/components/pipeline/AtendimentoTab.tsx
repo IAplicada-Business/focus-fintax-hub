@@ -432,7 +432,7 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
   return (
     <div className="flex flex-col h-full min-h-0">
       {compartilhando > 1 && (
-        <div className="mx-6 mb-2 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2">
+        <div className="mx-6 mt-3 mb-1 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2">
           <Users className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" aria-hidden />
           <p className="text-[11px] text-amber-800">
             Este número aparece em <strong>{compartilhando} registros de lead</strong>. A conversa é
@@ -441,7 +441,7 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
         </div>
       )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 space-y-2">
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-2">
         {mensagens.length === 0 && (
           <p className="py-12 text-center text-xs text-muted-foreground">
             Nenhuma mensagem ainda. O histórico começa quando o lead escrever ou você enviar.

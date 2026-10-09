@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExternalLink, MessageCircle, UserCheck, UserX, Loader2 } from "lucide-react";
+import { ExternalLink, MessageCircle, UserCheck, UserX, UserPlus, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -44,9 +44,11 @@ interface Props {
   conversa: InboxConversa | null;
   /** Chamado depois de assumir/liberar, pra recarregar a lista do inbox. */
   onAtualizarConversa?: () => void;
+  /** Abre o cadastro de lead com o WhatsApp da conversa já preenchido. */
+  onCriarLead?: () => void;
 }
 
-export function AtendimentoLeadPanel({ lead, leadsCount, conversa, onAtualizarConversa }: Props) {
+export function AtendimentoLeadPanel({ lead, leadsCount, conversa, onAtualizarConversa, onCriarLead }: Props) {
   const { user } = useAuth();
   const [processando, setProcessando] = useState(false);
 
@@ -105,7 +107,7 @@ export function AtendimentoLeadPanel({ lead, leadsCount, conversa, onAtualizarCo
           </div>
           <div>
             <p className="text-muted-foreground">Registros vinculados</p>
-            <p className="mt-0.5 font-medium">{leadsCount || 1}</p>
+            <p className="mt-0.5 font-medium">{leadsCount}</p>
           </div>
           <div>
             <p className="text-muted-foreground">Responsável</p>
@@ -132,10 +134,16 @@ export function AtendimentoLeadPanel({ lead, leadsCount, conversa, onAtualizarCo
       </div>
 
       {!lead ? (
-        <div className="flex-1 flex items-center justify-center p-6 text-center">
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-3">
           <p className="text-sm text-muted-foreground">
             Sem lead vinculado a este número. A conversa continua, mas o diagnóstico fica no cadastro.
           </p>
+          {onCriarLead && (
+            <Button size="sm" onClick={onCriarLead}>
+              <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+              Criar lead
+            </Button>
+          )}
         </div>
       ) : (
         <>
