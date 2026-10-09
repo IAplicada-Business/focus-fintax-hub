@@ -145,3 +145,100 @@ export function idExternoDoEvento(ev: EventoZapi): string | null {
 export function telefoneDoEvento(ev: EventoZapi): string | null {
   return ev?.phone ?? ev?.chatId ?? null;
 }
+
+// --- lid: a Z-API às vezes entrega o telefone como um identificador interno
+// (`<dígitos>@lid`) em vez do número de verdade — tipicamente na primeira
+// mensagem de um contato novo, antes do "match" ficar pronto do lado deles.
+// Sem resolver isso a conversa duplica (uma linha pelo telefone real quando
+// aparecer depois, outra presa no lid). Mesmo padrão em produção no projeto
+// bz-advocacia (`_shared/zapi.ts`).
+
+export function ehSufixoLid(v: unknown): boolean {
+  return /@lid$/i.test(String(v ?? "").trim());
+}
+
+export function pareceTelefone(d: string): boolean {
+  return /^55\d{10,11}$/.test(d) || /^\d{10,11}$/.test(d);
+}
+
+function digitosDoLid(lid: string): string {
+  return lid.replace(/\D/g, "");
+}
+
+/**
+ * "Telefone" sintético usado só quando o lid não resolve pra nenhum telefone
+ * real. `atendimento_conversas.telefone` é PRIMARY KEY (texto) — isso permite
+ * manter a conversa (sem ela, a mensagem simplesmente não teria onde morar)
+ * sem inventar um número de WhatsApp que não existe. Reconciliada depois por
+ * atendimento_reconciliar_lid quando o telefone real aparecer.
+ */
+export function telefoneSinteticoDoLid(lid: string): string {
+  return `lid:${digitosDoLid(lid)}`;
+}
+
+/**
+ * Pergunta à Z-API o telefone por trás de um lid. Best-effort: tenta vários
+ * endpoints de metadados (nem toda conta/versão da Z-API responde todos) e
+ * devolve o primeiro telefone plausível. Nunca lança — null se não achar.
+ */
+export async function zapiTelefoneDoLid(lid: string): Promise<string | null> {
+  const lidDigits = digitosDoLid(lid);
+  const chave = encodeURIComponent(lid);
+  const chaveDigits = encodeURIComponent(lidDigits);
+  const caminhos = [
+    `chats/${chave}`,
+    `chats/${chaveDigits}`,
+    `contacts/${chave}`,
+    `contacts/${chaveDigits}`,
+    `phone-from-lid/${chaveDigits}`,
+  ];
+  const campos = ["phone", "number", "wid", "id", "participantPhone", "senderPhone", "user"];
+
+  for (const caminho of caminhos) {
+    const url = baseUrl(caminho);
+    if (!url) return null; // Z-API não configurada; não adianta tentar os outros caminhos
+
+    try {
+      const r = await fetch(url, { headers: headers() });
+      if (!r.ok) continue;
+      const raw = await r.json().catch(() => null);
+      const alvos = Array.isArray(raw) ? raw : [raw];
+      for (const alvo of alvos) {
+        if (!alvo || typeof alvo !== "object") continue;
+        for (const campo of campos) {
+          const bruto = (alvo as Record<string, unknown>)[campo];
+          if (typeof bruto !== "string") continue;
+          const digits = bruto.replace(/\D/g, "");
+          if (!pareceTelefone(digits)) continue;
+          if (digits === lidDigits) continue; // é o próprio lid, não resolveu nada
+          return digits;
+        }
+      }
+    } catch (e) {
+      console.error(`zapiTelefoneDoLid falhou em ${caminho}:`, e instanceof Error ? e.message : e);
+    }
+  }
+  return null;
+}
+
+/**
+ * Apaga para todos uma mensagem enviada por nós. Sem janela de tempo (ao
+ * contrário de editar) — a Z-API aceita apagar mensagens mais antigas.
+ * Mesmo contrato já testado em produção no bz-advocacia (`_shared/zapi.ts`).
+ */
+export async function apagarMensagem(
+  telefone: string,
+  messageId: string,
+): Promise<{ ok: boolean; status: number; raw: unknown }> {
+  const params = new URLSearchParams({ phone: telefone, messageId, owner: "true" });
+  const url = baseUrl(`messages?${params.toString()}`);
+  if (!url) return { ok: false, status: 0, raw: { error: "zapi_nao_configurado" } };
+
+  try {
+    const resp = await fetch(url, { method: "DELETE", headers: headers() });
+    const raw = await resp.json().catch(() => null);
+    return { ok: resp.ok, status: resp.status, raw };
+  } catch (e) {
+    return { ok: false, status: 0, raw: { error: e instanceof Error ? e.message : String(e) } };
+  }
+}

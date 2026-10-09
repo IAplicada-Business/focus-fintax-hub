@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Send, Bot, Users, Paperclip, Mic, Square, X, FileText } from "lucide-react";
+import { Loader2, Send, Bot, Users, Paperclip, Mic, Square, X, FileText, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toastError } from "@/lib/handle-error";
 import { useAuth } from "@/hooks/useAuth";
@@ -112,6 +122,8 @@ export interface AtendimentoMensagem {
   status: "recebida" | "pendente" | "enviada" | "falha";
   origem: "humano" | "bot";
   erro: string | null;
+  zapi_message_id: string | null;
+  apagada_em: string | null;
   criado_em: string;
 }
 
@@ -152,6 +164,8 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
   const [anexo, setAnexo] = useState<{ file: File; tipo: TipoAnexo; previewUrl: string | null } | null>(null);
   const [gravando, setGravando] = useState(false);
   const [segundosGravando, setSegundosGravando] = useState(0);
+  const [mensagemParaApagar, setMensagemParaApagar] = useState<string | null>(null);
+  const [apagando, setApagando] = useState(false);
   const fimRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -373,6 +387,27 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
     carregar();
   };
 
+  // "Apagar para todos" — chama a Edge Function (não dá pra fazer direto do
+  // browser: o token da Z-API não pode passar pelo cliente, igual ao envio).
+  // A rota /apagar é protegida pela sessão do usuário, não pelo token
+  // compartilhado de /enviar.
+  const confirmarApagar = async () => {
+    if (!mensagemParaApagar || apagando) return;
+    setApagando(true);
+    const { data, error } = await supabase.functions.invoke("atendimento-zapi/apagar", {
+      body: { mensagem_id: mensagemParaApagar },
+    });
+    setApagando(false);
+    setMensagemParaApagar(null);
+
+    const resultado = data as { ok?: boolean; motivo?: string } | null;
+    if (error || !resultado?.ok) {
+      toastError(error ?? new Error(resultado?.motivo || "falha_desconhecida"), "Não foi possível apagar a mensagem");
+      return;
+    }
+    carregar();
+  };
+
   if (carregando) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -415,45 +450,67 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
 
         {mensagens.map((m) => {
           const minha = m.direcao === "saida";
+          const apagada = Boolean(m.apagada_em);
+          // Só apaga mensagem que o painel realmente mandou pro WhatsApp
+          // (precisa do zapi_message_id pra Z-API saber qual apagar) e que
+          // ainda não foi apagada.
+          const podeApagar = minha && m.status === "enviada" && Boolean(m.zapi_message_id) && !apagada;
           return (
-            <div key={m.id} className={`flex ${minha ? "justify-end" : "justify-start"}`}>
+            <div key={m.id} className={`flex ${minha ? "justify-end" : "justify-start"} group`}>
               <div
-                className={`max-w-[80%] rounded-lg px-3 py-2 ${
+                className={`relative max-w-[80%] rounded-lg px-3 py-2 ${
                   minha ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
                 } ${m.status === "falha" ? "border border-destructive" : ""}`}
               >
-                {m.tipo === "imagem" && m.midia_url && (
-                  <a href={m.midia_url} target="_blank" rel="noreferrer" className="block mb-1">
-                    <img
-                      src={m.midia_url}
-                      alt="Imagem enviada"
-                      loading="lazy"
-                      className="max-h-48 max-w-full rounded-md object-cover"
-                    />
-                  </a>
+                {podeApagar && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute -left-7 top-0 h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                    title="Apagar para todos"
+                    onClick={() => setMensagemParaApagar(m.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 )}
-                {m.tipo === "audio" && m.midia_url && (
-                  <audio controls src={m.midia_url} className="mb-1 h-8 max-w-full" preload="none" />
-                )}
-                {m.tipo !== "texto" && m.tipo !== "imagem" && m.tipo !== "audio" && (
-                  <p className="text-[11px] font-medium opacity-80">
-                    {TIPO_LABEL[m.tipo] || TIPO_LABEL.outro}
-                    {m.midia_url && (
-                      <>
-                        {" · "}
-                        <a href={m.midia_url} target="_blank" rel="noreferrer" className="underline">
-                          abrir
-                        </a>
-                      </>
+                {apagada ? (
+                  <p className="text-xs italic opacity-70">Mensagem apagada</p>
+                ) : (
+                  <>
+                    {m.tipo === "imagem" && m.midia_url && (
+                      <a href={m.midia_url} target="_blank" rel="noreferrer" className="block mb-1">
+                        <img
+                          src={m.midia_url}
+                          alt="Imagem enviada"
+                          loading="lazy"
+                          className="max-h-48 max-w-full rounded-md object-cover"
+                        />
+                      </a>
                     )}
-                  </p>
+                    {m.tipo === "audio" && m.midia_url && (
+                      <audio controls src={m.midia_url} className="mb-1 h-8 max-w-full" preload="none" />
+                    )}
+                    {m.tipo !== "texto" && m.tipo !== "imagem" && m.tipo !== "audio" && (
+                      <p className="text-[11px] font-medium opacity-80">
+                        {TIPO_LABEL[m.tipo] || TIPO_LABEL.outro}
+                        {m.midia_url && (
+                          <>
+                            {" · "}
+                            <a href={m.midia_url} target="_blank" rel="noreferrer" className="underline">
+                              abrir
+                            </a>
+                          </>
+                        )}
+                      </p>
+                    )}
+                    {minha && m.origem === "bot" && (
+                      <p className="text-[10px] font-semibold opacity-80 flex items-center gap-1">
+                        <Bot className="h-3 w-3" aria-hidden /> Robô
+                      </p>
+                    )}
+                    {m.texto && <p className="text-xs whitespace-pre-wrap break-words">{m.texto}</p>}
+                  </>
                 )}
-                {minha && m.origem === "bot" && (
-                  <p className="text-[10px] font-semibold opacity-80 flex items-center gap-1">
-                    <Bot className="h-3 w-3" aria-hidden /> Robô
-                  </p>
-                )}
-                {m.texto && <p className="text-xs whitespace-pre-wrap break-words">{m.texto}</p>}
                 <div className="mt-0.5 flex items-center gap-1 justify-end">
                   <span className="text-[10px] opacity-70">{horaCurta(m.criado_em)}</span>
                   {minha && m.status === "pendente" && (
@@ -564,6 +621,23 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
           </div>
         )}
       </div>
+
+      <AlertDialog open={Boolean(mensagemParaApagar)} onOpenChange={(aberto) => !aberto && setMensagemParaApagar(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar esta mensagem?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ela será apagada para todos no WhatsApp (não só aqui no painel). Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={apagando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarApagar} disabled={apagando}>
+              {apagando ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apagar para todos"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
