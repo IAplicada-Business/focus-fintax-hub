@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Send, Bot, Users } from "lucide-react";
+import { Loader2, Send, Bot, Users, Paperclip, Mic, Square, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -7,6 +7,101 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toastError } from "@/lib/handle-error";
 import { useAuth } from "@/hooks/useAuth";
+
+const BUCKET = "atendimento-midia";
+// 15 MB — mesmo limite configurado no bucket (migration 20261009090000).
+const LIMITE_ANEXO_BYTES = 15 * 1024 * 1024;
+// Signed URL de longa duração: midia_url fica gravado para sempre em
+// atendimento_mensagens (é o que a Z-API busca e o que a própria tela usa
+// depois pra exibir o anexo), então não pode expirar em pouco tempo como uma
+// signed URL "normal". Trade-off documentado no CRM_UPGRADE_NOTES.md.
+const SIGNED_URL_TTL_SEGUNDOS = 60 * 60 * 24 * 365 * 5; // 5 anos
+
+type TipoAnexo = "imagem" | "audio" | "documento" | "outro";
+
+function tipoPorMime(mime: string): TipoAnexo {
+  if (mime.startsWith("image/")) return "imagem";
+  if (mime.startsWith("audio/")) return "audio";
+  if (mime === "application/pdf" || mime.includes("word") || mime.includes("excel") || mime.includes("sheet")) {
+    return "documento";
+  }
+  return "outro";
+}
+
+function extensaoDoArquivo(file: File): string {
+  const doNome = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : null;
+  if (doNome && doNome.length <= 5) return doNome;
+  const doMime = file.type.split("/")[1]?.split(";")[0]?.toLowerCase();
+  return doMime && doMime.length <= 5 ? doMime : "bin";
+}
+
+// --- Gravação de áudio -------------------------------------------------
+// O WhatsApp só reconhece áudio de voz em opus (ogg/webm). Sem escolher o
+// formato, alguns navegadores gravam em algo que a Z-API entrega como
+// arquivo pra baixar, sem player — por isso a conversão pra WAV abaixo
+// quando o navegador não suporta opus. Mesma lógica usada em produção no
+// projeto bz-advocacia (src/components/leads/ConversaBot.tsx).
+function escolherFormatoAudio(): string {
+  const preferidos = ["audio/ogg;codecs=opus", "audio/ogg", "audio/webm;codecs=opus", "audio/webm"];
+  for (const tipo of preferidos) {
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported?.(tipo)) {
+      return tipo;
+    }
+  }
+  return "";
+}
+
+function codificarWav(buffer: AudioBuffer): Blob {
+  const canais = Math.min(buffer.numberOfChannels, 2);
+  const amostras = buffer.length;
+  const bloco = canais * 2;
+  const tamanho = 44 + amostras * bloco;
+  const view = new DataView(new ArrayBuffer(tamanho));
+  const texto = (pos: number, valor: string) => {
+    for (let i = 0; i < valor.length; i++) view.setUint8(pos + i, valor.charCodeAt(i));
+  };
+  texto(0, "RIFF");
+  view.setUint32(4, tamanho - 8, true);
+  texto(8, "WAVE");
+  texto(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, canais, true);
+  view.setUint32(24, buffer.sampleRate, true);
+  view.setUint32(28, buffer.sampleRate * bloco, true);
+  view.setUint16(32, bloco, true);
+  view.setUint16(34, 16, true);
+  texto(36, "data");
+  view.setUint32(40, amostras * bloco, true);
+
+  const dados: Float32Array[] = [];
+  for (let c = 0; c < canais; c++) dados.push(buffer.getChannelData(c));
+  let pos = 44;
+  for (let i = 0; i < amostras; i++) {
+    for (let c = 0; c < canais; c++) {
+      const amostra = Math.max(-1, Math.min(1, dados[c][i]));
+      view.setInt16(pos, amostra < 0 ? amostra * 0x8000 : amostra * 0x7fff, true);
+      pos += 2;
+    }
+  }
+  return new Blob([view], { type: "audio/wav" });
+}
+
+async function converterParaWav(blob: Blob): Promise<Blob> {
+  const AudioContextCtor =
+    window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  const ctx = new AudioContextCtor();
+  try {
+    const buffer = await ctx.decodeAudioData(await blob.arrayBuffer());
+    return codificarWav(buffer);
+  } finally {
+    ctx.close();
+  }
+}
+
+function formatarDuracao(total: number) {
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
 
 export interface AtendimentoMensagem {
   id: string;
@@ -54,7 +149,14 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
   const [carregando, setCarregando] = useState(true);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [anexo, setAnexo] = useState<{ file: File; tipo: TipoAnexo; previewUrl: string | null } | null>(null);
+  const [gravando, setGravando] = useState(false);
+  const [segundosGravando, setSegundosGravando] = useState(0);
   const fimRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<number | null>(null);
 
   const carregar = useCallback(async () => {
     if (!whatsapp) {
@@ -124,13 +226,129 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
     }
   };
 
+  // --- Anexo (arquivo escolhido ou áudio gravado) ------------------------
+  const limparAnexo = () => {
+    if (anexo?.previewUrl) URL.revokeObjectURL(anexo.previewUrl);
+    setAnexo(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const selecionarArquivo = (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > LIMITE_ANEXO_BYTES) {
+      toastError(new Error(`Arquivo maior que ${LIMITE_ANEXO_BYTES / (1024 * 1024)} MB`), "Anexo recusado");
+      return;
+    }
+    setAnexo({
+      file,
+      tipo: tipoPorMime(file.type),
+      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+    });
+  };
+
+  const limparTimer = () => {
+    if (timerRef.current !== null) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const iniciarGravacao = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const formato = escolherFormatoAudio();
+      const rec = formato ? new MediaRecorder(stream, { mimeType: formato }) : new MediaRecorder(stream);
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
+      rec.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const mime = rec.mimeType || formato || "audio/ogg";
+        let blob = new Blob(chunksRef.current, { type: mime });
+        if (blob.size === 0) {
+          toastError(new Error("Verifique o microfone e tente de novo"), "Não gravou áudio");
+          return;
+        }
+        let ext = mime.includes("ogg") ? "ogg" : mime.includes("webm") ? "webm" : "";
+        // A Z-API entrega webm como arquivo pra baixar (sem player) mesmo com
+        // opus — convertendo pra WAV garante que vira nota de voz tocável.
+        if (ext !== "ogg") {
+          try {
+            blob = await converterParaWav(blob);
+            ext = "wav";
+          } catch {
+            ext = ext || "webm";
+          }
+        }
+        const file = new File([blob], `audio-${Date.now()}.${ext}`, { type: blob.type });
+        setAnexo({ file, tipo: "audio", previewUrl: URL.createObjectURL(blob) });
+      };
+      rec.start();
+      recorderRef.current = rec;
+      setSegundosGravando(0);
+      setGravando(true);
+      timerRef.current = window.setInterval(() => setSegundosGravando((s) => s + 1), 1000);
+    } catch {
+      toastError(new Error("Verifique a permissão do navegador"), "Não foi possível acessar o microfone");
+    }
+  };
+
+  const pararGravacao = () => {
+    recorderRef.current?.stop();
+    recorderRef.current = null;
+    limparTimer();
+    setGravando(false);
+  };
+
+  const cancelarGravacao = () => {
+    const rec = recorderRef.current;
+    if (rec) {
+      rec.onstop = null;
+      rec.stop();
+      rec.stream?.getTracks().forEach((t) => t.stop());
+    }
+    recorderRef.current = null;
+    chunksRef.current = [];
+    limparTimer();
+    setGravando(false);
+    setSegundosGravando(0);
+  };
+
+  useEffect(() => () => limparTimer(), []);
+
   const enviar = async () => {
     const corpo = texto.trim();
-    if (!corpo || !telefone || enviando) return;
+    if ((!corpo && !anexo) || !telefone || enviando) return;
     setEnviando(true);
 
-    // Insere como 'pendente'. O trigger avisa o n8n, que envia pela Z-API e
-    // atualiza o status — o token não pode passar pelo browser.
+    let tipoMsg: string = "texto";
+    let midiaUrl: string | null = null;
+
+    if (anexo) {
+      const ext = extensaoDoArquivo(anexo.file);
+      const caminho = `${telefone}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from(BUCKET)
+        .upload(caminho, anexo.file, { contentType: anexo.file.type || "application/octet-stream", upsert: false });
+      if (upErr) {
+        setEnviando(false);
+        toastError(upErr, "Não foi possível subir o anexo");
+        return;
+      }
+      const { data: signed, error: signErr } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(caminho, SIGNED_URL_TTL_SEGUNDOS);
+      if (signErr || !signed?.signedUrl) {
+        setEnviando(false);
+        toastError(signErr ?? new Error("Signed URL vazia"), "Anexo subiu, mas não gerou o link");
+        return;
+      }
+      tipoMsg = anexo.tipo;
+      midiaUrl = signed.signedUrl;
+    }
+
+    // Insere como 'pendente'. O trigger de banco (atendimento_disparar_envio)
+    // chama a Edge Function atendimento-zapi/enviar, que fala com a Z-API e
+    // atualiza o status — o token da Z-API não pode passar pelo browser.
     const { error } = await (supabase as unknown as {
       from: (t: string) => { insert: (v: Record<string, unknown>) => Promise<{ error: unknown }> };
     })
@@ -138,7 +356,9 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
       .insert({
         telefone,
         direcao: "saida",
-        texto: corpo,
+        texto: corpo || null,
+        tipo: tipoMsg,
+        midia_url: midiaUrl,
         status: "pendente",
         autor_id: user?.id,
       });
@@ -149,6 +369,7 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
       return;
     }
     setTexto("");
+    limparAnexo();
     carregar();
   };
 
@@ -201,7 +422,20 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
                   minha ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
                 } ${m.status === "falha" ? "border border-destructive" : ""}`}
               >
-                {m.tipo !== "texto" && (
+                {m.tipo === "imagem" && m.midia_url && (
+                  <a href={m.midia_url} target="_blank" rel="noreferrer" className="block mb-1">
+                    <img
+                      src={m.midia_url}
+                      alt="Imagem enviada"
+                      loading="lazy"
+                      className="max-h-48 max-w-full rounded-md object-cover"
+                    />
+                  </a>
+                )}
+                {m.tipo === "audio" && m.midia_url && (
+                  <audio controls src={m.midia_url} className="mb-1 h-8 max-w-full" preload="none" />
+                )}
+                {m.tipo !== "texto" && m.tipo !== "imagem" && m.tipo !== "audio" && (
                   <p className="text-[11px] font-medium opacity-80">
                     {TIPO_LABEL[m.tipo] || TIPO_LABEL.outro}
                     {m.midia_url && (
@@ -255,22 +489,80 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
         />
       </div>
 
-      <div className="border-t p-4 flex items-end gap-2">
-        <Textarea
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              enviar();
-            }
-          }}
-          placeholder="Escreva uma mensagem... (Enter envia, Shift+Enter quebra linha)"
-          className="min-h-[60px] max-h-[140px] text-xs resize-none"
-        />
-        <Button size="sm" onClick={enviar} disabled={!texto.trim() || enviando} title="Enviar">
-          {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </Button>
+      <div className="border-t p-4 space-y-2">
+        {anexo && (
+          <div className="flex items-center gap-2 rounded-md border bg-muted/40 p-2">
+            {anexo.previewUrl && anexo.tipo === "imagem" ? (
+              <img src={anexo.previewUrl} alt="Pré-visualização" className="h-10 w-10 rounded object-cover shrink-0" />
+            ) : anexo.tipo === "audio" && anexo.previewUrl ? (
+              <audio controls src={anexo.previewUrl} className="h-8 max-w-[200px]" />
+            ) : (
+              <FileText className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
+            )}
+            <p className="text-[11px] flex-1 truncate text-muted-foreground">{anexo.file.name}</p>
+            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={limparAnexo} title="Remover anexo">
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+
+        {gravando ? (
+          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2">
+            <span className="h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" aria-hidden />
+            <p className="text-xs flex-1">Gravando áudio... {formatarDuracao(segundosGravando)}</p>
+            <Button size="sm" variant="ghost" onClick={cancelarGravacao} title="Cancelar">
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={pararGravacao} title="Parar e anexar">
+              <Square className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-end gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept="image/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx"
+              onChange={(e) => selecionarArquivo(e.target.files?.[0])}
+            />
+            <Button
+              size="icon"
+              variant="outline"
+              className="shrink-0"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={enviando}
+              title="Anexar arquivo"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="outline"
+              className="shrink-0"
+              onClick={iniciarGravacao}
+              disabled={enviando || Boolean(anexo)}
+              title="Gravar áudio"
+            >
+              <Mic className="h-4 w-4" />
+            </Button>
+            <Textarea
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  enviar();
+                }
+              }}
+              placeholder="Escreva uma mensagem... (Enter envia, Shift+Enter quebra linha)"
+              className="min-h-[60px] max-h-[140px] text-xs resize-none"
+            />
+            <Button size="sm" onClick={enviar} disabled={(!texto.trim() && !anexo) || enviando} title="Enviar">
+              {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

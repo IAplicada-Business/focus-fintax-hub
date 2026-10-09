@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { conteudoDoEvento, enviarTexto, idExternoDoEvento, telefoneDoEvento, tipoDoEvento } from "./whatsapp.ts";
+import { conteudoDoEvento, enviarMidia, enviarTexto, idExternoDoEvento, telefoneDoEvento, tipoDoEvento } from "./whatsapp.ts";
 
 /**
  * Transporte Z-API <-> Supabase. Substitui os dois workflows n8n
@@ -113,12 +113,17 @@ async function enviar(req: Request) {
     return json({ ok: false, motivo: "token_invalido" }, 401);
   }
 
-  const { mensagem_id, telefone, texto } = await req.json().catch(() => ({}));
-  if (!mensagem_id || !telefone || !texto) {
+  const { mensagem_id, telefone, texto, tipo, midia_url } = await req.json().catch(() => ({}));
+  if (!mensagem_id || !telefone || (!texto && !midia_url)) {
     return json({ ok: false, motivo: "payload_invalido" }, 400);
   }
 
-  const resultado = await enviarTexto(telefone, texto);
+  // 'texto' continua o caminho padrão (payload sem midia_url — é o que o
+  // trigger sempre mandou antes desta mudança, e o que ele ainda manda para
+  // mensagem sem anexo). Mídia só entra quando há midia_url.
+  const resultado = midia_url
+    ? await enviarMidia(telefone, tipo || "outro", midia_url, texto)
+    : await enviarTexto(telefone, texto);
 
   if (resultado.ok) {
     await supabase

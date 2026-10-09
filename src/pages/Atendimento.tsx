@@ -4,6 +4,7 @@ import { Bot, MessageCircle, Search, Users, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useAtendimentoInbox } from "@/hooks/data/useAtendimentoInbox";
 import { useLeadsPipeline } from "@/hooks/data/useLeads";
@@ -14,6 +15,14 @@ import type { PipelineLead } from "@/pages/Pipeline";
 import type { InboxConversa } from "@/services/atendimentoService";
 
 type FiltroClasse = "todas" | "bot" | "humano";
+type FiltroStatus = "todos" | "aguardando" | "respondido";
+const SEM_RESPONSAVEL = "__sem_responsavel__";
+
+/** Status da conversa a partir do que já temos: quem mandou a última mensagem. */
+function statusConversa(c: InboxConversa): FiltroStatus {
+  if (!c.ultima_direcao) return "todos";
+  return c.ultima_direcao === "entrada" ? "aguardando" : "respondido";
+}
 
 /** Lead só para validar o painel lateral. Some quando já existe conversa real. */
 const LEAD_DEMO: PipelineLead = {
@@ -54,6 +63,9 @@ const CONVERSA_DEMO: InboxConversa = {
   ultima_em: new Date().toISOString(),
   ultima_origem: "humano",
   ultima_direcao: "entrada",
+  assumido_por: null,
+  assumido_por_nome: null,
+  assumido_em: null,
 };
 
 function horaLista(iso: string | null) {
@@ -74,6 +86,8 @@ export default function Atendimento() {
   const [searchParams, setSearchParams] = useSearchParams();
   const telParam = searchParams.get("tel") || "";
   const [filtro, setFiltro] = useState<FiltroClasse>("todas");
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
+  const [filtroResponsavel, setFiltroResponsavel] = useState<string>("todos");
   const [busca, setBusca] = useState("");
 
   const inboxQ = useAtendimentoInbox();
@@ -93,11 +107,26 @@ export default function Atendimento() {
     return phoneDigits(telParam) || telParam;
   }, [telParam, conversas]);
 
+  // Responsáveis que aparecem nesta caixa — só quem já assumiu alguma
+  // conversa entra na lista, pra não oferecer gente sem nada pra filtrar.
+  const responsaveis = useMemo(() => {
+    const porId = new Map<string, string>();
+    for (const c of conversas) {
+      if (c.assumido_por) porId.set(c.assumido_por, c.assumido_por_nome || c.assumido_por);
+    }
+    return [...porId.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [conversas]);
+
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return conversas.filter((c) => {
       if (filtro === "bot" && !c.bot_ativo) return false;
       if (filtro === "humano" && c.bot_ativo) return false;
+      if (filtroStatus !== "todos" && statusConversa(c) !== filtroStatus) return false;
+      if (filtroResponsavel === SEM_RESPONSAVEL && c.assumido_por) return false;
+      if (filtroResponsavel !== "todos" && filtroResponsavel !== SEM_RESPONSAVEL && c.assumido_por !== filtroResponsavel) {
+        return false;
+      }
 
       if (!q) return true;
       const vinculos = leadsDoTelefone(leads, c.telefone);
@@ -111,7 +140,7 @@ export default function Atendimento() {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [conversas, filtro, busca, leads]);
+  }, [conversas, filtro, filtroStatus, filtroResponsavel, busca, leads]);
 
   const selecionada = conversas.find((c) => c.telefone === selectedTel) ?? null;
   const leadsSel = selectedTel ? leadsDoTelefone(leads, selectedTel) : [];
@@ -177,6 +206,32 @@ export default function Atendimento() {
                 {label}
               </button>
             ))}
+          </div>
+          <div className="flex gap-1.5">
+            <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as FiltroStatus)}>
+              <SelectTrigger className="h-7 flex-1 text-[11px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os status</SelectItem>
+                <SelectItem value="aguardando">Aguardando resposta</SelectItem>
+                <SelectItem value="respondido">Respondido</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filtroResponsavel} onValueChange={setFiltroResponsavel}>
+              <SelectTrigger className="h-7 flex-1 text-[11px]">
+                <SelectValue placeholder="Responsável" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os responsáveis</SelectItem>
+                <SelectItem value={SEM_RESPONSAVEL}>Sem responsável</SelectItem>
+                {responsaveis.map(([id, nome]) => (
+                  <SelectItem key={id} value={id}>
+                    {nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -289,7 +344,12 @@ export default function Atendimento() {
           !chatAberto && "lg:hidden",
         )}
       >
-        <AtendimentoLeadPanel lead={leadAtivo} leadsCount={leadsSel.length} />
+        <AtendimentoLeadPanel
+          lead={leadAtivo}
+          leadsCount={leadsSel.length}
+          conversa={selecionada}
+          onAtualizarConversa={() => inboxQ.refetch()}
+        />
       </aside>
     </div>
   );
