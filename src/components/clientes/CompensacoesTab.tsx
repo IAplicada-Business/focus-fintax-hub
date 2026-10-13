@@ -78,6 +78,8 @@ const EMPTY_FORM = {
   observacao: "",
   tributo: "",
 };
+/** Teses fora do saldo a compensar (possível recebimento / em julgamento). */
+const TESES_FORA_DO_SALDO = ["REPORTO", "PIS_COFINS_JUD"];
 const MESES_PT = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 
 function resolveTributoLabel(c: any): string {
@@ -184,12 +186,21 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
     }));
   }, [processos, saldos.porTese]);
 
+  // Reporto e via judicial ficam fora do saldo: os lançamentos delas não
+  // passam pela atribuição do card, então o filtro casa pelo processo/tese
+  // de origem (auditoria da tese, sem misturar uma com a outra).
   const idsDaTeseFiltro = useMemo(() => {
     if (filterTese === "all") return null;
-    if (filterTese === "REPORTO") {
+    if (TESES_FORA_DO_SALDO.includes(filterTese)) {
+      const processoIds = saldos.processoIdsByTese.get(filterTese) ?? new Set<string>();
+      const teseId = saldos.teseIdByCodigo.get(filterTese);
       return new Set(
         compensacoes
-          .filter((c) => isReportoCompensacao(c, saldos))
+          .filter(
+            (c) =>
+              (!!c.processo_tese_id && processoIds.has(c.processo_tese_id)) ||
+              (!c.processo_tese_id && !!teseId && c.tese_origem_id === teseId),
+          )
           .map((c) => c.id as string),
       );
     }
@@ -205,8 +216,23 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
           saldo: saldos.saldoTotal,
           nota: "Igual ao card \"Saldo restante\" do topo.",
         }
-      : filterTese === "REPORTO"
-        ? null
+      : TESES_FORA_DO_SALDO.includes(filterTese)
+        ? (() => {
+            const t = saldos.saldoDaTese(filterTese);
+            const compensado = compensacoes
+              .filter((c) => idsDaTeseFiltro?.has(c.id))
+              .reduce((acc, c) => acc + Number(c.valor_compensado || 0), 0);
+            return {
+              rotulo: tesesDoCliente.find((o) => o.codigo === filterTese)?.label ?? t.label,
+              apurado: t.apurado,
+              compensado,
+              saldo: t.apurado - compensado,
+              nota:
+                filterTese === "PIS_COFINS_JUD"
+                  ? "Via judicial em julgamento: fora do saldo a compensar e do Mapa."
+                  : "Possível recebimento: fora do saldo a compensar.",
+            };
+          })()
         : (() => {
             const t = saldos.saldoDaTese(filterTese);
             return {
@@ -375,7 +401,8 @@ export function CompensacoesTab({ clienteId, cliente, onTotalChange, onCompensac
   };
 
   // ——— Mapa Tributário (modelo Relatório Executivo) ———
-  const tesesMapaOptions = tesesDoCliente.filter((t) => t.codigo !== "REPORTO");
+  // Mapa executivo só para teses no saldo: Reporto e via judicial ficam de fora.
+  const tesesMapaOptions = tesesDoCliente.filter((t) => !TESES_FORA_DO_SALDO.includes(t.codigo));
   const mapaTeseLabel =
     mapaTese === "all"
       ? "Todas as teses"

@@ -56,9 +56,17 @@ export interface MapaTributoLinha {
 export interface MapaCarteiraLinha {
   codigo: string;
   label: string;
+  /** Saldo disponível (nunca negativo: tese esgotada mostra 0). */
   saldo: number;
+  /** Crédito já utilizado na compensação até a competência do mapa. */
+  utilizado: number;
+  /** Tese esgotada: o mapa mostra "Zerado" e o valor utilizado abaixo. */
+  zerado: boolean;
   atual: boolean;
 }
+
+/** Fora do saldo a compensar: nunca entram na carteira nem no total do mapa. */
+const TESES_FORA_DO_MAPA = new Set(["REPORTO", "PIS_COFINS_JUD"]);
 
 export interface MapaExecutivoData {
   codigo: string;
@@ -218,18 +226,30 @@ export function buildMapaExecutivo(input: MapaExecutivoInput): MapaExecutivoData
   );
   const padrao = FISCAL_PADRAO[codigo] ?? { baseLegal: "Legislação tributária vigente", obrigacoes: "—" };
 
-  // Bloco 04 — carteira de créditos (todas as teses do cliente com crédito)
+  // Bloco 04 — carteira de créditos: todas as teses ativas no saldo (as
+  // esgotadas também, como "Zerado"). Reporto e via judicial ficam de fora.
   const carteiraBase = saldos.porTese.some((row) => row.codigo === codigo)
     ? saldos.porTese
     : [...saldos.porTese, tese];
   const carteira = carteiraBase
-    .map((row) => ({
-      codigo: row.codigo,
-      label: teseOficialLabel(row.codigo) ?? row.label,
-      saldo: arred(row.saldo),
-      atual: row.codigo === codigo,
-    }))
-    .sort((a, b) => Number(b.atual) - Number(a.atual) || b.saldo - a.saldo);
+    .filter((row) => !TESES_FORA_DO_MAPA.has(row.codigo))
+    .map((row) => {
+      const saldoTese = arred(row.saldo);
+      return {
+        codigo: row.codigo,
+        label: teseOficialLabel(row.codigo) ?? row.label,
+        saldo: Math.max(0, saldoTese),
+        utilizado: arred(row.compensado),
+        zerado: saldoTese <= 0.005,
+        atual: row.codigo === codigo,
+      };
+    })
+    .sort(
+      (a, b) =>
+        Number(b.atual) - Number(a.atual) ||
+        Number(a.zerado) - Number(b.zerado) ||
+        b.saldo - a.saldo,
+    );
 
   return {
     codigo,

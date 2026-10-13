@@ -32,6 +32,8 @@ interface UserRow {
   full_name: string;
   email: string;
   cargo: string;
+  /** WhatsApp para avisos internos (ex.: cliente enviado da Triagem ao comercial). */
+  whatsapp?: string | null;
   is_active: boolean;
   role: string;
 }
@@ -83,6 +85,7 @@ export default function UserManagement() {
   const [formEmail, setFormEmail] = useState("");
   const [formName, setFormName] = useState("");
   const [formCargo, setFormCargo] = useState("");
+  const [formWhatsapp, setFormWhatsapp] = useState("");
   const [formRole, setFormRole] = useState("cliente");
   const [formPassword, setFormPassword] = useState("");
   const [formPermissions, setFormPermissions] = useState<ScreenPermission[]>(getDefaultPermissions("cliente"));
@@ -114,7 +117,7 @@ export default function UserManagement() {
     setLoading(true);
     const { data: profiles, error: pErr } = await supabase
       .from("profiles")
-      .select("user_id, full_name, email, cargo, is_active");
+      .select("*");
 
     if (pErr) {
       toast.error("Erro ao carregar usuários");
@@ -162,6 +165,7 @@ export default function UserManagement() {
     setFormName(u.full_name);
     setFormEmail(u.email);
     setFormCargo(u.cargo);
+    setFormWhatsapp(u.whatsapp ?? "");
     setFormRole(u.role);
     setFormPassword("");
     setMostrarSenha(false);
@@ -175,6 +179,7 @@ export default function UserManagement() {
     setFormName("");
     setFormEmail("");
     setFormCargo("");
+    setFormWhatsapp("");
     setFormRole("cliente");
     setFormPassword("");
     setMostrarSenha(false);
@@ -250,6 +255,7 @@ export default function UserManagement() {
           user_id: editUser.user_id,
           full_name: formName,
           cargo: formCargo,
+          whatsapp: formWhatsapp,
           role: formRole,
           current_role: editUser.role,
           permissions: formPermissions,
@@ -280,6 +286,7 @@ export default function UserManagement() {
           password: formPassword,
           full_name: formName,
           cargo: formCargo,
+          whatsapp: formWhatsapp,
           role: formRole,
           permissions: formPermissions,
         },
@@ -488,6 +495,19 @@ export default function UserManagement() {
               <div className="space-y-2">
                 <Label className="font-semibold">Cargo</Label>
                 <Input value={formCargo} onChange={(e) => setFormCargo(e.target.value)} placeholder="Ex: Analista Fiscal" />
+              </div>
+              <div className="space-y-2">
+                <Label className="font-semibold" htmlFor="usuario-whatsapp">WhatsApp</Label>
+                <Input
+                  id="usuario-whatsapp"
+                  value={formWhatsapp}
+                  onChange={(e) => setFormWhatsapp(e.target.value)}
+                  placeholder="(11) 91234-5678"
+                  inputMode="tel"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Usado para avisos internos, como o envio de clientes da Triagem para a equipe comercial.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label className="font-semibold">Perfil de acesso</Label>

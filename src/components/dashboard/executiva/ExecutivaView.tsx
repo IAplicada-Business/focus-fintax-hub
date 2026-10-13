@@ -190,7 +190,6 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
     const contagem = countByStatus(
       statusRows.map((row) => row.cliente_id),
       new Map(statusRows.map((row) => [row.cliente_id, normalizarStatusCompensacao(row)])),
-      ramosMap,
     );
     const statusRowsOrd = STATUS_COMPENSACAO_VALUES
       .map((status) => ({ status, count: contagem[status] }))
@@ -243,7 +242,16 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       .map((t) => ({ ...t, empresa: nome.get(t.cliente_id) ?? "—", share: apurado > 0 ? (t.credito_apurado / apurado) * 100 : 0 }));
     const topShare = top.reduce((s, t) => s + t.share, 0);
 
+    const possiveisRecebimentos = totais.reduce((s, t) => s + (t.possiveis_recebimentos ?? 0), 0);
+    const recuperacaoJudicial = totais.reduce((s, t) => s + (t.recuperacao_judicial ?? 0), 0);
+    const clientesRecebimentos = totais.filter((t) => (t.possiveis_recebimentos ?? 0) > 0).length;
+    const clientesJudicial = totais.filter((t) => (t.recuperacao_judicial ?? 0) > 0).length;
+
     return {
+      possiveisRecebimentos,
+      recuperacaoJudicial,
+      clientesRecebimentos,
+      clientesJudicial,
       apurado,
       compensado,
       saldo,
@@ -311,6 +319,12 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
         <KpiCard label="Total compensado" raw={m.compensado} format={compactCurrency} sub={`${m.pctUtilizado.toFixed(1)}% do apurado utilizado`} tom="green" icon={<TrendingUp />} />
         <KpiCard label="Honorários acumulados" raw={m.honorarios} format={compactCurrency} sub={`economia líquida dos clientes ${compactCurrency(m.compensado - m.honorarios)}`} tom="gold" icon={<Coins />} />
         <KpiCard label="Saldo remanescente" raw={m.saldo} format={compactCurrency} sub="a compensar em contratos abertos" tom={m.saldo > 0 ? "navy" : "muted"} icon={<PieChart />} />
+      </div>
+      {/* Fora do saldo a compensar, mas somados de toda empresa do recorte —
+          o status geral (ex.: Total Compensados) não esconde essas teses. */}
+      <div className="animate-slide-up delay-1 grid grid-cols-1 sm:grid-cols-2 gap-4" role="region" aria-label="Teses fora do saldo">
+        <KpiCard size="md" label="Possíveis recebimentos (Reporto)" raw={m.possiveisRecebimentos} format={compactCurrency} sub={`${m.clientesRecebimentos} empresa${m.clientesRecebimentos === 1 ? "" : "s"} · somado qualquer que seja o status da empresa`} tom="muted" icon={<Coins />} />
+        <KpiCard size="md" label="Recuperação judicial (em julgamento)" raw={m.recuperacaoJudicial} format={compactCurrency} sub={`${m.clientesJudicial} empresa${m.clientesJudicial === 1 ? "" : "s"} · via judicial fora do saldo a compensar`} tom="muted" icon={<Layers />} />
       </div>
 
       {recorteAtivo && (
@@ -586,7 +600,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
         </div>
       </div>
       <p className="text-[10px] text-ink-35 px-1">
-        Totais seguem status, ramo e tipo de tese. REPORTO aparece em processos, mas só entra nos valores quando selecionado explicitamente. Régua de <Link to="/configuracoes/motor" className="underline">teses no cálculo</Link>.
+        Totais seguem status, ramo e tipo de tese. Reporto e via judicial ficam fora do saldo a compensar e aparecem nos cards próprios, somados de toda empresa do recorte. Régua de <Link to="/configuracoes/motor" className="underline">teses no cálculo</Link>.
       </p>
     </div>
   );
