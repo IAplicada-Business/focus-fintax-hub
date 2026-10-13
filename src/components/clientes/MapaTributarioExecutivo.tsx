@@ -439,9 +439,14 @@ export function MapaTributarioExecutivo({ data, empresa, cnpj }: Props) {
                     <span style={{ width: "9px", height: "9px", borderRadius: "2px", background: corDaTese[i], display: "inline-block", flexShrink: 0 }} />
                     {row.label}
                   </p>
-                  <p style={{ fontSize: "16px", fontWeight: 600, color: C.tinta, margin: "6px 0 0", whiteSpace: "nowrap" }}>
-                    {formatCurrencyBR(row.saldo)}
+                  <p style={{ fontSize: "16px", fontWeight: 600, color: row.zerado ? C.tinta35 : C.tinta, margin: "6px 0 0", whiteSpace: "nowrap" }}>
+                    {row.zerado ? "Zerado" : formatCurrencyBR(row.saldo)}
                   </p>
+                  {row.zerado && (
+                    <p style={{ fontSize: "8.5px", color: C.tinta60, margin: "3px 0 0", whiteSpace: "nowrap" }}>
+                      Utilizado {formatCurrencyBR(row.utilizado)}
+                    </p>
+                  )}
                   {row.atual && <p style={{ fontSize: "8.5px", color: C.tinta35, margin: "3px 0 0" }}>Tese deste mapa</p>}
                 </div>
               ))}

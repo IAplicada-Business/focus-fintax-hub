@@ -107,18 +107,17 @@ export function buildRamoFlagsPorCliente(
 }
 
 /**
- * Cliente entra numa opção extra do filtro de status? Vale o status marcado
- * no cadastro ou o ramo das teses (processo judicial / ressarcimento concluído).
+ * Cliente entra numa opção extra do filtro de status? Só pelo status geral
+ * do cadastro. Ter uma tese no ramo judicial/ressarcimento NÃO basta: a
+ * empresa "Total Compensados" com via judicial em andamento continua em
+ * Total Compensados (reclamação AGF 09/10). O ramo da tese tem filtro
+ * próprio: "Tipo de recuperação".
  */
 export function pertenceAoStatusExtra(
-  flags: ClienteRamoFlags | undefined,
   status: StatusFiltroExtra,
   statusCliente?: StatusCompensacao,
 ): boolean {
-  if (statusCliente === status) return true;
-  if (!flags) return false;
-  if (status === "recuperacao_judicial") return !!flags.tem_ramo_judicial;
-  return !!flags.tem_ressarcimento_concluido;
+  return statusCliente === status;
 }
 
 const isStatusExtra = (status: StatusCompensacao | undefined): status is StatusFiltroExtra =>
@@ -127,7 +126,6 @@ const isStatusExtra = (status: StatusCompensacao | undefined): status is StatusF
 export function makeStatusFilterPredicate(
   selected: Set<StatusCompensacao>,
   statusMap: Map<string, StatusCompensacao>,
-  ramosMap?: Map<string, ClienteRamoFlags>,
 ) {
   const semFiltro = selected.size === 0 || STATUS_FILTRO_VALUES.every((s) => selected.has(s));
   // Com os 3 principais marcados, quem não tem status extra passa inteiro
@@ -139,8 +137,7 @@ export function makeStatusFilterPredicate(
     if (semFiltro) return true;
     if (!clienteId) return algumPrincipal;
     const status = statusMap.get(clienteId);
-    const flags = ramosMap?.get(clienteId);
-    if (extras.some((s) => pertenceAoStatusExtra(flags, s, status))) return true;
+    if (extras.some((s) => pertenceAoStatusExtra(s, status))) return true;
     // Status extra marcado no cadastro só aparece quando a opção dele está marcada.
     if (isStatusExtra(status)) return false;
     if (todosPrincipais) return true;
@@ -172,7 +169,7 @@ export function filtrarIdsRecorteGerencial(
   statusMap: Map<string, StatusCompensacao>,
   ramosMap: Map<string, ClienteRamoFlags>,
 ): Set<string> {
-  const porStatus = makeStatusFilterPredicate(selectedStatuses, statusMap, ramosMap);
+  const porStatus = makeStatusFilterPredicate(selectedStatuses, statusMap);
   const porRamo = makeRamoFilterPredicate(ramo, ramosMap);
   return new Set(ids.filter((id) => porStatus(id) && porRamo(id)));
 }
@@ -180,7 +177,6 @@ export function filtrarIdsRecorteGerencial(
 export function countByStatus(
   ids: string[],
   statusMap: Map<string, StatusCompensacao>,
-  ramosMap?: Map<string, ClienteRamoFlags>,
 ): Record<StatusCompensacao, number> {
   const counts: Record<StatusCompensacao, number> = {
     compensando: 0,
@@ -194,10 +190,7 @@ export function countByStatus(
   for (const id of ids) {
     const status = statusMap.get(id) ?? "sem_operacao";
     if (!isStatusExtra(status)) counts[status] += 1;
-    const flags = ramosMap?.get(id);
-    for (const extra of STATUS_FILTRO_EXTRAS) {
-      if (pertenceAoStatusExtra(flags, extra, status)) counts[extra] += 1;
-    }
+    if (isStatusExtra(status)) counts[status] += 1;
   }
   return counts;
 }

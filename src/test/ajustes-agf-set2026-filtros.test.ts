@@ -74,48 +74,28 @@ describe("item 1 · status compensação", () => {
     ]);
   });
 
-  it("Recuperação Judicial e Ressarcimento concluído filtram pelo ramo da tese", () => {
-    const ramos = buildRamoFlagsPorCliente([
-      { cliente_id: "jud", tipo_recuperacao: "recuperacao_judicial", status_contrato: "assinado", status_processo: "a_compensar" },
-      { cliente_id: "res-ok", tipo_recuperacao: "ressarcimento", status_contrato: "assinado", status_processo: "compensado" },
-      { cliente_id: "res-aberto", tipo_recuperacao: "ressarcimento", status_contrato: "assinado", status_processo: "pedido_feito_receita" },
-      { cliente_id: "comp", tipo_recuperacao: "compensacao", status_contrato: "assinado", status_processo: "compensando" },
-    ]);
+  it("Recuperação Judicial / Ressarcimento concluído filtram pelo status da empresa, não pela tese", () => {
+    // Caso AGF 09/10: empresa Total Compensados com via judicial em andamento
+    // aparecia no filtro "Recuperação Judicial".
     const status = new Map<string, StatusCompensacao>([
-      ["jud", "reporto"],
-      ["res-ok", "encerrado"],
-      ["res-aberto", "reporto"],
+      ["comp-com-judicial", "compensando"],
+      ["jud", "recuperacao_judicial"],
+      ["res-ok", "ressarcimento_concluido"],
       ["comp", "compensando"],
     ]);
-    const ids = ["jud", "res-ok", "res-aberto", "comp"];
+    const ids = ["comp-com-judicial", "jud", "res-ok", "comp"];
     const filtra = (sel: StatusCompensacao[]) =>
-      ids.filter(makeStatusFilterPredicate(new Set(sel), status, ramos));
+      ids.filter(makeStatusFilterPredicate(new Set(sel), status));
 
     expect(filtra(["recuperacao_judicial"])).toEqual(["jud"]);
     expect(filtra(["ressarcimento_concluido"])).toEqual(["res-ok"]);
-    expect(filtra(["compensando"])).toEqual(["comp"]);
-    expect(filtra(["compensando", "recuperacao_judicial"])).toEqual(["jud", "comp"]);
+    expect(filtra(["compensando"])).toEqual(["comp-com-judicial", "comp"]);
+    expect(filtra(["compensando", "recuperacao_judicial"])).toEqual(["comp-com-judicial", "jud", "comp"]);
     expect(filtra([...STATUS_FILTRO_VALUES])).toEqual(ids);
-    expect(filtra([...STATUS_COMPENSACAO_VALUES])).toEqual(ids);
+    expect(filtra([...STATUS_COMPENSACAO_VALUES])).toEqual(["comp-com-judicial", "comp"]);
 
-    const counts = countByStatus(ids, status, ramos);
-    expect(counts.recuperacao_judicial).toBe(filtra(["recuperacao_judicial"]).length);
-    expect(counts.ressarcimento_concluido).toBe(filtra(["ressarcimento_concluido"]).length);
-  });
-
-  it("status gravado na ficha entra no recorte mesmo sem processo daquele ramo", () => {
-    const status = new Map<string, StatusCompensacao>([
-      ["ficha-jud", "recuperacao_judicial"],
-      ["comp", "compensando"],
-    ]);
-    const ids = ["ficha-jud", "comp"];
-    const filtra = (sel: StatusCompensacao[]) =>
-      ids.filter(makeStatusFilterPredicate(new Set(sel), status, new Map()));
-
-    expect(filtra(["recuperacao_judicial"])).toEqual(["ficha-jud"]);
-    const counts = countByStatus(ids, status, new Map());
-    expect(counts.recuperacao_judicial).toBe(1);
-    expect(counts.compensando).toBe(1);
+    const counts = countByStatus(ids, status);
+    expect(counts).toMatchObject({ compensando: 2, recuperacao_judicial: 1, ressarcimento_concluido: 1 });
   });
 });
 
@@ -180,7 +160,7 @@ describe("item 1 · status escolhido no cadastro", () => {
     ]);
     const ids = ["jud", "res", "comp"];
     const filtra = (sel: StatusCompensacao[]) =>
-      ids.filter(makeStatusFilterPredicate(new Set(sel), status, new Map()));
+      ids.filter(makeStatusFilterPredicate(new Set(sel), status));
 
     expect(status.get("jud")).toBe("recuperacao_judicial");
     expect(filtra(["recuperacao_judicial"])).toEqual(["jud"]);
@@ -188,7 +168,7 @@ describe("item 1 · status escolhido no cadastro", () => {
     expect(filtra([...STATUS_COMPENSACAO_VALUES])).toEqual(["comp"]);
     expect(filtra([...STATUS_FILTRO_VALUES])).toEqual(ids);
 
-    const counts = countByStatus(ids, status, new Map());
+    const counts = countByStatus(ids, status);
     expect(counts).toMatchObject({ compensando: 1, recuperacao_judicial: 1, ressarcimento_concluido: 1 });
   });
 });

@@ -69,6 +69,14 @@ export interface ResumoFinanceiroCliente {
   saldo_restante: number;
   honorarios: number;
   sem_base_financeira: boolean;
+  /**
+   * Crédito das teses fora do saldo a compensar, somado independente do
+   * status geral da empresa (pedido AGF 09/10): a empresa segue "Total
+   * Compensados" e o Reporto dela aparece como possível recebimento.
+   */
+  possiveis_recebimentos: number;
+  /** Via judicial (PIS/COFINS da base) em julgamento — fora do saldo. */
+  recuperacao_judicial: number;
 }
 
 export interface ResumirFinanceiroOpts {
@@ -135,8 +143,12 @@ export function resumirFinanceiroPorCliente(
       processosCliente,
       tipoTese,
     );
+    const foraDoSaldo = (codigo: string) =>
+      !filtroAtivo || codigosFiltro.includes(codigo) ? saldos.saldoDaTese(codigo).apurado : 0;
     return {
       cliente_id: clienteId,
+      possiveis_recebimentos: foraDoSaldo("REPORTO"),
+      recuperacao_judicial: foraDoSaldo("PIS_COFINS_JUD"),
       credito_apurado: recorte.apurado,
       total_compensado: recorte.compensado,
       saldo_restante: recorte.apurado - recorte.compensado,

@@ -281,6 +281,9 @@ describe("reconciliação financeira da Visão Operacional", () => {
         saldo_restante: 900,
         honorarios: 10,
         sem_base_financeira: false,
+        // Reporto fica fora do saldo, mas aparece como possível recebimento.
+        possiveis_recebimentos: 5_000,
+        recuperacao_judicial: 0,
       },
     ]);
     expect(compensacoesCanonicas(COMPS.filter((row) => idsRecorte.has(row.cliente_id)), TESES, PROCESSOS))
