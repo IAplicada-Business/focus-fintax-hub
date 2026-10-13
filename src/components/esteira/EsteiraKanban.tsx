@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
-import { AlertTriangle, Building2, ChevronsLeft, ChevronsRight, Clock, FileText, Paperclip, UserX } from "lucide-react";
+import { AlertTriangle, Building2, ChevronsLeft, ChevronsRight, Clock, FileText, Paperclip, Send, UserX } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
 import { ESTEIRA_STAGES, ORIGEM_LABELS, isEstagioEsteira } from "@/lib/esteira-constants";
@@ -23,6 +23,7 @@ import {
 } from "@/hooks/data/useEsteira";
 import { urlTriagemDocumento, type EsteiraCliente } from "@/services/esteiraService";
 import { cn } from "@/lib/utils";
+import { EnviarComercialDialog } from "@/components/esteira/EnviarComercialDialog";
 
 export interface EsteiraKanbanStage {
   value: string;
@@ -57,6 +58,7 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
   const updateEstagio = useUpdateEstagioEsteira();
   const updateTriagem = useUpdateTriagemRealizada();
   const uploadTriagem = useUploadTriagemDocumento();
+  const [envioComercial, setEnvioComercial] = useState<EsteiraCliente | null>(null);
   const focusRef = useRef<HTMLDivElement | null>(null);
   const jaRolou = useRef(false);
 
@@ -141,6 +143,7 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
   }
 
   return (
+    <>
     <DragDropContext onDragEnd={handleDragEnd}>
       <div role="region" aria-label="Esteira administrativa" className={cn("flex-1 min-h-0 flex gap-3 overflow-x-auto pb-3 -mx-1 px-1", className)}>
         {stages.map((stage) => {
@@ -227,6 +230,7 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
                         onUploadTriagem={(file) =>
                           uploadTriagem.mutate({ clienteId: cliente.id, file })
                         }
+                        onEnviarComercial={() => setEnvioComercial(cliente)}
                       />
                     ))}
                     {provided.placeholder}
@@ -238,6 +242,13 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
         })}
       </div>
     </DragDropContext>
+    {envioComercial && (
+      <EnviarComercialDialog
+        cliente={envioComercial}
+        onOpenChange={(open) => !open && setEnvioComercial(null)}
+      />
+    )}
+    </>
   );
 }
 
@@ -255,6 +266,7 @@ function ClienteCard({
   onClick,
   onToggleTriagem,
   onUploadTriagem,
+  onEnviarComercial,
 }: {
   cliente: EsteiraCliente;
   index: number;
@@ -262,6 +274,7 @@ function ClienteCard({
   onClick: () => void;
   onToggleTriagem: (realizada: boolean) => void;
   onUploadTriagem: (file: File) => void;
+  onEnviarComercial: () => void;
 }) {
   const ramos = ramosDoCliente(cliente);
   const atrasado = sla.status === "estourado";
@@ -360,6 +373,15 @@ function ClienteCard({
                   />
                 </label>
               )}
+              <button
+                type="button"
+                onClick={onEnviarComercial}
+                className="inline-flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-1.5 py-0.5 text-[10px] font-semibold text-gold-deep hover:bg-gold/20"
+                title="Enviar para equipe comercial (WhatsApp e e-mail)"
+              >
+                <Send className="h-3 w-3" />
+                Enviar p/ comercial
+              </button>
             </div>
           )}
 

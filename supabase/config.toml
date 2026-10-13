@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.atendimento-zapi]
 verify_jwt = false
+
+[functions.notificar-equipe-comercial]
+verify_jwt = false

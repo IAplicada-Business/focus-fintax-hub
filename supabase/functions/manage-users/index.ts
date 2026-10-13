@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
     };
 
     if (action === "create") {
-      const { email, password, full_name, cargo, role } = body;
+      const { email, password, full_name, cargo, role, whatsapp } = body;
 
       if (!email || !password || password.length < 6) {
         return new Response(
@@ -147,10 +147,10 @@ Deno.serve(async (req) => {
 
       const userId = newUser.user.id;
 
-      if (cargo) {
+      if (cargo || whatsapp) {
         await serviceClient
           .from("profiles")
-          .update({ cargo })
+          .update({ ...(cargo ? { cargo } : {}), ...(whatsapp ? { whatsapp } : {}) })
           .eq("user_id", userId);
       }
 
@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "update") {
-      const { user_id, full_name, cargo, role, current_role, password } = body;
+      const { user_id, full_name, cargo, role, current_role, password, whatsapp } = body;
 
       if (!user_id) {
         return new Response(
@@ -216,7 +216,12 @@ Deno.serve(async (req) => {
 
       await serviceClient
         .from("profiles")
-        .update({ full_name, cargo })
+        .update({
+          full_name,
+          cargo,
+          // Só mexe no WhatsApp quando a tela manda o campo (vazio = apaga).
+          ...(whatsapp !== undefined ? { whatsapp: String(whatsapp).trim() || null } : {}),
+        })
         .eq("user_id", user_id);
 
       if (role && role !== current_role) {
