@@ -195,7 +195,7 @@ export async function listTesesTributarias() {
 export async function listMotorTesesAtivas() {
   const { data, error } = await supabase
     .from("motor_teses_config")
-    .select("tese, nome_exibicao, tipo_recuperacao_padrao")
+    .select("tese, nome_exibicao, tipo_recuperacao_padrao, tratamento_financeiro_padrao")
     .eq("ativo", true);
   if (error) throw error;
   return data ?? [];

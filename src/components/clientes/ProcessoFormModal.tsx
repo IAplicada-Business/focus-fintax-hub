@@ -21,6 +21,7 @@ import {
 import { resolveCatalogTeseId, syncCreditoApuradoFromProcesso } from "@/lib/sync-credito-apurado";
 import { useMotorTesesAtivas } from "@/hooks/data/useClienteOperacional";
 import { logClienteHistorico } from "@/lib/cliente-historico";
+import { tratamentoPadraoDaTese } from "@/lib/tratamento-financeiro";
 import {
   TIPOS_RECUPERACAO,
   isTipoRecuperacao,
@@ -52,17 +53,27 @@ interface TeseOption {
   tese: string;
   nome_exibicao: string;
   tipo_recuperacao_padrao?: string | null;
+  /** Flag do catálogo (Configurações → Teses): entra no saldo ou fica fora. */
+  tratamento_financeiro_padrao?: string | null;
 }
 
 /**
- * Tratamento financeiro sugerido ao escolher a tese/ramo: Reporto é "possível
- * futuro"; ramo judicial fica fora do cálculo como recuperação judicial; o
- * resto entra no cálculo. O usuário pode trocar no seletor.
+ * Tratamento financeiro sugerido ao escolher a tese: a flag do catálogo
+ * (Configurações → Teses) manda; sem ela, Reporto é "possível futuro" e ramo
+ * judicial fica fora do cálculo. O usuário pode trocar no seletor.
  */
-function categoriaPadrao(isReporto: boolean, tipo: TipoRecuperacao): string {
-  if (isReporto) return "reporto";
-  if (tipo === "recuperacao_judicial") return "recuperacao_judicial";
-  return "compensacao";
+function categoriaPadrao(
+  t: { tratamento_financeiro_padrao?: string | null } | undefined,
+  codigo: string,
+  nome: string,
+  tipo: TipoRecuperacao,
+): string {
+  return tratamentoPadraoDaTese({
+    tratamento_financeiro_padrao: t?.tratamento_financeiro_padrao,
+    tese: codigo,
+    nome_exibicao: nome,
+    tipo_recuperacao: tipo,
+  });
 }
 
 const EMPTY_FORM = {
@@ -95,13 +106,15 @@ export function ProcessoFormModal({
   // mesma tese aparecia duplicada com nomes diferentes.
   const teses = useMemo<TeseOption[]>(() => {
     const motor = (motorQ.data ?? []) as TeseOption[];
-    return TESES_OFICIAIS.map(({ codigo, label }) => ({
-      tese: codigo,
-      nome_exibicao: label,
-      tipo_recuperacao_padrao:
-        motor.find((m) => normalizeTeseCatalogCodigo(m.tese, m.nome_exibicao) === codigo)
-          ?.tipo_recuperacao_padrao ?? null,
-    }));
+    return TESES_OFICIAIS.map(({ codigo, label }) => {
+      const doMotor = motor.find((m) => normalizeTeseCatalogCodigo(m.tese, m.nome_exibicao) === codigo);
+      return {
+        tese: codigo,
+        nome_exibicao: label,
+        tipo_recuperacao_padrao: doMotor?.tipo_recuperacao_padrao ?? null,
+        tratamento_financeiro_padrao: doMotor?.tratamento_financeiro_padrao ?? null,
+      };
+    });
   }, [motorQ.data]);
   // Processo legado pode guardar slug (`subvencao_icms`); o form trabalha com o código.
   const processoCodigo = processo
@@ -144,13 +157,12 @@ export function ProcessoFormModal({
     const codigo = String(normalizeTeseCatalogCodigo(presetTese) || presetTese);
     const t = teses.find((x) => x.tese === codigo);
     const nome = t?.nome_exibicao || presetTese;
-    const isReporto = isReportoProcesso({ tese: codigo, nome_exibicao: nome });
     const tipo = resolveTipoRecuperacao(t?.tipo_recuperacao_padrao, codigo, nome);
     setForm({
       ...EMPTY_FORM,
       tese: codigo,
       nome_exibicao: nome,
-      categoria: categoriaPadrao(isReporto, tipo),
+      categoria: categoriaPadrao(t, codigo, nome, tipo),
       tipo_recuperacao: tipo,
     });
   }, [open, processo, presetTese, teses]);
@@ -182,13 +194,12 @@ export function ProcessoFormModal({
   const handleTesePick = (value: string) => {
     const t = teses.find((x) => x.tese === value);
     const nome = t?.nome_exibicao || value;
-    const isReporto = isReportoProcesso({ tese: value, nome_exibicao: nome });
     const tipo = resolveTipoRecuperacao(t?.tipo_recuperacao_padrao, value, nome);
     setForm((p) => ({
       ...p,
       tese: value,
       nome_exibicao: nome,
-      categoria: categoriaPadrao(isReporto, tipo),
+      categoria: categoriaPadrao(t, value, nome, tipo),
       tipo_recuperacao: tipo,
     }));
   };
