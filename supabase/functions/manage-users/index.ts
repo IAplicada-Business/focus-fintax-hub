@@ -67,6 +67,17 @@ Deno.serve(async (req) => {
     const { action, permissions } = body;
 
     /**
+     * Cargo comercial: só 'sdr' | 'closer' | null (CHECK no banco). Devolve
+     * `undefined` quando a tela não mandou o campo, para não zerar o valor
+     * de quem salva por outra versão da tela.
+     */
+    const cargoComercialDe = (valor: unknown): string | null | undefined => {
+      if (valor === undefined) return undefined;
+      if (valor === null || valor === "") return null;
+      return valor === "sdr" || valor === "closer" ? valor : "invalido";
+    };
+
+    /**
      * Grava as permissões. Devolve a mensagem de erro, ou null quando deu certo:
      * antes o insert era disparado sem conferir, e uma falha depois do delete
      * deixava o usuário sem nenhuma permissão, sem ninguém saber.
@@ -115,10 +126,17 @@ Deno.serve(async (req) => {
 
     if (action === "create") {
       const { email, password, full_name, cargo, role, whatsapp } = body;
+      const cargoComercial = cargoComercialDe(body.cargo_comercial);
 
       if (!email || !password || password.length < 6) {
         return new Response(
           JSON.stringify({ error: "Email e senha (mín. 6 caracteres) são obrigatórios" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (cargoComercial === "invalido") {
+        return new Response(
+          JSON.stringify({ error: "Cargo comercial inválido: use sdr, closer ou vazio" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -147,10 +165,14 @@ Deno.serve(async (req) => {
 
       const userId = newUser.user.id;
 
-      if (cargo || whatsapp) {
+      if (cargo || whatsapp || cargoComercial) {
         await serviceClient
           .from("profiles")
-          .update({ ...(cargo ? { cargo } : {}), ...(whatsapp ? { whatsapp } : {}) })
+          .update({
+            ...(cargo ? { cargo } : {}),
+            ...(whatsapp ? { whatsapp } : {}),
+            ...(cargoComercial ? { cargo_comercial: cargoComercial } : {}),
+          })
           .eq("user_id", userId);
       }
 
@@ -186,10 +208,17 @@ Deno.serve(async (req) => {
 
     if (action === "update") {
       const { user_id, full_name, cargo, role, current_role, password, whatsapp } = body;
+      const cargoComercial = cargoComercialDe(body.cargo_comercial);
 
       if (!user_id) {
         return new Response(
           JSON.stringify({ error: "user_id é obrigatório" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (cargoComercial === "invalido") {
+        return new Response(
+          JSON.stringify({ error: "Cargo comercial inválido: use sdr, closer ou vazio" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -221,6 +250,8 @@ Deno.serve(async (req) => {
           cargo,
           // Só mexe no WhatsApp quando a tela manda o campo (vazio = apaga).
           ...(whatsapp !== undefined ? { whatsapp: String(whatsapp).trim() || null } : {}),
+          // Mesma regra para o cargo comercial (null = sai da equipe).
+          ...(cargoComercial !== undefined ? { cargo_comercial: cargoComercial } : {}),
         })
         .eq("user_id", user_id);
 

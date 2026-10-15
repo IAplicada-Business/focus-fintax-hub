@@ -24,6 +24,8 @@ import type { InboxConversa } from "@/services/atendimentoService";
 import type { PipelineLead } from "@/pages/Pipeline";
 import { useAuth } from "@/hooks/useAuth";
 import { ConvertClientModal } from "./ConvertClientModal";
+import { ProdutoBadge, ResponsaveisChip } from "./FiltrosComerciais";
+import type { MembroEquipeComercial } from "@/lib/equipe-comercial";
 import { funilEntraNaEsteira } from "@/lib/handoff-funil-esteira";
 import { canEditLead, canDragInPipeline } from "@/lib/role-permissions";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -43,6 +45,8 @@ interface Props {
   /** Controle externo das colunas recolhidas (persistido). */
   colapsadas: Set<string>;
   onToggleColapso: (stage: string) => void;
+  /** SDRs/closers para mostrar as iniciais do responsável no card. */
+  equipe?: MembroEquipeComercial[];
 }
 
 export { lerColapsadas, salvarColapsadas };
@@ -52,7 +56,7 @@ export { lerColapsadas, salvarColapsadas };
  * confortável) em vez de rolar em 240px fixos; qualquer etapa pode ser
  * recolhida para dar espaço às outras, e a escolha fica salva.
  */
-export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds = new Set(), slaConfig = [], conversas = [], etapaDestaque, colapsadas, onToggleColapso }: Props) {
+export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds = new Set(), slaConfig = [], conversas = [], etapaDestaque, colapsadas, onToggleColapso, equipe = [] }: Props) {
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const [convertLead, setConvertLead] = useState<PipelineLead | null>(null);
@@ -221,6 +225,7 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
                             sla={slaDoLead({ ...lead, potencial: lead.relatorios_leads?.[0]?.estimativa_total_maxima ?? 0 }, slaDias)}
                             estadoConversa={estadoConversa(conversa)}
                             ultimaMensagem={conversa?.ultima_texto ?? null}
+                            equipe={equipe}
                           />
                         );
                       })}
@@ -269,9 +274,10 @@ interface CardProps {
   sla: SlaInfo;
   estadoConversa: EstadoConversa;
   ultimaMensagem: string | null;
+  equipe: MembroEquipeComercial[];
 }
 
-function LeadCard({ lead, index, onClick, onConversa, isException, userRole, isDragDisabled, sla, estadoConversa: estado, ultimaMensagem }: CardProps) {
+function LeadCard({ lead, index, onClick, onConversa, isException, userRole, isDragDisabled, sla, estadoConversa: estado, ultimaMensagem, equipe }: CardProps) {
   const scoreLabel = getScoreLabel(lead.score_lead);
   const scoreConf = SCORE_CONFIG[scoreLabel];
   const potMin = lead.relatorios_leads?.[0]?.estimativa_total_minima || 0;
@@ -310,11 +316,15 @@ function LeadCard({ lead, index, onClick, onConversa, isException, userRole, isD
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <ProdutoBadge produto={lead.produto} />
             <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full", SEGMENTO_COLORS[lead.segmento] || "bg-muted text-muted-foreground")}>
               {SEGMENTO_LABELS[lead.segmento] || lead.segmento}
             </span>
             {origem && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-06 text-ink-60">{origem}</span>}
             {isException && <AlertTriangle className="h-3 w-3 text-amber-500" aria-label="Exceção registrada" />}
+            <span className="ml-auto">
+              <ResponsaveisChip sdrId={lead.sdr_id} closerId={lead.closer_id} equipe={equipe} />
+            </span>
           </div>
 
           <div className="mt-2.5 flex items-center justify-between gap-2">

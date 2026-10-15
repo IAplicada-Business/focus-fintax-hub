@@ -3,6 +3,8 @@ import type { Database } from "@/integrations/supabase/types";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
+type LeadsImportacaoInsert = Database["public"]["Tables"]["leads_importacoes"]["Insert"];
+type LeadsImportacaoUpdate = Database["public"]["Tables"]["leads_importacoes"]["Update"];
 export type LeadUpdatePayload = Pick<
   Database["public"]["Tables"]["leads"]["Update"],
   | "nome"
@@ -14,6 +16,9 @@ export type LeadUpdatePayload = Pick<
   | "segmento"
   | "faturamento_faixa"
   | "observacoes"
+  | "produto"
+  | "sdr_id"
+  | "closer_id"
 >;
 
 export async function listLeads() {
@@ -28,7 +33,7 @@ export async function listLeads() {
 export async function listLeadsBasic(statusFilter?: string) {
   let query = supabase
     .from("leads")
-    .select("id, nome, empresa, cnpj, score_lead, status, criado_em, segmento")
+    .select("id, nome, empresa, cnpj, score_lead, status, criado_em, segmento, produto, sdr_id, closer_id, faturamento_faixa, regime_tributario")
     .order("criado_em", { ascending: false });
   if (statusFilter && statusFilter !== "todos") {
     query = query.eq("status", statusFilter);
@@ -65,7 +70,7 @@ export async function getLead(id: string) {
   const { data, error } = await supabase
     .from("leads")
     .select(
-      "id, nome, empresa, cnpj, email, whatsapp, regime_tributario, segmento, faturamento_faixa, origem, observacoes, status_funil",
+      "id, nome, empresa, cnpj, email, whatsapp, regime_tributario, segmento, faturamento_faixa, origem, observacoes, status_funil, produto, sdr_id, closer_id",
     )
     .eq("id", id)
     .single();
@@ -90,4 +95,78 @@ export async function analyzeLead(leadId: string) {
   });
   if (error) throw error;
   return data;
+}
+
+export interface AtribuicaoLeads {
+  sdrId?: string | null;
+  closerId?: string | null;
+  /** Deixa o lead solto (sem SDR) mesmo que `sdrId` venha vazio. */
+  limparSdr?: boolean;
+  limparCloser?: boolean;
+  produto?: string | null;
+}
+
+/**
+ * Atribuição em lote. Só toca nos campos que a tela pediu: "manter atual"
+ * = campo ausente. Passa direto pelo RLS de UPDATE em leads (admin/comercial/
+ * sdr/gestor_comercial), por isso não há RPC.
+ */
+export async function atribuirLeads(ids: string[], atribuicao: AtribuicaoLeads) {
+  if (ids.length === 0) return;
+  const payload: Database["public"]["Tables"]["leads"]["Update"] = {};
+  if (atribuicao.limparSdr) payload.sdr_id = null;
+  else if (atribuicao.sdrId) payload.sdr_id = atribuicao.sdrId;
+  if (atribuicao.limparCloser) payload.closer_id = null;
+  else if (atribuicao.closerId) payload.closer_id = atribuicao.closerId;
+  if (atribuicao.produto) payload.produto = atribuicao.produto;
+  if (Object.keys(payload).length === 0) return;
+  const { error } = await supabase.from("leads").update(payload).in("id", ids);
+  if (error) throw error;
+}
+
+/** Chaves de duplicidade dos leads já no sistema (CNPJ, WhatsApp, e-mail). */
+export async function listLeadsChavesDedupe() {
+  const { data, error } = await supabase.from("leads").select("id, cnpj, whatsapp, email");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function criarImportacaoLeads(importacao: LeadsImportacaoInsert) {
+  const { data, error } = await supabase.from("leads_importacoes").insert(importacao).select("id").single();
+  if (error) throw error;
+  return data.id as string;
+}
+
+export async function atualizarImportacaoLeads(id: string, payload: LeadsImportacaoUpdate) {
+  const { error } = await supabase.from("leads_importacoes").update(payload).eq("id", id);
+  if (error) throw error;
+}
+
+export const IMPORT_LEADS_CHUNK = 200;
+
+/**
+ * Insere em blocos de 200: um insert de 20k linhas estoura o tamanho do
+ * request e, se falhar no meio, perderíamos tudo. Devolve ids inseridos e
+ * erros por bloco; um bloco com erro não interrompe os demais.
+ */
+export async function inserirLeadsEmLote(
+  leads: LeadInsert[],
+  onProgresso?: (inseridos: number, total: number) => void,
+): Promise<{ ids: { id: string; faturamento_faixa: string; regime_tributario: string }[]; erros: string[] }> {
+  const ids: { id: string; faturamento_faixa: string; regime_tributario: string }[] = [];
+  const erros: string[] = [];
+  for (let i = 0; i < leads.length; i += IMPORT_LEADS_CHUNK) {
+    const bloco = leads.slice(i, i + IMPORT_LEADS_CHUNK);
+    const { data, error } = await supabase
+      .from("leads")
+      .insert(bloco)
+      .select("id, faturamento_faixa, regime_tributario");
+    if (error) {
+      erros.push(`Linhas ${i + 1}–${i + bloco.length}: ${error.message}`);
+    } else {
+      ids.push(...(data ?? []));
+    }
+    onProgresso?.(Math.min(i + bloco.length, leads.length), leads.length);
+  }
+  return { ids, erros };
 }

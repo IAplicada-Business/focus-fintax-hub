@@ -258,7 +258,8 @@ export function taxasConversaoFunil<T extends { count: number }>(funil: T[]): Et
 
 export const ORIGEM_LEAD_LABEL: Record<string, string> = {
   manual: "Manual",
-  referencia: "Referência",
+  referencia: "Indicação",
+  parceria: "Parceria",
   prospeccao_ativa: "Prospecção ativa",
   meta_ads: "Meta Ads",
   formulario_lp: "Formulário LP",

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, LayoutGrid, List, Search, ChevronsLeft, ChevronsRight, Clock, MessageCircle, Target, UserPlus, Users, X } from "lucide-react";
+import { Plus, LayoutGrid, List, Search, ChevronsLeft, ChevronsRight, Clock, MessageCircle, Target, Upload, UserPlus, Users, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { PIPELINE_STAGES } from "@/lib/pipeline-constants";
 import { compactCurrency } from "@/components/dashboard/dashboard-utils";
@@ -13,7 +13,13 @@ import { PipelineKanban, lerColapsadas, salvarColapsadas } from "@/components/pi
 import { PipelineList } from "@/components/pipeline/PipelineList";
 import { LeadFormModal } from "@/components/pipeline/LeadFormModal";
 import { LeadSidePanel } from "@/components/pipeline/LeadSidePanel";
+import { ImportLeadsModal } from "@/components/pipeline/ImportLeadsModal";
+import { ProdutoFiltroChips, ResponsavelSelect } from "@/components/pipeline/FiltrosComerciais";
 import { useLeadsPipeline, useLeadExceptions } from "@/hooks/data/useLeads";
+import { useEquipeComercial } from "@/hooks/data/useEquipeComercial";
+import { useFiltroProduto } from "@/hooks/useFiltroProduto";
+import { filtrarPorProduto } from "@/lib/produto-lead";
+import { filtrarPorResponsavel, type FiltroResponsavel } from "@/lib/equipe-comercial";
 import { usePipelineSlaConfig } from "@/hooks/data/usePipelineSla";
 import { useAtendimentoInbox } from "@/hooks/data/useAtendimentoInbox";
 import { resumirSlaFunil } from "@/lib/pipeline-sla";
@@ -39,6 +45,9 @@ export interface PipelineLead {
   criado_em: string;
   observacoes: string;
   token: string;
+  produto?: string | null;
+  sdr_id?: string | null;
+  closer_id?: string | null;
   relatorios_leads: {
     estimativa_total_minima: number;
     estimativa_total_maxima: number;
@@ -57,6 +66,9 @@ export default function Pipeline() {
   const inboxQ = useAtendimentoInbox();
   const conversas = useMemo(() => inboxQ.data ?? [], [inboxQ.data]);
   const leads = useMemo(() => (leadsData ?? []) as PipelineLead[], [leadsData]);
+  const { data: equipe = [] } = useEquipeComercial();
+  const [filtroProduto, setFiltroProduto] = useFiltroProduto();
+  const [filtroResponsavel, setFiltroResponsavel] = useState<FiltroResponsavel>("todos");
 
   const [view, setView] = useState<"kanban" | "list">(() => {
     try {
@@ -74,6 +86,7 @@ export default function Pipeline() {
     }
   };
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [busca, setBusca] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
   const etapaDestaque = searchParams.get("etapa");
@@ -123,7 +136,10 @@ export default function Pipeline() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [etapaDestaque]);
 
-  const filteredLeads = useMemo(() => filtrarLeadsBusca(leads, busca), [leads, busca]);
+  const filteredLeads = useMemo(
+    () => filtrarPorResponsavel(filtrarPorProduto(filtrarLeadsBusca(leads, busca), filtroProduto), filtroResponsavel),
+    [leads, busca, filtroProduto, filtroResponsavel],
+  );
 
   const fetchLeads = () => queryClient.invalidateQueries({ queryKey: ["leads"] });
 
@@ -197,11 +213,25 @@ export default function Pipeline() {
               </Button>
             ))}
           {userRole !== "gestor_tributario" && (
-            <Button onClick={() => setShowForm(true)} className="bg-navy hover:bg-navy/90">
-              <Plus className="h-4 w-4 mr-1" /> Novo Lead
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => setShowImport(true)} title="Importar leads de planilha (xlsx/csv)">
+                <Upload className="h-4 w-4 mr-1" /> Importar planilha
+              </Button>
+              <Button onClick={() => setShowForm(true)} className="bg-navy hover:bg-navy/90">
+                <Plus className="h-4 w-4 mr-1" /> Novo Lead
+              </Button>
+            </>
           )}
         </div>
+      </div>
+
+      {/* Produto e responsável — o filtro de produto fica salvo no navegador. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <ProdutoFiltroChips value={filtroProduto} onChange={setFiltroProduto} />
+        <ResponsavelSelect value={filtroResponsavel} onChange={setFiltroResponsavel} equipe={equipe} />
+        {(filtroProduto !== "todos" || filtroResponsavel !== "todos") && (
+          <span className="text-xs text-ink-35 tabular-nums">{filteredLeads.length} de {leads.length} leads</span>
+        )}
       </div>
 
       {/* Números */}
@@ -238,12 +268,14 @@ export default function Pipeline() {
           etapaDestaque={etapaDestaque}
           colapsadas={colapsadas}
           onToggleColapso={toggleColapso}
+          equipe={equipe}
         />
       ) : (
-        <PipelineList leads={filteredLeads} onLeadClick={setSelectedLeadId} />
+        <PipelineList leads={filteredLeads} onLeadClick={setSelectedLeadId} equipe={equipe} />
       )}
 
       <LeadFormModal open={showForm} onClose={() => setShowForm(false)} onSaved={fetchLeads} />
+      <ImportLeadsModal open={showImport} onOpenChange={setShowImport} onImported={fetchLeads} />
       <LeadSidePanel lead={selectedLead} onClose={closeLeadPanel} onRefresh={fetchLeads} />
     </div>
   );

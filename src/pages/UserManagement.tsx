@@ -25,7 +25,11 @@ import { toast } from "sonner";
 import { Copy, Eye, EyeOff, KeyRound, Pencil, Plus, RefreshCw, Search, Shield, Trash2, Users as UsersIcon } from "lucide-react";
 import { SCREENS, getDefaultPermissions, mergePermissions, type ScreenPermission } from "@/lib/screen-permissions";
 import { SENHA_MIN, gerarSenha, validarSenha } from "@/lib/password";
+import { CARGOS_COMERCIAIS, CARGO_COMERCIAL_COLORS, CARGO_COMERCIAL_LABEL, isCargoComercial } from "@/lib/equipe-comercial";
 import { cn } from "@/lib/utils";
+
+/** Valor do select "Cargo comercial" para quem está fora da equipe comercial. */
+const SEM_CARGO_COMERCIAL = "__nenhum";
 
 interface UserRow {
   user_id: string;
@@ -34,6 +38,8 @@ interface UserRow {
   cargo: string;
   /** WhatsApp para avisos internos (ex.: cliente enviado da Triagem ao comercial). */
   whatsapp?: string | null;
+  /** 'sdr' | 'closer' — alimenta os selects de responsável do Pipeline. */
+  cargo_comercial?: string | null;
   is_active: boolean;
   role: string;
 }
@@ -86,6 +92,7 @@ export default function UserManagement() {
   const [formName, setFormName] = useState("");
   const [formCargo, setFormCargo] = useState("");
   const [formWhatsapp, setFormWhatsapp] = useState("");
+  const [formCargoComercial, setFormCargoComercial] = useState(SEM_CARGO_COMERCIAL);
   const [formRole, setFormRole] = useState("cliente");
   const [formPassword, setFormPassword] = useState("");
   const [formPermissions, setFormPermissions] = useState<ScreenPermission[]>(getDefaultPermissions("cliente"));
@@ -166,6 +173,7 @@ export default function UserManagement() {
     setFormEmail(u.email);
     setFormCargo(u.cargo);
     setFormWhatsapp(u.whatsapp ?? "");
+    setFormCargoComercial(isCargoComercial(u.cargo_comercial) ? u.cargo_comercial : SEM_CARGO_COMERCIAL);
     setFormRole(u.role);
     setFormPassword("");
     setMostrarSenha(false);
@@ -180,6 +188,7 @@ export default function UserManagement() {
     setFormEmail("");
     setFormCargo("");
     setFormWhatsapp("");
+    setFormCargoComercial(SEM_CARGO_COMERCIAL);
     setFormRole("cliente");
     setFormPassword("");
     setMostrarSenha(false);
@@ -256,6 +265,7 @@ export default function UserManagement() {
           full_name: formName,
           cargo: formCargo,
           whatsapp: formWhatsapp,
+          cargo_comercial: formCargoComercial === SEM_CARGO_COMERCIAL ? null : formCargoComercial,
           role: formRole,
           current_role: editUser.role,
           permissions: formPermissions,
@@ -287,6 +297,7 @@ export default function UserManagement() {
           full_name: formName,
           cargo: formCargo,
           whatsapp: formWhatsapp,
+          cargo_comercial: formCargoComercial === SEM_CARGO_COMERCIAL ? null : formCargoComercial,
           role: formRole,
           permissions: formPermissions,
         },
@@ -510,6 +521,23 @@ export default function UserManagement() {
                 </p>
               </div>
               <div className="space-y-2">
+                <Label className="font-semibold" htmlFor="usuario-cargo-comercial">Cargo comercial</Label>
+                <Select value={formCargoComercial} onValueChange={setFormCargoComercial}>
+                  <SelectTrigger id="usuario-cargo-comercial">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SEM_CARGO_COMERCIAL}>Nenhum</SelectItem>
+                    {CARGOS_COMERCIAIS.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  SDR qualifica e agenda; closer conduz a reunião. Define quem aparece nos selects de responsável do Pipeline.
+                </p>
+              </div>
+              <div className="space-y-2">
                 <Label className="font-semibold">Perfil de acesso</Label>
                 <Select value={formRole} onValueChange={handleRoleChange}>
                   <SelectTrigger>
@@ -681,7 +709,16 @@ export default function UserManagement() {
                     <TableRow key={u.user_id}>
                       <TableCell className="font-semibold text-foreground">{u.full_name || "—"}</TableCell>
                       <TableCell className="text-body-text">{u.email}</TableCell>
-                      <TableCell className="text-body-text">{u.cargo || "—"}</TableCell>
+                      <TableCell className="text-body-text">
+                        <span className="inline-flex items-center gap-1.5">
+                          {u.cargo || "—"}
+                          {isCargoComercial(u.cargo_comercial) && (
+                            <Badge variant="outline" className={cn("text-[10px]", CARGO_COMERCIAL_COLORS[u.cargo_comercial])}>
+                              {CARGO_COMERCIAL_LABEL[u.cargo_comercial]}
+                            </Badge>
+                          )}
+                        </span>
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={ROLE_COLORS[u.role]}>
                           {ROLE_LABELS[u.role] || u.role}

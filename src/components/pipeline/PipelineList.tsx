@@ -8,16 +8,20 @@ import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { PIPELINE_STAGES, STAGE_COLORS, SEGMENTO_LABELS, SCORE_CONFIG, getScoreLabel, formatCurrency, daysSince } from "@/lib/pipeline-constants";
 import { SEGMENTOS, REGIMES } from "@/lib/lead-constants";
 import { etapaDoLead } from "@/lib/pipeline-board";
+import { ORIGEM_LEAD_LABEL } from "@/lib/comercial-analytics";
+import type { MembroEquipeComercial } from "@/lib/equipe-comercial";
 import type { PipelineLead } from "@/pages/Pipeline";
+import { ProdutoBadge, ResponsaveisChip } from "./FiltrosComerciais";
 
 interface Props {
   leads: PipelineLead[];
   onLeadClick: (id: string) => void;
+  equipe?: MembroEquipeComercial[];
 }
 
 const PAGE_SIZE = 25;
 
-export function PipelineList({ leads, onLeadClick }: Props) {
+export function PipelineList({ leads, onLeadClick, equipe = [] }: Props) {
   const [search, setSearch] = useState("");
   const [segFilter, setSegFilter] = useState("all");
   const [regimeFilter, setRegimeFilter] = useState("all");
@@ -116,10 +120,7 @@ export function PipelineList({ leads, onLeadClick }: Props) {
             <SelectItem value="all">Todas origens</SelectItem>
             {origensDisponiveis.map((o) => (
               <SelectItem key={o} value={o}>
-                {o === "calculadora" ? "Calculadora RT"
-                  : o === "formulario_lp" ? "Formulário LP"
-                  : o === "meta_ads" ? "Meta Ads"
-                  : o}
+                {ORIGEM_LEAD_LABEL[o] ?? o}
               </SelectItem>
             ))}
           </SelectContent>
@@ -132,6 +133,8 @@ export function PipelineList({ leads, onLeadClick }: Props) {
           <TableHeader>
             <TableRow>
               <SortHeader col="empresa">Empresa</SortHeader>
+              <TableHead>Produto</TableHead>
+              <TableHead>Responsável</TableHead>
               <TableHead>Segmento</TableHead>
               <TableHead>Regime</TableHead>
               <SortHeader col="score">Score</SortHeader>
@@ -155,6 +158,11 @@ export function PipelineList({ leads, onLeadClick }: Props) {
               return (
                 <TableRow key={lead.id} className={`cursor-pointer hover:bg-[rgba(8,17,29,0.025)] ${idx % 2 === 0 ? "bg-[rgba(8,17,29,0.012)]" : ""}`} onClick={() => onLeadClick(lead.id)}>
                   <TableCell className="font-medium">{lead.empresa}</TableCell>
+                  <TableCell><ProdutoBadge produto={lead.produto} /></TableCell>
+                  <TableCell>
+                    <ResponsaveisChip sdrId={lead.sdr_id} closerId={lead.closer_id} equipe={equipe} compacto={false} />
+                    {!lead.sdr_id && !lead.closer_id && <span className="text-xs text-muted-foreground">—</span>}
+                  </TableCell>
                   <TableCell><span className="text-xs">{SEGMENTO_LABELS[lead.segmento] || lead.segmento}</span></TableCell>
                   <TableCell><span className="text-xs">{lead.regime_tributario}</span></TableCell>
                   <TableCell>
@@ -178,7 +186,7 @@ export function PipelineList({ leads, onLeadClick }: Props) {
                         Meta Ads
                       </Badge>
                     ) : (
-                      <span className="text-muted-foreground">{lead.origem}</span>
+                      <span className="text-muted-foreground">{ORIGEM_LEAD_LABEL[lead.origem] ?? lead.origem}</span>
                     )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{new Date(lead.criado_em).toLocaleDateString("pt-BR")}</TableCell>

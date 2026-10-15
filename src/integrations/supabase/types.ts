@@ -1123,6 +1123,7 @@ export type Database = {
       leads: {
         Row: {
           calculadora_lead_id: string | null
+          closer_id: string | null
           cnpj: string
           created_by: string | null
           criado_em: string
@@ -1130,11 +1131,14 @@ export type Database = {
           empresa: string
           faturamento_faixa: string
           id: string
+          importacao_id: string | null
           nome: string
           observacoes: string | null
           origem: string
+          produto: string
           regime_tributario: string
           score_lead: number | null
+          sdr_id: string | null
           segmento: string
           status: string
           status_funil: string
@@ -1144,6 +1148,7 @@ export type Database = {
         }
         Insert: {
           calculadora_lead_id?: string | null
+          closer_id?: string | null
           cnpj?: string
           created_by?: string | null
           criado_em?: string
@@ -1151,11 +1156,14 @@ export type Database = {
           empresa?: string
           faturamento_faixa?: string
           id?: string
+          importacao_id?: string | null
           nome?: string
           observacoes?: string | null
           origem?: string
+          produto?: string
           regime_tributario?: string
           score_lead?: number | null
+          sdr_id?: string | null
           segmento?: string
           status?: string
           status_funil?: string
@@ -1165,6 +1173,7 @@ export type Database = {
         }
         Update: {
           calculadora_lead_id?: string | null
+          closer_id?: string | null
           cnpj?: string
           created_by?: string | null
           criado_em?: string
@@ -1172,11 +1181,14 @@ export type Database = {
           empresa?: string
           faturamento_faixa?: string
           id?: string
+          importacao_id?: string | null
           nome?: string
           observacoes?: string | null
           origem?: string
+          produto?: string
           regime_tributario?: string
           score_lead?: number | null
+          sdr_id?: string | null
           segmento?: string
           status?: string
           status_funil?: string
@@ -1200,6 +1212,54 @@ export type Database = {
             referencedColumns: ["calculadora_lead_id"]
           },
         ]
+      }
+      leads_importacoes: {
+        Row: {
+          closer_id: string | null
+          created_by: string | null
+          criado_em: string
+          duplicados: number | null
+          erros: Json | null
+          id: string
+          inseridos: number | null
+          invalidos: number | null
+          nome_arquivo: string | null
+          origem: string | null
+          produto: string | null
+          sdr_id: string | null
+          total_linhas: number | null
+        }
+        Insert: {
+          closer_id?: string | null
+          created_by?: string | null
+          criado_em?: string
+          duplicados?: number | null
+          erros?: Json | null
+          id?: string
+          inseridos?: number | null
+          invalidos?: number | null
+          nome_arquivo?: string | null
+          origem?: string | null
+          produto?: string | null
+          sdr_id?: string | null
+          total_linhas?: number | null
+        }
+        Update: {
+          closer_id?: string | null
+          created_by?: string | null
+          criado_em?: string
+          duplicados?: number | null
+          erros?: Json | null
+          id?: string
+          inseridos?: number | null
+          invalidos?: number | null
+          nome_arquivo?: string | null
+          origem?: string | null
+          produto?: string | null
+          sdr_id?: string | null
+          total_linhas?: number | null
+        }
+        Relationships: []
       }
       mapa_envio_log: {
         Row: {
@@ -1848,6 +1908,7 @@ export type Database = {
           segmentos_elegiveis: string[]
           tese: string
           tipo_recuperacao_padrao: Database["public"]["Enums"]["tipo_recuperacao"]
+          tratamento_financeiro_padrao: string
         }
         Insert: {
           ativo?: boolean | null
@@ -1863,6 +1924,7 @@ export type Database = {
           segmentos_elegiveis?: string[]
           tese: string
           tipo_recuperacao_padrao?: Database["public"]["Enums"]["tipo_recuperacao"]
+          tratamento_financeiro_padrao?: string
         }
         Update: {
           ativo?: boolean | null
@@ -1878,6 +1940,7 @@ export type Database = {
           segmentos_elegiveis?: string[]
           tese?: string
           tipo_recuperacao_padrao?: Database["public"]["Enums"]["tipo_recuperacao"]
+          tratamento_financeiro_padrao?: string
         }
         Relationships: []
       }
@@ -2143,6 +2206,7 @@ export type Database = {
       profiles: {
         Row: {
           cargo: string
+          cargo_comercial: string | null
           created_at: string
           email: string
           full_name: string
@@ -2153,6 +2217,7 @@ export type Database = {
         }
         Insert: {
           cargo?: string
+          cargo_comercial?: string | null
           created_at?: string
           email?: string
           full_name?: string
@@ -2163,6 +2228,7 @@ export type Database = {
         }
         Update: {
           cargo?: string
+          cargo_comercial?: string | null
           created_at?: string
           email?: string
           full_name?: string
@@ -2639,6 +2705,14 @@ export type Database = {
         Args: never
         Returns: {
           cargo: string
+          full_name: string
+          user_id: string
+        }[]
+      }
+      equipe_comercial_cargos: {
+        Args: never
+        Returns: {
+          cargo_comercial: string
           full_name: string
           user_id: string
         }[]

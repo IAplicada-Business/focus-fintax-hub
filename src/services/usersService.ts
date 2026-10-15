@@ -1,18 +1,20 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ScreenPermission } from "@/lib/screen-permissions";
+import type { MembroEquipeComercial } from "@/lib/equipe-comercial";
 
 export interface UserRow {
   user_id: string;
   full_name: string;
   email: string;
   cargo: string;
+  cargo_comercial?: string | null;
   is_active: boolean;
   role: string;
 }
 
 export async function listUsers(): Promise<UserRow[]> {
   const [{ data: profiles, error }, { data: roles }] = await Promise.all([
-    supabase.from("profiles").select("user_id, full_name, email, cargo, is_active"),
+    supabase.from("profiles").select("user_id, full_name, email, cargo, cargo_comercial, is_active"),
     supabase.from("user_roles").select("user_id, role"),
   ]);
   if (error) throw error;
@@ -55,4 +57,14 @@ export async function manageUser(body: Record<string, unknown>) {
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
   return data;
+}
+
+/**
+ * SDRs e closers ativos. RPC SECURITY DEFINER porque `profiles` não é
+ * legível pelos papéis comerciais (migração 20261015120000).
+ */
+export async function listEquipeComercial(): Promise<MembroEquipeComercial[]> {
+  const { data, error } = await supabase.rpc("equipe_comercial_cargos");
+  if (error) throw error;
+  return (data ?? []) as MembroEquipeComercial[];
 }
