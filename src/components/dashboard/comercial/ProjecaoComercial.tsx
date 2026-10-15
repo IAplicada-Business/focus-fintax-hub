@@ -56,4 +56,5 @@ const ETAPA_LABEL: Record<string, string> = {
   triagem: "Triagem",
   contrato_emitido: "Contrato emitido",
   contrato_assinado: "Contrato assinado",
+  follow_up: "Follow-up",
 };

@@ -6,7 +6,8 @@
 //      pra evitar N round trips (cold start + rede).
 //   3. Grava lead em calculadora_leads
 //   4. Grava snapshot em calculadora_snapshots (versionamento)
-//   5. Retorna { lead_id, resultado }
+//   5. Espelha em leads, gera o diagnóstico da LP e manda o link no WhatsApp
+//   6. Retorna { lead_id (calculadora), crm_lead_id (leads), resultado }
 //
 // Insert bypasses RLS via service role — anon não tem policy INSERT
 // nas duas tabelas (garantia de auditoria + LGPD).
@@ -218,6 +219,8 @@ Deno.serve(async (req) => {
     // Falha aqui não bloqueia o resultado pro usuário — a calculadora
     // continua sua função, e o comercial pode achar o lead via calc_leads
     // se o espelho tiver falhado.
+    let crmLeadId: string | null = null;
+    let whatsappEnviado: unknown = null;
     try {
       const regimeLabel =
         body.regime === "real" ? "Lucro Real"
@@ -230,26 +233,54 @@ Deno.serve(async (req) => {
         : faturamento <= 15_000_000 ? "5m_15m"
         : "acima_15m";
       const empresa = (body as any).empresa || body.nome; // form da /calculadora não tem empresa
-      await sb.from("leads").insert({
+      // Sem DDI: "+55 21 9..." cortado em 11 dígitos virava um número errado.
+      let tel = String(body.telefone).replace(/\D/g, "");
+      if (tel.length >= 12 && tel.startsWith("55")) tel = tel.slice(2);
+      const { data: crm, error: crmErr } = await sb.from("leads").insert({
         nome: String(body.nome).slice(0, 255),
         empresa: String(empresa).slice(0, 255),
         email: String(body.email).slice(0, 255),
-        whatsapp: String(body.telefone).replace(/\D/g, "").slice(0, 11),
+        whatsapp: tel.slice(0, 11),
         segmento,
         regime_tributario: regimeLabel,
         faturamento_faixa: faturamentoFaixa,
         origem: "calculadora",
         status: "novo",
         calculadora_lead_id: lead.id,
-      } as any);
+      } as any).select("id").single();
+      if (crmErr) throw crmErr;
+      crmLeadId = (crm as { id: string }).id;
     } catch (mirrorErr) {
       console.error("submit-calculadora-lead mirror to leads err:", mirrorErr);
+    }
+
+    // Mesmo diagnóstico da LP (layout /diagnostico/:token) + link no WhatsApp
+    // pelo número da empresa. Os dois passos são opcionais para quem está na
+    // calculadora: falha só vai para o log.
+    if (crmLeadId) {
+      try {
+        const { data: diag, error: diagErr } = await sb.rpc("gerar_diagnostico_lead", { p_lead_id: crmLeadId });
+        if (diagErr) throw diagErr;
+        if ((diag as { erro?: string } | null)?.erro) {
+          // Simples Nacional / dados insuficientes: não há diagnóstico a enviar.
+          whatsappEnviado = { ok: false, erro: (diag as { erro: string }).erro };
+        } else {
+          const { data: envio, error: envioErr } = await sb.rpc("enviar_diagnostico_whatsapp", { p_lead_id: crmLeadId });
+          if (envioErr) throw envioErr;
+          whatsappEnviado = envio;
+        }
+      } catch (diagErr) {
+        console.error("submit-calculadora-lead diagnóstico/whatsapp err:", diagErr);
+        whatsappEnviado = { ok: false, erro: diagErr instanceof Error ? diagErr.message : String((diagErr as any)?.message ?? diagErr) };
+      }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        lead_id: lead.id,
+        lead_id: lead.id,          // id em calculadora_leads (compatibilidade)
+        crm_lead_id: crmLeadId,     // id em leads (CRM)
+        whatsapp_enviado: whatsappEnviado,
         resultado: {
           dre: resultado.dre,
           reforma: resultado.reforma,

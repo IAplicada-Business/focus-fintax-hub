@@ -27,9 +27,9 @@ import {
 } from "@/lib/gerencial-filters";
 import { makeRecorteGerencial } from "@/lib/recorte-gerencial";
 import { TipoTeseFilter } from "@/components/TipoTeseFilter";
+import { ClienteFilter } from "@/components/ClienteFilter";
 import {
   listarTiposTese,
-  rotuloFiltroTese,
   teseFiltroAtivo,
   type TipoTeseFiltro,
 } from "@/lib/tese-filter";
@@ -66,6 +66,7 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
   );
   const [ramoFiltro, setRamoFiltro] = useState<RamoGerencialFiltro>("todas");
   const [tipoTeseFiltro, setTipoTeseFiltro] = useState<TipoTeseFiltro>([]);
+  const [clienteFiltro, setClienteFiltro] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<DashboardPeriod>(() =>
     defaultDashboardPeriod(data.compsRaw),
   );
@@ -87,7 +88,11 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       teses: data.teses,
       comps: data.compsRaw,
     });
-    const idsRecorte = recorte.recortePara(ramoFiltro, statusFiltro);
+    // Cliente escolhido no filtro restringe todo o painel a ele, dentro do
+    // recorte de status / tipo / tese / período.
+    const soCliente = (ids: Set<string>) =>
+      clienteFiltro ? new Set([...ids].filter((id) => id === clienteFiltro)) : ids;
+    const idsRecorte = soCliente(recorte.recortePara(ramoFiltro, statusFiltro));
     const { ramoCounts, statusCounts } = recorte.contagens(ramoFiltro, statusFiltro);
     // Só "por tese" marcado (Reporto / judicial): os números viram os dessa
     // tese em toda empresa que a tem. Com status de empresa junto, os cards
@@ -101,7 +106,7 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
     const idsFinanceiro =
       modoStatus.tudo || modoStatus.soTese
         ? idsRecorte
-        : recorte.recortePara(ramoFiltro, new Set<StatusCompensacao>(modoStatus.empresa));
+        : soCliente(recorte.recortePara(ramoFiltro, new Set<StatusCompensacao>(modoStatus.empresa)));
     const processosRecorte = data.processos.filter((row) => idsFinanceiro.has(row.cliente_id));
     const compsDoRecorte = compensacoesCanonicas(
       data.compsRaw.filter((row) => idsFinanceiro.has(row.cliente_id)),
@@ -174,7 +179,6 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
     return {
       ativos: idsRecorte.size,
       recorte: idsRecorte.size,
-      foraRecorte: clientes.length - idsRecorte.size,
       compensando,
       compensado,
       honorarios,
@@ -206,7 +210,7 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       compensadoPeriodo: compensadoLancado,
       soTese: modoStatus.soTese,
     };
-  }, [data, periodo, ramoFiltro, statusFiltro, tipoTeseFiltro]);
+  }, [data, periodo, ramoFiltro, statusFiltro, tipoTeseFiltro, clienteFiltro]);
 
   return (
     <div className="space-y-4">
@@ -231,9 +235,11 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
           onChange={setPeriodo}
           options={m.periodoOptions}
         />
-        <span className="text-[11px] text-ink-35">
-          {m.recorte} cliente{m.recorte === 1 ? "" : "s"} no recorte · período: {m.periodoLabel} · tese: {rotuloFiltroTese(tipoTeseFiltro, m.tiposTese)} · {m.foraRecorte} ativo{m.foraRecorte === 1 ? "" : "s"} fora
-        </span>
+        <ClienteFilter
+          clientes={data.clientes}
+          value={clienteFiltro}
+          onChange={setClienteFiltro}
+        />
       </div>
       {m.semDados && (
         <div className="flex items-center gap-3 px-5 py-3 rounded-xl border border-dash-amber/25 bg-dash-amber/[0.05]">

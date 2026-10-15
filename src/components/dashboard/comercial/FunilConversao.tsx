@@ -13,6 +13,13 @@ const TOM_CONVERSAO_TEXT: Record<TomConversao, string> = {
   muted: "text-ink-35",
 };
 
+/**
+ * Etapas listadas no funil mas fora da cadeia de conversão: follow-up é um
+ * desvio lateral (não fechou agora, não perdeu), não um passo depois de Ganho.
+ * Se entrasse na cadeia, inflaria o "acumulado" de todas as etapas acima.
+ */
+const ETAPAS_FORA_DA_CONVERSAO = new Set(["follow_up"]);
+
 interface Props {
   funnelData: FunnelRow[];
   navigate: NavigateFunction;
@@ -26,7 +33,13 @@ interface Props {
  * percentual é o desvio contra a meta. Clique na etapa filtra o pipeline.
  */
 export function FunilConversao({ funnelData, navigate, metasConversao = {} }: Props) {
-  const linhas = taxasConversaoFunil(funnelData);
+  const cadeia = funnelData.filter((f) => !ETAPAS_FORA_DA_CONVERSAO.has(f.stage));
+  const laterais = funnelData.filter((f) => ETAPAS_FORA_DA_CONVERSAO.has(f.stage));
+  const linhas = [
+    ...taxasConversaoFunil(cadeia),
+    ...laterais.map((row) => ({ row, acumulado: row.count, taxaProxima: null as number | null, lateral: true })),
+  ];
+  const ultimaDaCadeia = cadeia.length - 1;
   const temMeta = Object.keys(metasConversao).length > 0;
   const max = Math.max(...funnelData.map((f) => f.count), 1);
   const total = funnelData.filter((f) => f.stage !== "ganho").reduce((s, f) => s + f.count, 0);
@@ -41,12 +54,13 @@ export function FunilConversao({ funnelData, navigate, metasConversao = {} }: Pr
       flush
     >
       <ul className="divide-y divide-ink-06">
-        {linhas.map(({ row: f, taxaProxima }, i) => {
+        {linhas.map(({ row: f, taxaProxima, ...resto }, i) => {
+          const isLateral = "lateral" in resto;
           const isContrato = f.stage === "contrato_emitido";
           const isCliente = f.stage === "ganho";
           const largura = Math.max((f.count / max) * 100, f.count > 0 ? 4 : 0);
           return (
-            <li key={f.stage}>
+            <li key={f.stage} className={cn(isLateral && "border-t border-dashed border-ink-06")}>
               <button
                 type="button"
                 onClick={() => navigate(isCliente ? "/clientes" : `/pipeline?etapa=${f.stage}`)}
@@ -83,7 +97,7 @@ export function FunilConversao({ funnelData, navigate, metasConversao = {} }: Pr
                       );
                     })()
                   ) : (
-                    <span className="text-[10px] text-ink-35">{i === linhas.length - 1 ? "destino" : ""}</span>
+                    <span className="text-[10px] text-ink-35">{isLateral ? "à parte" : i === ultimaDaCadeia ? "destino" : ""}</span>
                   )}
                 </span>
               </button>

@@ -112,7 +112,7 @@ export default function Leads() {
                   <TableCell>
                     {l.crm_lead_id ? (
                       <Link
-                        to={`/leads/${l.crm_lead_id}/relatorio`}
+                        to={`/pipeline?lead=${l.crm_lead_id}`}
                         className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                       >
                         Abrir <ExternalLink className="h-3 w-3" />

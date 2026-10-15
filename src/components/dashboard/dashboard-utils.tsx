@@ -70,6 +70,9 @@ export const FUNNEL_STAGES_COM = [
   { value: "contrato_emitido", label: "Contrato Emitido", color: "var(--dash-amber)" },
   { value: "contrato_assinado", label: "Contrato Assinado", color: "#14b8a6" },
   { value: "ganho", label: "Ganho", color: "var(--dash-green)" },
+  // Lateral ao funil: aparece como linha própria, mas fica fora da cadeia de
+  // conversão novo→ganho (ver ETAPAS_FORA_DA_CONVERSAO em FunilConversao).
+  { value: "follow_up", label: "Follow-up", color: "#f97316" },
 ];
 
 export const ORIGEM_LABELS: Record<string, string> = {

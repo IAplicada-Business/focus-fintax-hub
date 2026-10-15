@@ -19,7 +19,7 @@ import {
 } from "@/lib/equipe-comercial";
 import { cn } from "@/lib/utils";
 
-/** Chips "Todos · AGF Contábil · AGF Fintex · ATAX" — mesmo visual do seletor Quadro/Lista. */
+/** Chips "Todos · AGF Contábil · AGF Fintax · AGF Tax" — mesmo visual do seletor Quadro/Lista. */
 export function ProdutoFiltroChips({ value, onChange, className }: { value: FiltroProduto; onChange: (v: FiltroProduto) => void; className?: string }) {
   const opcoes: { value: FiltroProduto; label: string }[] = [{ value: "todos", label: "Todos" }, ...PRODUTOS_LEAD];
   return (

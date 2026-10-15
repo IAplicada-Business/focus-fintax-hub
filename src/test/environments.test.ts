@@ -145,9 +145,9 @@ describe("robô SDR", () => {
     expect(pathToAmbiente("/configuracoes/esteira-sla")).toBe("operacional");
   });
 
-  it("aparece no menu comercial, sob Atendimento", () => {
-    const atendimento = MENU_COMERCIAL.find((m) => m.title === "Atendimento");
-    expect(atendimento?.children?.some((c) => c.url === "/configuracoes/bot")).toBe(true);
+  it("não aparece mais no menu: o prompt é ajustado direto no banco", () => {
+    const urls = MENU_COMERCIAL.flatMap((m) => [m.url, ...(m.children ?? []).map((c) => c.url)]);
+    expect(urls).not.toContain("/configuracoes/bot");
   });
 });
 

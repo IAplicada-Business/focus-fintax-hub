@@ -70,7 +70,8 @@ describe("filtro do Pulso semanal", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: "Pulso semanal" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Filtros do pulso semanal")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Pulso semanal" })).not.toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Dados incompletos" })).toHaveTextContent(
       /2 lançamento\(s\) REPORTO\/duplicado\(s\) excluídos/,
     );
@@ -103,7 +104,7 @@ describe("filtro do Pulso semanal", () => {
     fireEvent.click(screen.getByRole("combobox", { name: "Mês do pulso — mês" }));
     fireEvent.click(screen.getByRole("option", { name: "Ago" }));
 
-    expect(screen.getByText("Agosto de 2026 · filtre por mês e semana")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Mês do pulso — mês" })).toHaveTextContent("Ago");
     expect(screen.getByRole("combobox", { name: "Semana do pulso" })).toHaveTextContent(
       "Semana 5 · 29–31",
     );

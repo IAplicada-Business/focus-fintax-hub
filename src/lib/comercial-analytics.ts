@@ -189,6 +189,8 @@ export const PROBABILIDADE_ETAPA: Record<string, number> = {
   triagem: 0.65,
   contrato_emitido: 0.85,
   contrato_assinado: 0.95,
+  // Follow-up: não fechou no contato; segue aberto, mas com chance baixa.
+  follow_up: 0.05,
 };
 
 export interface EtapaPonderada {

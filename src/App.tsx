@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, useParams } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -21,7 +21,6 @@ const Esteira = lazy(() => import("@/pages/Esteira"));
 const EsteiraOrganizar = lazy(() => import("@/pages/EsteiraOrganizar"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
 const LeadQueue = lazy(() => import("@/pages/LeadQueue"));
-const LeadReport = lazy(() => import("@/pages/LeadReport"));
 const Pipeline = lazy(() => import("@/pages/Pipeline"));
 const Atendimento = lazy(() => import("@/pages/Atendimento"));
 const Benchmarks = lazy(() => import("@/pages/Benchmarks"));
@@ -33,7 +32,7 @@ const Diagnostico = lazy(() => import("@/pages/Diagnostico"));
 const MapaPublico = lazy(() => import("@/pages/MapaPublico"));
 const MotorConfig = lazy(() => import("@/pages/MotorConfig"));
 const EsteiraSlaConfig = lazy(() => import("@/pages/EsteiraSlaConfig"));
-const BotConfig = lazy(() => import("@/pages/BotConfig"));
+const ResumoSemanalConfig = lazy(() => import("@/pages/ResumoSemanalConfig"));
 const Intimacoes = lazy(() => import("@/pages/Intimacoes"));
 const OAuthConsent = lazy(() => import("@/pages/OAuthConsent"));
 const MarketingLayout    = lazy(() => import("@/pages/marketing/MarketingLayout"));
@@ -43,6 +42,16 @@ const MarketingAnuncios  = lazy(() => import("@/pages/marketing/Anuncios"));
 const MarketingFormularios = lazy(() => import("@/pages/marketing/Formularios"));
 const MarketingLeads     = lazy(() => import("@/pages/marketing/Leads"));
 const MarketingLogs      = lazy(() => import("@/pages/marketing/Logs"));
+
+
+/**
+ * O relatório em formato de e-mail saiu (out/2026): o lead tem uma tela só,
+ * o painel do Pipeline. Links antigos /leads/:id/relatorio abrem esse painel.
+ */
+function LeadRelatorioRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/pipeline?lead=${id ?? ""}`} replace />;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,7 +108,7 @@ const App = () => (
                         <Route path="/leads" element={<LeadQueue />} />
                         {/* Cadastro manual virou o modal da fila (mesmo do Pipeline); o link antigo abre o modal. */}
                         <Route path="/leads/novo" element={<Navigate to="/leads?novo=1" replace />} />
-                        <Route path="/leads/:id/relatorio" element={<LeadReport />} />
+                        <Route path="/leads/:id/relatorio" element={<LeadRelatorioRedirect />} />
                         <Route path="/clientes" element={<ClientesList />} />
                         <Route path="/clientes/:id" element={<ClienteDetail />} />
                         <Route path="/clientes/:id/mapa-creditos" element={<MapaCreditos />} />
@@ -116,7 +125,8 @@ const App = () => (
                         <Route path="/benchmarks" element={<Benchmarks />} />
                         <Route path="/configuracoes/motor" element={<MotorConfig />} />
                         <Route path="/configuracoes/esteira-sla" element={<EsteiraSlaConfig />} />
-                        <Route path="/configuracoes/bot" element={<BotConfig />} />
+                        <Route path="/configuracoes/bot" element={<Navigate to="/atendimento" replace />} />
+                        <Route path="/configuracoes/resumo-semanal" element={<ResumoSemanalConfig />} />
                         <Route path="/usuarios" element={<UserManagement />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>

@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import type { EnvioDiagnosticoResultado } from "@/lib/diagnostico-whatsapp";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
@@ -22,10 +23,15 @@ export type LeadUpdatePayload = Pick<
 >;
 
 export async function listLeads() {
+  // O embed de relatorios_leads vem ordenado e limitado a 1: o painel lê
+  // `relatorios_leads[0]` e, sem ordem, leads com linhas antigas (antes do
+  // índice único) mostravam um diagnóstico qualquer.
   const { data, error } = await supabase
     .from("leads")
-    .select("*, relatorios_leads(estimativa_total_minima, estimativa_total_maxima, teses_identificadas)")
-    .order("criado_em", { ascending: false });
+    .select("*, relatorios_leads(estimativa_total_minima, estimativa_total_maxima, teses_identificadas, criado_em, enviado_whatsapp, enviado_em)")
+    .order("criado_em", { ascending: false })
+    .order("criado_em", { referencedTable: "relatorios_leads", ascending: false })
+    .limit(1, { referencedTable: "relatorios_leads" });
   if (error) throw error;
   return data;
 }
@@ -89,12 +95,45 @@ export async function deleteLeads(ids: string[]) {
   if (error) throw error;
 }
 
+/**
+ * Erro de edge function com a mensagem do corpo ({ error }) em vez do genérico
+ * "Edge Function returned a non-2xx status code" — o analyze-lead explica ali
+ * o que falta no lead (faturamento, regime, Simples...).
+ */
+async function erroDaFuncao(error: unknown): Promise<Error> {
+  const ctx = (error as { context?: unknown })?.context;
+  if (ctx && typeof (ctx as Response).json === "function") {
+    try {
+      const body = await (ctx as Response).clone().json();
+      if (body && typeof body.error === "string") return new Error(body.error);
+    } catch {
+      /* corpo não é JSON: cai na mensagem original */
+    }
+  }
+  return error instanceof Error ? error : new Error(String(error));
+}
+
+/** Gera/regera o diagnóstico (mesmo motor da landing page) e salva no lead. */
 export async function analyzeLead(leadId: string) {
   const { data, error } = await supabase.functions.invoke("analyze-lead", {
     body: { lead_id: leadId },
   });
+  if (error) throw await erroDaFuncao(error);
+  return data as {
+    success: boolean;
+    token: string;
+    score: number;
+    estimativa_total_minima: number;
+    estimativa_total_maxima: number;
+    teses_count: number;
+  };
+}
+
+/** Coloca na fila do Atendimento a mensagem com o link do diagnóstico. */
+export async function enviarDiagnosticoWhatsapp(leadId: string): Promise<EnvioDiagnosticoResultado> {
+  const { data, error } = await supabase.rpc("enviar_diagnostico_whatsapp", { p_lead_id: leadId });
   if (error) throw error;
-  return data;
+  return (data ?? {}) as EnvioDiagnosticoResultado;
 }
 
 export interface AtribuicaoLeads {

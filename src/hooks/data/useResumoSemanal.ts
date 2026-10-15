@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ModeloResumo, ResumoSemanalDados } from "@/lib/resumo-semanal";
 import {
-  addResumoDestinatario,
   enviarResumoTeste,
   getSnapshotSegunda,
   listResumoDestinatarios,
   listResumoEnvios,
+  listUsuariosComWhatsapp,
   previewResumoDados,
   removeResumoDestinatario,
-  setResumoDestinatarioAtivo,
+  toggleDestinatarioUsuario,
 } from "@/services/resumoSemanalService";
 import { toastError } from "@/lib/handle-error";
 
@@ -18,8 +18,12 @@ export function useResumoDestinatarios(enabled = true) {
   return useQuery({ queryKey: [...KEY, "destinatarios"], queryFn: listResumoDestinatarios, enabled });
 }
 
+export function useUsuariosResumo(enabled = true) {
+  return useQuery({ queryKey: [...KEY, "usuarios"], queryFn: listUsuariosComWhatsapp, enabled, staleTime: 60_000 });
+}
+
 export function useResumoEnvios(enabled = true) {
-  return useQuery({ queryKey: [...KEY, "envios"], queryFn: () => listResumoEnvios(10), enabled, staleTime: 30_000 });
+  return useQuery({ queryKey: [...KEY, "envios"], queryFn: () => listResumoEnvios(15), enabled, staleTime: 30_000 });
 }
 
 /** Dados + snapshot de segunda (quando o modelo é sexta) pro preview. */
@@ -41,22 +45,17 @@ export function useResumoPreview(modelo: ModeloResumo, enabled = true) {
 export function useResumoDestinatarioMutations() {
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: [...KEY, "destinatarios"] });
-  const adicionar = useMutation({
-    mutationFn: addResumoDestinatario,
+  const alternarUsuario = useMutation({
+    mutationFn: toggleDestinatarioUsuario,
     onSuccess: invalidate,
-    onError: (e) => toastError(e, "Erro ao adicionar destinatário"),
-  });
-  const alternar = useMutation({
-    mutationFn: ({ id, ativo }: { id: string; ativo: boolean }) => setResumoDestinatarioAtivo(id, ativo),
-    onSuccess: invalidate,
-    onError: (e) => toastError(e, "Erro ao atualizar destinatário"),
+    onError: (e) => toastError(e, "Erro ao atualizar quem recebe o resumo"),
   });
   const remover = useMutation({
     mutationFn: removeResumoDestinatario,
     onSuccess: invalidate,
     onError: (e) => toastError(e, "Erro ao remover destinatário"),
   });
-  return { adicionar, alternar, remover };
+  return { alternarUsuario, remover };
 }
 
 export function useEnviarResumoTeste() {

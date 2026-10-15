@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import {
 import { toast } from "sonner";
 import { Plus, Eye, RefreshCw, Search, Users, Pencil, Trash2, Upload, UserCheck, Sparkles, Loader2 } from "lucide-react";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_COLORS } from "@/lib/lead-constants";
-import { useLeadsBasic, useAnalyzeLead, useDeleteLeads, useAtribuirLeads } from "@/hooks/data/useLeads";
+import { useLeadsBasic, useLeadsPipeline, useAnalyzeLead, useDeleteLeads, useAtribuirLeads } from "@/hooks/data/useLeads";
 import { useEquipeComercial } from "@/hooks/data/useEquipeComercial";
 import { useAnalisarLeadsEmLote } from "@/hooks/data/useAnalisarLeadsEmLote";
 import { useFiltroProduto } from "@/hooks/useFiltroProduto";
@@ -29,6 +29,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRowSelection } from "@/hooks/useRowSelection";
 import { BatchDeleteBar } from "@/components/BatchDeleteBar";
 import { LeadFormModal, type LeadFormFields } from "@/components/pipeline/LeadFormModal";
+import { LeadSidePanel } from "@/components/pipeline/LeadSidePanel";
+import type { PipelineLead } from "@/pages/Pipeline";
 import { ImportLeadsModal } from "@/components/pipeline/ImportLeadsModal";
 import { AtribuirLeadsDialog } from "@/components/pipeline/AtribuirLeadsDialog";
 import { ProdutoBadge, ProdutoFiltroChips, ResponsaveisChip, ResponsavelSelect } from "@/components/pipeline/FiltrosComerciais";
@@ -42,7 +44,6 @@ import { toastError } from "@/lib/handle-error";
 const EDIT_ROLES = new Set(["admin", "comercial", "sdr", "gestor_comercial"]);
 
 export default function LeadQueue() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const { userRole } = useAuth();
@@ -77,13 +78,22 @@ export default function LeadQueue() {
 
   const { data: leads = [], isLoading: loading } = useLeadsBasic(statusFilter === "all" ? undefined : statusFilter);
   const analyzeMutation = useAnalyzeLead();
+  // O lead tem uma visão só: o mesmo painel lateral do Pipeline (Dados /
+  // Diagnóstico / Histórico / Conversa). A lista completa vem da mesma query
+  // do Pipeline (cache compartilhado), que traz o diagnóstico salvo.
+  const [painelLeadId, setPainelLeadId] = useState<string | null>(null);
+  const { data: leadsCompletos } = useLeadsPipeline();
+  const painelLead = useMemo(
+    () => ((leadsCompletos ?? []) as PipelineLead[]).find((l) => l.id === painelLeadId) ?? null,
+    [leadsCompletos, painelLeadId],
+  );
   const deleteMutation = useDeleteLeads();
 
   const canEdit = EDIT_ROLES.has(userRole ?? "");
   const canDelete = userRole === "admin";
 
   const handleReprocess = (leadId: string) => {
-    toast.info("Reprocessando...");
+    toast.info("Gerando diagnóstico...");
     analyzeMutation.mutate(leadId);
   };
 
@@ -311,9 +321,14 @@ export default function LeadQueue() {
                   </TableRow>
                 ) : (
                   filtered.map((l) => (
-                    <TableRow key={l.id} data-state={selection.isSelected(l.id) ? "selected" : undefined}>
+                    <TableRow
+                      key={l.id}
+                      data-state={selection.isSelected(l.id) ? "selected" : undefined}
+                      className="cursor-pointer"
+                      onClick={() => setPainelLeadId(l.id)}
+                    >
                       {canSelect && (
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={selection.isSelected(l.id)}
                             onCheckedChange={() => selection.toggle(l.id)}
@@ -344,20 +359,25 @@ export default function LeadQueue() {
                       <TableCell className="text-muted-foreground text-xs">
                         {new Date(l.criado_em).toLocaleDateString("pt-BR")}
                       </TableCell>
-                      <TableCell className="text-right space-x-1">
+                      <TableCell className="text-right space-x-1" onClick={(e) => e.stopPropagation()}>
                         {canEdit && (
                           <Button variant="ghost" size="icon" title="Editar lead" onClick={() => handleEdit(l.id)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
                         )}
-                        {["relatorio_gerado", "enviado"].includes(l.status) && (
-                          <Button variant="ghost" size="icon" onClick={() => navigate(`/leads/${l.id}/relatorio`)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {["novo", "processando"].includes(l.status) && (
-                          <Button variant="ghost" size="icon" onClick={() => handleReprocess(l.id)}>
-                            <RefreshCw className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" title="Abrir lead" aria-label={`Abrir ${l.nome}`} onClick={() => setPainelLeadId(l.id)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {canEdit && elegivelDiagnostico(l) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Regerar diagnóstico"
+                            aria-label={`Regerar diagnóstico de ${l.nome}`}
+                            disabled={analyzeMutation.isPending && analyzeMutation.variables === l.id}
+                            onClick={() => handleReprocess(l.id)}
+                          >
+                            <RefreshCw className={`h-4 w-4 ${analyzeMutation.isPending && analyzeMutation.variables === l.id ? "animate-spin" : ""}`} />
                           </Button>
                         )}
                         {canDelete && (
@@ -394,6 +414,12 @@ export default function LeadQueue() {
           setEditOpen(false);
           setEditLead(null);
         }}
+      />
+
+      <LeadSidePanel
+        lead={painelLead}
+        onClose={() => setPainelLeadId(null)}
+        onRefresh={() => queryClient.invalidateQueries({ queryKey: ["leads"] })}
       />
 
       <ImportLeadsModal

@@ -41,21 +41,38 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 1) marca calculadora_leads.interesse_conversao
-    if (calculadora_lead_id) {
-      await sb
-        .from("calculadora_leads")
-        .update({ interesse_conversao: true, interesse_conversao_em: new Date().toISOString() })
-        .eq("id", calculadora_lead_id);
+    // Até esta correção a /calculadora mandava o id de calculadora_leads no
+    // campo `lead_id`: nenhum UPDATE batia e o lead nunca era marcado. Agora
+    // a tela manda os dois campos certos, mas um `lead_id` que não exista em
+    // `leads` ainda é tratado como id da calculadora (página antiga em cache).
+    let calcId = calculadora_lead_id;
+    let resolvedLeadId: string | undefined;
+
+    if (lead_id) {
+      const { data: crm } = await sb.from("leads").select("id, calculadora_lead_id").eq("id", lead_id).maybeSingle();
+      if (crm) {
+        resolvedLeadId = crm.id;
+        calcId = calcId ?? (crm.calculadora_lead_id ?? undefined);
+      } else {
+        calcId = calcId ?? lead_id;
+      }
     }
 
-    // 2) descobre lead vinculado (se não veio no body)
-    let resolvedLeadId = lead_id;
-    if (!resolvedLeadId && calculadora_lead_id) {
+    // 1) marca calculadora_leads.interesse_conversao
+    if (calcId) {
+      const { error: calcErr } = await sb
+        .from("calculadora_leads")
+        .update({ interesse_conversao: true, interesse_conversao_em: new Date().toISOString() })
+        .eq("id", calcId);
+      if (calcErr) console.error("calc-lead-interested calculadora_leads:", calcErr);
+    }
+
+    // 2) descobre o lead do CRM vinculado à calculadora
+    if (!resolvedLeadId && calcId) {
       const { data: cl } = await sb
         .from("leads")
         .select("id")
-        .eq("calculadora_lead_id", calculadora_lead_id)
+        .eq("calculadora_lead_id", calcId)
         .maybeSingle();
       resolvedLeadId = cl?.id;
     }
@@ -78,12 +95,13 @@ Deno.serve(async (req: Request) => {
         patch.status_funil_atualizado_em = new Date().toISOString();
       }
       if (Object.keys(patch).length > 0) {
-        await sb.from("leads").update(patch).eq("id", resolvedLeadId);
+        const { error: upErr } = await sb.from("leads").update(patch).eq("id", resolvedLeadId);
+        if (upErr) console.error("calc-lead-interested leads:", upErr);
       }
     }
 
     return new Response(
-      JSON.stringify({ success: true, lead_id: resolvedLeadId ?? null }),
+      JSON.stringify({ success: true, lead_id: resolvedLeadId ?? null, calculadora_lead_id: calcId ?? null }),
       { headers: { ...corsHeaders, "content-type": "application/json" } },
     );
   } catch (e) {

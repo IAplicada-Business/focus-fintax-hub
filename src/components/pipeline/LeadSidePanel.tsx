@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -23,12 +22,20 @@ import { ConvertClientModal } from "./ConvertClientModal";
 import { funilEntraNaEsteira } from "@/lib/handoff-funil-esteira";
 import { entregarLeadNaEsteira } from "@/services/handoffService";
 import AtendimentoTab from "./AtendimentoTab";
+import { LeadDiagnosticoTab } from "./LeadDiagnosticoTab";
 import { useNavigate } from "react-router-dom";
+// Follow-up + tarefas (out/2026): aba Tarefas e atalho "Mover para Follow-up".
+import { LeadTarefasTab } from "./LeadTarefasTab";
+import { useLeadTarefas } from "@/hooks/data/useLeadTarefas";
+import { contarAbertas, prefillFollowUp, type PrefillTarefa } from "@/lib/lead-tarefas";
+import { CalendarClock } from "lucide-react";
 
 interface Props {
   lead: PipelineLead | null;
   onClose: () => void;
   onRefresh: () => void;
+  /** Aba aberta ao selecionar o lead (ex.: "tarefas" vindo do lembrete "Minhas tarefas"). */
+  abaInicial?: string;
 }
 
 interface HistoricoEntry {
@@ -52,13 +59,21 @@ type EditForm = {
   faturamento_faixa: string;
 };
 
-export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
+export function LeadSidePanel({ lead, onClose, onRefresh, abaInicial }: Props) {
   const navigate = useNavigate();
   const { user, userRole } = useAuth();
   const isEditable = lead ? canEditLead(userRole, lead.status_funil) : false;
   const isFullReadOnly = userRole === "gestor_tributario";
   const canDelete = userRole === "admin";
   const [aba, setAba] = useState("dados");
+  // Tarefas: contagem pro badge da aba e prefill do atalho "Mover para Follow-up".
+  const { data: tarefasLead = [] } = useLeadTarefas(lead?.id);
+  const tarefasAbertas = contarAbertas(tarefasLead);
+  const [tarefaPrefill, setTarefaPrefill] = useState<PrefillTarefa | null>(null);
+  useEffect(() => {
+    setTarefaPrefill(null);
+    if (lead?.id && abaInicial) setAba(abaInicial);
+  }, [lead?.id, abaInicial]);
   const [obs, setObs] = useState("");
   const [historico, setHistorico] = useState<HistoricoEntry[]>([]);
   const [showConvert, setShowConvert] = useState(false);
@@ -234,6 +249,25 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
     onClose();
   };
 
+  /**
+   * Não fechou agora, mas não está perdido: move pra Follow-up (sem esteira) e
+   * já abre a aba Tarefas com "Retomar contato" em 7 dias, pra ninguém esquecer.
+   */
+  const handleMoveToFollowUp = async () => {
+    if (!lead) return;
+    const oldStage = lead.status_funil;
+    if (oldStage !== "follow_up") {
+      const { error } = await supabase.from("leads").update({ status_funil: "follow_up", status_funil_atualizado_em: new Date().toISOString() }).eq("id", lead.id);
+      if (error) { toastError(error, "Erro ao mover para Follow-up"); return; }
+      await supabase.from("lead_historico").insert({ lead_id: lead.id, de_etapa: oldStage, para_etapa: "follow_up", criado_por: user?.id });
+      toast.success("Lead movido para Follow-up", { description: "Agende quando retomar o contato." });
+      onRefresh();
+      fetchHistorico(lead.id);
+    }
+    setTarefaPrefill(prefillFollowUp());
+    setAba("tarefas");
+  };
+
   const handleExceptionApproval = async () => {
     if (!lead || !exceptionReason.trim()) return;
     setExceptionSaving(true);
@@ -261,9 +295,6 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
   };
 
   const stageLabel = (val: string) => PIPELINE_STAGES.find((s) => s.value === val)?.label || val;
-  const teses = lead?.relatorios_leads?.[0]?.teses_identificadas as any[] || [];
-  const potMin = lead?.relatorios_leads?.[0]?.estimativa_total_minima || 0;
-  const potMax = lead?.relatorios_leads?.[0]?.estimativa_total_maxima || 0;
 
   const largura = "w-[480px] sm:max-w-[480px]";
 
@@ -326,6 +357,14 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
                   <TabsTrigger value="diagnostico">Diagnóstico</TabsTrigger>
                   <TabsTrigger value="historico">Histórico</TabsTrigger>
                   <TabsTrigger value="conversa">Conversa</TabsTrigger>
+                  <TabsTrigger value="tarefas" className="gap-1">
+                    Tarefas
+                    {tarefasAbertas > 0 && (
+                      <span className="min-w-[16px] h-4 px-1 rounded-full bg-navy text-white text-[10px] font-bold leading-4 tabular-nums" aria-label={`${tarefasAbertas} tarefas abertas`}>
+                        {tarefasAbertas}
+                      </span>
+                    )}
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* Dados Tab */}
@@ -554,35 +593,7 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
 
                 {/* Diagnostico Tab */}
                 <TabsContent value="diagnostico" className="flex-1 overflow-y-auto px-6 pb-4 space-y-4">
-                  {teses.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-8 text-center">Nenhum diagnóstico gerado ainda.</p>
-                  ) : (
-                    <>
-                      <div className="p-3 rounded-lg bg-primary/5 border">
-                        <p className="text-xs text-muted-foreground">Potencial total estimado</p>
-                        <p className="text-lg font-bold text-primary">{formatCurrency(potMin)} — {formatCurrency(potMax)}</p>
-                      </div>
-                      {teses.map((t: any, i: number) => {
-                        const max = potMax > 0 ? (t.estimativa_maxima / potMax) * 100 : 0;
-                        return (
-                          <div key={i} className="space-y-1">
-                            <div className="flex justify-between text-xs">
-                              <span className="font-medium">{t.tese_nome}</span>
-                              <span className="text-muted-foreground">{formatCurrency(t.estimativa_minima)} — {formatCurrency(t.estimativa_maxima)}</span>
-                            </div>
-                            <Progress value={max} className="h-1.5" />
-                          </div>
-                        );
-                      })}
-                      <a
-                        href={`/diagnostico/${lead.token}`}
-                        target="_blank"
-                        className="text-xs text-primary flex items-center gap-1 hover:underline"
-                      >
-                        Ver diagnóstico completo <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </>
-                  )}
+                  <LeadDiagnosticoTab lead={lead} onRefresh={onRefresh} somenteLeitura={isFullReadOnly} />
                 </TabsContent>
 
                 {/* Historico Tab */}
@@ -605,7 +616,12 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium flex items-center gap-1">
-                                {h.de_etapa ? stageLabel(h.de_etapa) : "Criado"} <ArrowRight className="h-3 w-3" /> {stageLabel(h.para_etapa)}
+                                {/* de = para é anotação (tarefa criada/concluída), não troca de etapa. */}
+                                {h.de_etapa && h.de_etapa === h.para_etapa ? (
+                                  <><CalendarClock className="h-3 w-3" /> {stageLabel(h.para_etapa)}</>
+                                ) : (
+                                  <>{h.de_etapa ? stageLabel(h.de_etapa) : "Criado"} <ArrowRight className="h-3 w-3" /> {stageLabel(h.para_etapa)}</>
+                                )}
                               </p>
                               {h.anotacao && <p className={`text-xs mt-0.5 ${isException ? "text-amber-700 font-medium" : "text-muted-foreground"}`}>{h.anotacao}</p>}
                               <p className="text-[10px] text-muted-foreground mt-1">{h.usuario_nome} · {new Date(h.criado_em).toLocaleString("pt-BR")}</p>
@@ -636,6 +652,16 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
                   <div className="flex-1 min-h-[360px]">
                     {aba === "conversa" && <AtendimentoTab whatsapp={lead.whatsapp || null} />}
                   </div>
+                </TabsContent>
+
+                {/* Tarefas — follow-ups e lembretes agendados para este lead */}
+                <TabsContent value="tarefas" className="flex-1 overflow-y-auto px-6 pb-4">
+                  <LeadTarefasTab
+                    leadId={lead.id}
+                    prefill={tarefaPrefill}
+                    readOnly={isFullReadOnly}
+                    onAlterado={() => fetchHistorico(lead.id)}
+                  />
                 </TabsContent>
               </Tabs>
 
@@ -691,6 +717,16 @@ export function LeadSidePanel({ lead, onClose, onRefresh }: Props) {
                       <AlertTriangle className="h-4 w-4 mr-1" /> Exceção
                     </Button>
                   )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 border-orange-200 text-orange-800 hover:bg-orange-50 hover:text-orange-900"
+                    onClick={handleMoveToFollowUp}
+                    title={lead.status_funil === "follow_up" ? "Agendar próximo follow-up" : "Mover para Follow-up e agendar o retorno"}
+                    aria-label={lead.status_funil === "follow_up" ? "Agendar próximo follow-up" : "Mover para Follow-up"}
+                  >
+                    <CalendarClock className="h-4 w-4 mr-1" /> {lead.status_funil === "follow_up" ? "Agendar" : "Follow-up"}
+                  </Button>
                   <Button variant="outline" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={() => setShowLostConfirm(true)}>
                     <XCircle className="h-4 w-4 mr-1" /> Perdido
                   </Button>

@@ -3,7 +3,7 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-p
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toastError } from "@/lib/handle-error";
-import { AlertTriangle, Bot, ChevronsLeft, ChevronsRight, Clock, MessageCircle, Users } from "lucide-react";
+import { AlertTriangle, AlarmClock, Bot, ChevronsLeft, ChevronsRight, Clock, MessageCircle, Users } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { PIPELINE_STAGES, SEGMENTO_COLORS, SEGMENTO_LABELS, SCORE_CONFIG, getScoreLabel, formatCurrency } from "@/lib/pipeline-constants";
 import { ORIGEM_LEAD_LABEL } from "@/lib/comercial-analytics";
@@ -30,6 +30,7 @@ import { funilEntraNaEsteira } from "@/lib/handoff-funil-esteira";
 import { canEditLead, canDragInPipeline } from "@/lib/role-permissions";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { formatarDataCurta, formatarVencimento, type ResumoTarefasLead } from "@/lib/lead-tarefas";
 
 interface Props {
   leads: PipelineLead[];
@@ -47,6 +48,8 @@ interface Props {
   onToggleColapso: (stage: string) => void;
   /** SDRs/closers para mostrar as iniciais do responsável no card. */
   equipe?: MembroEquipeComercial[];
+  /** lead_id → tarefa aberta mais urgente (badge de lembrete no card). */
+  tarefasPorLead?: Map<string, ResumoTarefasLead>;
 }
 
 export { lerColapsadas, salvarColapsadas };
@@ -56,7 +59,7 @@ export { lerColapsadas, salvarColapsadas };
  * confortável) em vez de rolar em 240px fixos; qualquer etapa pode ser
  * recolhida para dar espaço às outras, e a escolha fica salva.
  */
-export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds = new Set(), slaConfig = [], conversas = [], etapaDestaque, colapsadas, onToggleColapso, equipe = [] }: Props) {
+export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds = new Set(), slaConfig = [], conversas = [], etapaDestaque, colapsadas, onToggleColapso, equipe = [], tarefasPorLead }: Props) {
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const [convertLead, setConvertLead] = useState<PipelineLead | null>(null);
@@ -143,6 +146,8 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
             const isCollapsed = colapsadas.has(stage.value);
             const destaque = etapaDestaque === stage.value;
             const isPerdido = stage.value === "perdido";
+            // Follow-up é aberto mas "em espera": fundo levemente laranja pra separar de Ganho/Perdido.
+            const isFollowUp = stage.value === "follow_up";
 
             if (isCollapsed) {
               return (
@@ -180,7 +185,7 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
                     aria-label={`${stage.label} — ${resumo.total} leads`}
                     className={cn(
                       "flex-1 min-w-[268px] max-w-[440px] rounded-2xl border flex flex-col transition-colors",
-                      snapshot.isDraggingOver ? "bg-gold/[0.06] border-gold/50" : isPerdido ? "bg-ink-03 border-ink-06" : "bg-white/60 border-ink-06",
+                      snapshot.isDraggingOver ? "bg-gold/[0.06] border-gold/50" : isPerdido ? "bg-ink-03 border-ink-06" : isFollowUp ? "bg-orange-50/50 border-orange-100" : "bg-white/60 border-ink-06",
                       destaque && "ring-2 ring-gold/40 border-gold",
                     )}
                   >
@@ -226,6 +231,7 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
                             estadoConversa={estadoConversa(conversa)}
                             ultimaMensagem={conversa?.ultima_texto ?? null}
                             equipe={equipe}
+                            tarefa={tarefasPorLead?.get(lead.id)}
                           />
                         );
                       })}
@@ -275,9 +281,16 @@ interface CardProps {
   estadoConversa: EstadoConversa;
   ultimaMensagem: string | null;
   equipe: MembroEquipeComercial[];
+  tarefa?: ResumoTarefasLead;
 }
 
-function LeadCard({ lead, index, onClick, onConversa, isException, userRole, isDragDisabled, sla, estadoConversa: estado, ultimaMensagem, equipe }: CardProps) {
+const TAREFA_BADGE: Record<ResumoTarefasLead["status"], string> = {
+  atrasada: "bg-dash-red/10 text-dash-red border-dash-red/25",
+  hoje: "bg-dash-amber/10 text-dash-amber border-dash-amber/25",
+  proxima: "bg-ink-06 text-ink-60 border-transparent",
+};
+
+function LeadCard({ lead, index, onClick, onConversa, isException, userRole, isDragDisabled, sla, estadoConversa: estado, ultimaMensagem, equipe, tarefa }: CardProps) {
   const scoreLabel = getScoreLabel(lead.score_lead);
   const scoreConf = SCORE_CONFIG[scoreLabel];
   const potMin = lead.relatorios_leads?.[0]?.estimativa_total_minima || 0;
@@ -322,6 +335,15 @@ function LeadCard({ lead, index, onClick, onConversa, isException, userRole, isD
             </span>
             {origem && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-06 text-ink-60">{origem}</span>}
             {isException && <AlertTriangle className="h-3 w-3 text-amber-500" aria-label="Exceção registrada" />}
+            {tarefa && (
+              <span
+                className={cn("inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border tabular-nums", TAREFA_BADGE[tarefa.status])}
+                title={`${tarefa.proxima.titulo} · ${formatarVencimento(tarefa.proxima.vence_em)}${tarefa.abertas > 1 ? ` · ${tarefa.abertas} tarefas abertas` : ""}`}
+              >
+                <AlarmClock className="h-3 w-3" />
+                {tarefa.status === "atrasada" ? "atrasada" : tarefa.status === "hoje" ? "hoje" : formatarDataCurta(tarefa.proxima.vence_em)}
+              </span>
+            )}
             <span className="ml-auto">
               <ResponsaveisChip sdrId={lead.sdr_id} closerId={lead.closer_id} equipe={equipe} />
             </span>

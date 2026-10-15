@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { HistoricoLeadLike } from "@/lib/comercial-analytics";
+import { ehAnotacaoHistorico } from "@/lib/lead-tarefas";
 import { listConversasInbox, type InboxConversa } from "@/services/atendimentoService";
 import { listPipelineSlaConfig } from "@/services/pipelineSlaService";
 import type { PipelineSlaConfigRow } from "@/lib/pipeline-sla";
@@ -45,7 +46,7 @@ export async function fetchComercialDashboard(): Promise<ComercialDashboardData>
       .select("id, empresa, nome, whatsapp, status_funil, status_funil_atualizado_em, criado_em, segmento, regime_tributario, score_lead, origem")
       .limit(5000),
     supabase.from("relatorios_leads").select("lead_id, estimativa_total_maxima").limit(10000),
-    supabase.from("lead_historico").select("lead_id, para_etapa, criado_em").gte("criado_em", desdeHistorico).limit(10000),
+    supabase.from("lead_historico").select("lead_id, de_etapa, para_etapa, criado_em").gte("criado_em", desdeHistorico).limit(10000),
     supabase.from("motor_teses_config").select("regimes_elegiveis").eq("ativo", true),
     supabase.from("diagnosticos_leads").select("lead_id").limit(10000),
     listConversasInbox().catch(() => [] as InboxConversa[]),
@@ -74,7 +75,9 @@ export async function fetchComercialDashboard(): Promise<ComercialDashboardData>
     potencial: potencial.get(l.id) ?? 0,
   }));
 
-  const historico: HistoricoLeadLike[] = (histRes.data ?? []).map((h) => ({
+  // Linhas com de_etapa = para_etapa são anotações (ex.: tarefa criada/concluída
+  // no card, trigger de lead_tarefas), não movimento — fora das séries de conversão.
+  const historico: HistoricoLeadLike[] = (histRes.data ?? []).filter((h) => !ehAnotacaoHistorico(h)).map((h) => ({
     lead_id: h.lead_id,
     para_etapa: h.para_etapa,
     criado_em: h.criado_em ?? null,

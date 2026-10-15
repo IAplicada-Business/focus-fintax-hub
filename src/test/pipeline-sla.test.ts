@@ -93,6 +93,7 @@ describe("serieGraficoSla", () => {
       "triagem",
       "contrato_emitido",
       "contrato_assinado",
+      "follow_up",
     ]);
     expect(serie[0]).toMatchObject({ labelCurto: "Novo", media: 5.5, maximo: 10, meta: 3, leads: 2, atrasados: 1, atrasoAcumulado: 7, acimaDaMeta: true });
     expect(serie[1]).toMatchObject({ media: 2, maximo: 2, meta: 5, leads: 1, atrasados: 0, acimaDaMeta: false });

@@ -72,11 +72,9 @@ export const MENU_COMERCIAL: MenuItem[] = [
     title: "Atendimento",
     url: "/atendimento",
     icon: Inbox,
+    // O prompt do robô SDR é configurado direto no banco (bot_config), não
+    // pela tela: o item "Robô SDR" saiu do menu (pedido da Mariana, out/2026).
     screenKey: "atendimento",
-    children: [
-      // Robô SDR: mora em /configuracoes/bot por histórico, mas é tela comercial.
-      { title: "Robô SDR", url: "/configuracoes/bot", screenKey: "atendimento" },
-    ],
   },
 ];
 
@@ -115,6 +113,7 @@ export const MENU_OPERACIONAL: MenuItem[] = [
     children: [
       { title: "Motor de Cálculo", url: "/configuracoes/motor", screenKey: "motor_calculo" },
       { title: "Benchmarks e Teses", url: "/benchmarks", screenKey: "benchmarks" },
+      { title: "Resumo semanal (WhatsApp)", url: "/configuracoes/resumo-semanal", screenKey: "resumo_semanal" },
     ],
   },
   {

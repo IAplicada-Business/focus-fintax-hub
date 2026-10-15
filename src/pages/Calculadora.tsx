@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useWhatsappComercial } from "@/hooks/data/useWhatsappComercial";
+import { linkWhatsapp } from "@/lib/diagnostico-whatsapp";
 import { toast } from "sonner";
 import {
   CRONOGRAMA_TRANSICAO,
@@ -119,6 +121,8 @@ export default function Calculadora() {
   const [submitting, setSubmitting] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [leadId, setLeadId] = useState<string | null>(null);
+  // Id do lead no CRM (tabela leads). `leadId` acima é o de calculadora_leads.
+  const [crmLeadId, setCrmLeadId] = useState<string | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -166,7 +170,7 @@ export default function Calculadora() {
       if (error) throw error;
       if (!data || (data as any).error) throw new Error((data as any)?.error || "Erro no cálculo");
 
-      const payload = data as { success: boolean; lead_id: string; resultado: any };
+      const payload = data as { success: boolean; lead_id: string; crm_lead_id?: string | null; resultado: any };
       const dre = payload.resultado.dre as DreOutput;
       const reforma = payload.resultado.reforma as IbsCbsOutput;
       setResultado({
@@ -176,6 +180,7 @@ export default function Calculadora() {
         economia_potencial_anual: payload.resultado.economia_potencial_anual,
       });
       setLeadId(payload.lead_id);
+      setCrmLeadId(payload.crm_lead_id ?? null);
       // Meta Pixel: Lead evento (se pixel estiver carregado)
       if (typeof (window as any).fbq === "function") {
         (window as any).fbq("track", "Lead", {
@@ -361,7 +366,7 @@ export default function Calculadora() {
       {/* RESULTADO — só renderiza depois de submit */}
       {resultado && (
         <div ref={resultRef} style={{ padding: "40px 24px 80px" }}>
-          <ResultadoView resultado={resultado} lead_id={leadId} nome={nome} regime={regime} segmento={segmento} />
+          <ResultadoView resultado={resultado} lead_id={leadId} crm_lead_id={crmLeadId} nome={nome} regime={regime} segmento={segmento} />
         </div>
       )}
 
@@ -461,12 +466,16 @@ function RadioBtn({ checked, onClick, label }: { checked: boolean; onClick: () =
 function ResultadoView({
   resultado,
   lead_id,
+  crm_lead_id,
   nome,
   regime,
   segmento: _segmento,
 }: {
   resultado: Resultado;
+  /** Id em calculadora_leads. */
   lead_id: string | null;
+  /** Id em leads (CRM); nulo se o espelho falhou. */
+  crm_lead_id: string | null;
   nome: string;
   regime: string;
   segmento: string;
@@ -477,20 +486,24 @@ function ResultadoView({
   const [downloading, setDownloading] = useState(false);
   const [interesseSent, setInteresseSent] = useState(false);
   const [interesseLoading, setInteresseLoading] = useState(false);
+  const whatsappComercial = useWhatsappComercial();
 
   const handleQuerSaberMais = async () => {
     if (interesseSent || interesseLoading || !lead_id) {
       // Sem lead_id, só abre o WhatsApp direto
-      window.open(`https://wa.me/5521988946055?text=${encodeURIComponent(
-        `Olá, AGF! Fiz a calculadora da Reforma Tributária e quero saber mais sobre como reduzir o impacto na minha rede. Meu nome: ${nome}, faturamento ~${fmtBRL(fat)}/mês.`
-      )}`, "_blank");
+      window.open(linkWhatsapp(
+        whatsappComercial,
+        `Olá, AGF! Fiz a calculadora da Reforma Tributária e quero saber mais sobre como reduzir o impacto na minha rede. Meu nome: ${nome}, faturamento ~${fmtBRL(fat)}/mês.`,
+      ), "_blank");
       return;
     }
     setInteresseLoading(true);
     try {
       // Marca o lead como "quer_saber_mais" no Pipeline (via edge function)
+      // `lead_id` aqui é o id de calculadora_leads: vai no campo certo, e o
+      // id do CRM junto quando existir (antes só ia `lead_id` e nada batia).
       await supabase.functions.invoke("calc-lead-interested", {
-        body: { lead_id },
+        body: { calculadora_lead_id: lead_id, ...(crm_lead_id ? { lead_id: crm_lead_id } : {}) },
       });
       setInteresseSent(true);
       toast.success("Um especialista AGF vai entrar em contato!", {
@@ -502,9 +515,10 @@ function ResultadoView({
       setInteresseLoading(false);
     }
     // Sempre abre o WhatsApp também
-    window.open(`https://wa.me/5521988946055?text=${encodeURIComponent(
-      `Olá, AGF! Fiz a calculadora (cadastro ${lead_id}) e quero saber mais. Saldo IBS/CBS estimado: ${fmtBRL(impostoReforma)}/mês.`
-    )}`, "_blank");
+    window.open(linkWhatsapp(
+      whatsappComercial,
+      `Olá, AGF! Fiz a calculadora (cadastro ${lead_id}) e quero saber mais. Saldo IBS/CBS estimado: ${fmtBRL(impostoReforma)}/mês.`,
+    ), "_blank");
   };
 
   // Baseline "hoje" = proxy só de PIS+COFINS+ICMS (tributos sobre consumo).
@@ -816,9 +830,10 @@ function ResultadoView({
           {downloading ? "Gerando PDF..." : "📄 Baixar diagnóstico em PDF"}
         </button>
         <a
-          href={`https://wa.me/5521988946055?text=${encodeURIComponent(
-            `Olá, AGF! Fiz o diagnóstico da Reforma na calculadora. Meu cadastro: ${lead_id ?? "-"}. Faturamento ${fmtBRL(fat)}/mês, saldo IBS/CBS estimado ${fmtBRL(impostoReforma)}/mês. Quero conversar.`
-          )}`}
+          href={linkWhatsapp(
+            whatsappComercial,
+            `Olá, AGF! Fiz o diagnóstico da Reforma na calculadora. Meu cadastro: ${lead_id ?? "-"}. Faturamento ${fmtBRL(fat)}/mês, saldo IBS/CBS estimado ${fmtBRL(impostoReforma)}/mês. Quero conversar.`,
+          )}
           target="_blank" rel="noreferrer"
           style={{
             padding: "14px 20px", borderRadius: 10, border: `1.5px solid ${BORDER}`,

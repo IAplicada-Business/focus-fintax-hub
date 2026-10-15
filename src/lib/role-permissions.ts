@@ -4,6 +4,8 @@ export const EDITABLE_STAGES_COMERCIAL = [
   "triagem",
   "contrato_emitido",
   "contrato_assinado",
+  // Follow-up é trabalho do comercial (retomar contato), não da operação.
+  "follow_up",
 ];
 
 export function canEditLead(role: string | null, stage: string): boolean {

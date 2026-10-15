@@ -158,7 +158,7 @@ describe("linhasParaLeads", () => {
     expect(a.closer_id).toBeNull();
     // sem nome: repete a empresa; produto da coluna vence o do lote
     expect(b.nome).toBe("Só Empresa");
-    expect(b.produto).toBe("agf_atax");
+    expect(b.produto).toBe("agf_tax");
     expect(b.observacoes).toBe("Cidade/UF: Belo Horizonte");
     expect(b.segmento).toBe("outros");
     expect(elegivelDiagnostico(a)).toBe(true);

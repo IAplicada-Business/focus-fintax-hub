@@ -83,7 +83,9 @@ describe("OperationalView com base legada", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/2 clientes no recorte · período: Acumulado · tese: todas · 0 ativos fora/)).toBeInTheDocument();
+    // O resumo em texto do recorte saiu (os cards já mostram os números); fica o filtro de cliente.
+    expect(screen.getByRole("button", { name: /^Cliente$/ })).toBeInTheDocument();
+    expect(screen.queryByText(/ativos fora/)).not.toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Saldo a compensar: 1500" })).toBeInTheDocument();
     expect(screen.queryByText(/Dados incompletos:/)).not.toBeInTheDocument();
     expect(screen.getByText("Onde os clientes estão")).toBeInTheDocument();
@@ -96,7 +98,8 @@ describe("OperationalView com base legada", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: "Pulso semanal" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Filtros do pulso semanal")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Pulso semanal" })).not.toBeInTheDocument();
     expect(screen.getByText("Dados incompletos:")).toBeInTheDocument();
     expect(screen.getByText(/2 sem status de compensação/)).toBeInTheDocument();
     expect(screen.getByText(/2 sem tipo de recuperação/)).toBeInTheDocument();

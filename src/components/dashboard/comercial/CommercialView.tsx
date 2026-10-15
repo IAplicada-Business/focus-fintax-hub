@@ -10,7 +10,6 @@ import {
   etapaUnificada,
   leadAtivo,
   leadsParados,
-  leadsPorOrigem,
   pipelinePonderado,
   projetarSerieSemanal,
   resumoAtendimento,
@@ -29,7 +28,6 @@ import { EvolucaoLeadsChart } from "./EvolucaoLeadsChart";
 import { ProjecaoComercial } from "./ProjecaoComercial";
 import { FunilConversao } from "./FunilConversao";
 import { AtendimentoPulse } from "./AtendimentoPulse";
-import { OrigemLeads } from "./OrigemLeads";
 import { PerfilLeads } from "./PerfilLeads";
 import { SlaFunilChart } from "./sla-funil/SlaFunilChart";
 import { SlaFunilTabela } from "./sla-funil/SlaFunilTabela";
@@ -106,7 +104,6 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
     const parados = leadsParados(emAndamento, "contrato_emitido", 3, agora);
 
     const atendimento = resumoAtendimento(conversas, agora);
-    const origens = leadsPorOrigem(ativos);
     const regimeMix = agregarMixRegime(
       emAndamento.map((l) => ({ regime_tributario: l.regime_tributario, potencial: l.potencial })),
       motor.regimes,
@@ -135,7 +132,6 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
       metasConversao,
       potencialTravado,
       atendimento,
-      origens,
       regimeMix,
       segmentoData,
       scoreDistribution,
@@ -244,24 +240,19 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
         </div>
       </div>
 
-      {/* 5. SLA + origem */}
-      <div className="animate-slide-up delay-4 grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <div className="xl:col-span-8 min-w-0">
-          <SlaFunilChart
-            serie={m.serieSla}
-            etapas={m.sla.etapas}
-            etapaAtiva={etapaAtiva}
-            podeEditarMeta={podeEditarMeta}
-            salvandoMeta={salvarMeta.isPending || salvarMetaConversao.isPending}
-            onSelecionarEtapa={onSelecionarEtapa}
-            onSalvarMeta={(etapa, raw, atual) => void onSalvarMeta(etapa, raw, atual)}
-            metasConversao={m.metasConversao}
-            onSalvarMetaConversao={(etapa, raw, atual) => void onSalvarMetaConversao(etapa, raw, atual)}
-          />
-        </div>
-        <div className="xl:col-span-4 min-w-0">
-          <OrigemLeads origens={m.origens} />
-        </div>
+      {/* 5. SLA por etapa (largura total) */}
+      <div className="animate-slide-up delay-4 min-w-0">
+        <SlaFunilChart
+          serie={m.serieSla}
+          etapas={m.sla.etapas}
+          etapaAtiva={etapaAtiva}
+          podeEditarMeta={podeEditarMeta}
+          salvandoMeta={salvarMeta.isPending || salvarMetaConversao.isPending}
+          onSelecionarEtapa={onSelecionarEtapa}
+          onSalvarMeta={(etapa, raw, atual) => void onSalvarMeta(etapa, raw, atual)}
+          metasConversao={m.metasConversao}
+          onSalvarMetaConversao={(etapa, raw, atual) => void onSalvarMetaConversao(etapa, raw, atual)}
+        />
       </div>
 
       {/* 6. Perfil */}

@@ -94,6 +94,10 @@ export const SCREENS: ScreenDef[] = [
     children: [
       { key: "motor_calculo", label: "Motor de Cálculo",   defaultRoles: ["admin", "pmo"], defaultReadOnlyRoles: [] },
       { key: "benchmarks",    label: "Benchmarks e Teses", defaultRoles: ["admin"],         defaultReadOnlyRoles: [] },
+      // Só admin: escolhe quem recebe números consolidados da carteira por
+      // WhatsApp. A página e o RLS das tabelas checam admin de novo, então
+      // liberar a chave para outro papel aqui só mostra a tela de "sem acesso".
+      { key: "resumo_semanal", label: "Resumo semanal (WhatsApp)", defaultRoles: ["admin"], defaultReadOnlyRoles: [] },
     ],
   },
   {
@@ -160,6 +164,7 @@ export function routeToScreenKey(path: string): string | null {
   if (path.startsWith("/configuracoes/bot")) return "atendimento";
   if (path.startsWith("/configuracoes/motor")) return "motor_calculo";
   if (path.startsWith("/configuracoes/esteira-sla")) return "esteira";
+  if (path.startsWith("/configuracoes/resumo-semanal")) return "resumo_semanal";
   if (path.startsWith("/configuracoes")) return "configuracoes";
   if (path.startsWith("/benchmarks")) return "benchmarks";
   if (path.startsWith("/esteira")) return "esteira";
