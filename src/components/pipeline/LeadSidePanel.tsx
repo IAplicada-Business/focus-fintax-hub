@@ -296,7 +296,7 @@ export function LeadSidePanel({ lead, onClose, onRefresh, abaInicial }: Props) {
 
   const stageLabel = (val: string) => PIPELINE_STAGES.find((s) => s.value === val)?.label || val;
 
-  const largura = "w-[480px] sm:max-w-[480px]";
+  const largura = "w-full sm:w-[640px] sm:max-w-[640px]";
 
   return (
     <>
@@ -305,7 +305,7 @@ export function LeadSidePanel({ lead, onClose, onRefresh, abaInicial }: Props) {
           {lead && (
             <div className="flex flex-col h-full">
               <SheetHeader className="p-6 pb-4 border-b">
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-2 pr-8">
                   <SheetTitle className="text-lg flex-1 truncate">{lead.empresa}</SheetTitle>
                   {!isFullReadOnly && !isEditing && (
                     <div className="flex items-center gap-1 shrink-0">
@@ -352,7 +352,7 @@ export function LeadSidePanel({ lead, onClose, onRefresh, abaInicial }: Props) {
               </SheetHeader>
 
               <Tabs value={aba} onValueChange={setAba} className="flex-1 flex flex-col min-h-0">
-                <TabsList className="mx-6 mt-4">
+                <TabsList className="mx-6 mt-4 grid grid-cols-5 h-auto">
                   <TabsTrigger value="dados">Dados</TabsTrigger>
                   <TabsTrigger value="diagnostico">Diagnóstico</TabsTrigger>
                   <TabsTrigger value="historico">Histórico</TabsTrigger>
