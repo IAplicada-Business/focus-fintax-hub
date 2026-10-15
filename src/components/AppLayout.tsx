@@ -24,13 +24,20 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="min-h-screen flex w-full bg-sidebar">
       <AppSidebar />
-      <div className="flex-1 flex flex-col bg-background overflow-hidden">
+      <div
+        className={cn(
+          "flex-1 flex flex-col min-w-0 bg-background overflow-hidden",
+          // Inbox precisa de altura travada: senão o calc da página soma com o
+          // header e o composer sai da tela.
+          isInboxShell && "h-screen",
+        )}
+      >
         {!isDashboardShell && <AppHeader />}
         <main
           className={cn(
-            "flex-1 overflow-auto",
+            "flex-1 min-h-0 overflow-auto",
             !isDashboardShell && !isInboxShell && "p-4 md:p-6",
-            isInboxShell && "p-0 overflow-hidden",
+            isInboxShell && "p-0 overflow-hidden flex flex-col",
             isMobile && "pt-14",
           )}
         >

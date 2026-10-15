@@ -11,6 +11,7 @@ import { useLeadsPipeline } from "@/hooks/data/useLeads";
 import { phonesMatch, phoneDigits } from "@/lib/phone-match";
 import AtendimentoTab from "@/components/pipeline/AtendimentoTab";
 import { AtendimentoLeadPanel } from "@/components/atendimento/AtendimentoLeadPanel";
+import { WhatsAppConexao } from "@/components/atendimento/WhatsAppConexao";
 import { LeadFormModal } from "@/components/pipeline/LeadFormModal";
 import type { PipelineLead } from "@/pages/Pipeline";
 import type { InboxConversa } from "@/services/atendimentoService";
@@ -168,7 +169,7 @@ export default function Atendimento() {
   }, [telParam, lista, setSearchParams]);
 
   return (
-    <div className="h-[calc(100vh-4rem)] max-md:h-[calc(100vh-3.5rem)] flex overflow-hidden bg-background">
+    <div className="flex-1 min-h-0 flex overflow-hidden bg-background">
       {/* Lista — estilo inbox */}
       <aside
         className={cn(
@@ -180,6 +181,7 @@ export default function Atendimento() {
           <div className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4 text-primary" />
             <h1 className="text-sm font-bold">Atendimento</h1>
+            <WhatsAppConexao />
           </div>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />

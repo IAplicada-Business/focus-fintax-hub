@@ -29,6 +29,14 @@ const SIGNED_URL_TTL_SEGUNDOS = 60 * 60 * 24 * 365 * 5; // 5 anos
 
 type TipoAnexo = "imagem" | "audio" | "documento" | "outro";
 
+function rotuloFalha(erro: string | null) {
+  if (erro === "instancia_desconectada") return "falhou · WhatsApp desconectado";
+  if (erro === "zapi_nao_configurado") return "falhou · Z-API sem credencial";
+  if (erro === "envio_nao_configurado") return "falhou · envio não configurado";
+  if (erro === "token_invalido") return "falhou · token de envio";
+  return "falhou";
+}
+
 function tipoPorMime(mime: string): TipoAnexo {
   if (mime.startsWith("image/")) return "imagem";
   if (mime.startsWith("audio/")) return "audio";
@@ -432,7 +440,7 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
   return (
     <div className="flex flex-col h-full min-h-0">
       {compartilhando > 1 && (
-        <div className="mx-6 mt-3 mb-1 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2">
+        <div className="mx-4 mt-3 mb-1 shrink-0 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2">
           <Users className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" aria-hidden />
           <p className="text-[11px] text-amber-800">
             Este número aparece em <strong>{compartilhando} registros de lead</strong>. A conversa é
@@ -441,7 +449,7 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
         </div>
       )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-2">
+      <div className="flex-1 min-h-0 overflow-y-auto pl-8 pr-4 py-4 space-y-3">
         {mensagens.length === 0 && (
           <p className="py-12 text-center text-xs text-muted-foreground">
             Nenhuma mensagem ainda. O histórico começa quando o lead escrever ou você enviar.
@@ -456,11 +464,13 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
           // ainda não foi apagada.
           const podeApagar = minha && m.status === "enviada" && Boolean(m.zapi_message_id) && !apagada;
           return (
-            <div key={m.id} className={`flex ${minha ? "justify-end" : "justify-start"} group`}>
+            <div key={m.id} className={`flex min-w-0 ${minha ? "justify-end" : "justify-start"} group`}>
               <div
-                className={`relative max-w-[80%] rounded-lg px-3 py-2 ${
-                  minha ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                } ${m.status === "falha" ? "border border-destructive" : ""}`}
+                className={`relative max-w-[min(80%,28rem)] min-w-0 rounded-2xl border px-3.5 py-2.5 shadow-sm ${
+                  minha
+                    ? "bg-secondary/15 border-secondary/40 text-foreground"
+                    : "bg-card border-border text-foreground"
+                } ${m.status === "falha" ? "border-destructive" : ""}`}
               >
                 {podeApagar && (
                   <Button
@@ -518,7 +528,7 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
                   )}
                   {minha && m.status === "falha" && (
                     <span className="text-[10px] font-semibold text-destructive" title={m.erro || ""}>
-                      · falhou
+                      · {rotuloFalha(m.erro)}
                     </span>
                   )}
                 </div>
@@ -529,7 +539,7 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
         <div ref={fimRef} />
       </div>
 
-      <div className="mx-6 mt-2 flex items-center gap-2 rounded-md border bg-muted/40 p-2">
+      <div className="mx-4 mb-3 mt-1 shrink-0 flex items-center gap-2 rounded-md border bg-card p-2">
         <Bot className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden />
         <Label htmlFor="bot-switch" className="text-[11px] flex-1 cursor-pointer">
           Robô SDR nesta conversa
@@ -546,7 +556,7 @@ export default function AtendimentoTab({ whatsapp }: { whatsapp: string | null }
         />
       </div>
 
-      <div className="border-t p-4 space-y-2">
+      <div className="shrink-0 border-t bg-card px-4 py-3 space-y-2">
         {anexo && (
           <div className="flex items-center gap-2 rounded-md border bg-muted/40 p-2">
             {anexo.previewUrl && anexo.tipo === "imagem" ? (

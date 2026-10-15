@@ -3,10 +3,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   apagarMensagem,
   conteudoDoEvento,
+  desconectarInstancia,
   ehSufixoLid,
   enviarMidia,
   enviarTexto,
   idExternoDoEvento,
+  qrCodeInstancia,
+  statusInstancia,
   telefoneDoEvento,
   telefoneSinteticoDoLid,
   tipoDoEvento,
@@ -20,6 +23,7 @@ import {
  *   POST /atendimento-zapi/webhook?chave=...   mensagens/status que chegam da Z-API
  *   POST /atendimento-zapi/enviar              chamada pelo trigger-outbox do Postgres
  *   POST /atendimento-zapi/apagar              chamada pelo painel (usuário logado) p/ apagar msg
+ *   POST /atendimento-zapi/conexao             status, QR e desconectar a instância
  *
  * Nenhuma regra de atendimento ou do bot SDR mora aqui — só grava/lê pelas RPCs
  * que já existem (atendimento_registrar_entrada, atendimento_registrar_mensagem,
@@ -220,12 +224,29 @@ async function webhook(req: Request, url: URL) {
 async function enviar(req: Request) {
   const tokenEsperado = Deno.env.get("ATENDIMENTO_OUTBOX_TOKEN");
   if (tokenEsperado && req.headers.get("x-webhook-token") !== tokenEsperado) {
+    const { mensagem_id } = await req.clone().json().catch(() => ({}));
+    if (mensagem_id) {
+      await supabase
+        .from("atendimento_mensagens")
+        .update({ status: "falha", erro: "token_invalido" })
+        .eq("id", mensagem_id);
+    }
     return json({ ok: false, motivo: "token_invalido" }, 401);
   }
 
   const { mensagem_id, telefone, texto, tipo, midia_url } = await req.json().catch(() => ({}));
   if (!mensagem_id || !telefone || (!texto && !midia_url)) {
     return json({ ok: false, motivo: "payload_invalido" }, 400);
+  }
+
+  const sessao = await statusInstancia();
+  if (!sessao.configured || !sessao.connected) {
+    const erro = !sessao.configured ? "zapi_nao_configurado" : "instancia_desconectada";
+    await supabase
+      .from("atendimento_mensagens")
+      .update({ status: "falha", erro })
+      .eq("id", mensagem_id);
+    return json({ ok: false, motivo: erro, detalhe: sessao.detail }, 409);
   }
 
   // 'texto' continua o caminho padrão (payload sem midia_url — é o que o
@@ -315,6 +336,60 @@ async function apagar(req: Request) {
   return json({ ok: true });
 }
 
+const PAPEIS_ATENDIMENTO = [
+  "admin",
+  "gestor_tributario",
+  "pmo",
+  "comercial",
+  "gestor_comercial",
+  "sdr",
+];
+
+async function usuarioDoTime(req: Request): Promise<string | null> {
+  const auth = req.headers.get("Authorization") ?? "";
+  if (!auth.startsWith("Bearer ")) return null;
+
+  const userClient = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    { global: { headers: { Authorization: auth } } },
+  );
+  const { data: userData } = await userClient.auth.getUser();
+  const userId = userData?.user?.id;
+  if (!userId) return null;
+
+  const { data: papeis } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId);
+  const permitido = (papeis ?? []).some((p: { role: string }) => PAPEIS_ATENDIMENTO.includes(p.role));
+  return permitido ? userId : null;
+}
+
+/** Status, QR e desconexão. O token da Z-API fica nesta função — o browser só pede a ação. */
+async function conexao(req: Request) {
+  const userId = await usuarioDoTime(req);
+  if (!userId) return json({ ok: false, motivo: "nao_autenticado" }, 401);
+
+  const { acao } = await req.json().catch(() => ({}));
+
+  if (acao === "status") {
+    const status = await statusInstancia();
+    return json({ ok: true, ...status });
+  }
+  if (acao === "qr") {
+    const qr = await qrCodeInstancia();
+    if (!qr.ok) return json({ ok: false, motivo: qr.erro }, 502);
+    return json({ ok: true, ...qr });
+  }
+  if (acao === "desconectar") {
+    const resultado = await desconectarInstancia();
+    if (!resultado.ok) return json({ ok: false, motivo: resultado.erro }, 502);
+    return json({ ok: true });
+  }
+  return json({ ok: false, motivo: "acao_invalida" }, 400);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -329,6 +404,9 @@ serve(async (req) => {
     }
     if (req.method === "POST" && url.pathname.endsWith("/apagar")) {
       return await apagar(req);
+    }
+    if (req.method === "POST" && url.pathname.endsWith("/conexao")) {
+      return await conexao(req);
     }
     return json({ ok: false, motivo: "rota_desconhecida" }, 404);
   } catch (e) {

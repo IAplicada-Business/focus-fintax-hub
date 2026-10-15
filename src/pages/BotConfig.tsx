@@ -97,7 +97,7 @@ export default function BotConfigPage() {
   }
 
   return (
-    <div className="p-6 flex flex-col gap-4 h-full min-h-0">
+    <div className="p-6 flex flex-col gap-4 h-full min-h-0 w-full min-w-0 max-w-full overflow-x-hidden">
       <div className="flex items-center gap-2 shrink-0">
         <Button variant="ghost" size="sm" asChild>
           <Link to="/pipeline">
@@ -135,7 +135,7 @@ export default function BotConfigPage() {
 
       {/* Em tela larga: ajustes à esquerda, prompt à direita ocupando o resto da
           largura e da altura. Empilha abaixo de lg. */}
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
+      <div className="flex-1 min-h-0 min-w-0 grid grid-cols-1 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)] gap-6">
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="max">Máximo de respostas por conversa</Label>
@@ -174,7 +174,7 @@ export default function BotConfigPage() {
           )}
         </div>
 
-        <div className="flex flex-col min-h-0 space-y-1.5">
+        <div className="flex flex-col min-h-0 min-w-0 space-y-1.5">
           <Label htmlFor="prompt" className="shrink-0">
             Instruções do robô
           </Label>
@@ -183,7 +183,7 @@ export default function BotConfigPage() {
             value={cfg.prompt}
             disabled={!editavel}
             onChange={(e) => alterar("prompt", e.target.value)}
-            className="flex-1 min-h-[280px] font-mono text-xs resize-none"
+            className="flex-1 min-h-[280px] w-full max-w-full font-mono text-xs resize-none"
           />
           <p className="text-[11px] text-muted-foreground shrink-0">
             Editar aqui muda o que o robô fala, mas <strong>não</strong> remove as travas: ele

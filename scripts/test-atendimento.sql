@@ -65,14 +65,14 @@ begin
   raise notice 'OK entrada nao dispara envio';
 end $$;
 
--- 4) Conversa criada automaticamente, com bot DESLIGADO.
+-- 4) Conversa criada automaticamente, com bot LIGADO.
 do $$
 begin
   assert exists (select 1 from public.atendimento_conversas where telefone='5522981143032'),
     'conversa deveria ter sido criada na primeira mensagem';
-  assert (select bot_ativo from public.atendimento_conversas where telefone='5522981143032') = false,
-    'bot deveria nascer desligado';
-  raise notice 'OK conversa criada com bot desligado';
+  assert (select bot_ativo from public.atendimento_conversas where telefone='5522981143032') = true,
+    'bot deveria nascer ligado';
+  raise notice 'OK conversa criada com bot ligado';
 end $$;
 
 -- 5) Idempotencia: mesmo zapi_message_id nao duplica.
@@ -151,7 +151,7 @@ begin
   assert r->>'telefone' = '5522981143032', 'nao normalizou: ' || coalesce(r->>'telefone','null');
   assert (r->>'leads_compartilhando')::int = 3, 'esperava 3 leads dividindo, veio ' || (r->>'leads_compartilhando');
   assert jsonb_array_length(r->'mensagens') >= 4, 'esperava as mensagens da conversa';
-  assert (r->>'bot_ativo')::boolean = false, 'bot deveria estar desligado';
+  assert (r->>'bot_ativo')::boolean = true, 'bot deveria estar ligado';
   raise notice 'OK RPC da aba (% mensagens, % leads)', jsonb_array_length(r->'mensagens'), r->>'leads_compartilhando';
 end $$;
 

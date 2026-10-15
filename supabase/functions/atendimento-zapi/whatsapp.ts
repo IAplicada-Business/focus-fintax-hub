@@ -221,6 +221,128 @@ export async function zapiTelefoneDoLid(lid: string): Promise<string | null> {
   return null;
 }
 
+export type StatusInstancia = {
+  configured: boolean;
+  connected: boolean;
+  smartphoneConnected: boolean;
+  detail: string | null;
+};
+
+function normalizarQr(body: unknown): { value?: string; challenge?: boolean } {
+  if (body == null) return {};
+  if (typeof body === "string") {
+    const s = body.trim();
+    if (!s) return {};
+    if (s.startsWith("data:")) return { value: s };
+    if (s.startsWith("{")) {
+      try {
+        return normalizarQr(JSON.parse(s));
+      } catch {
+        return { value: `data:image/png;base64,${s}` };
+      }
+    }
+    return { value: `data:image/png;base64,${s}` };
+  }
+  if (typeof body === "object") {
+    const obj = body as Record<string, unknown>;
+    if (obj.challenge) return { challenge: true };
+    const raw = obj.value ?? obj.qrcode ?? obj.qrCode ?? obj.base64;
+    if (typeof raw === "string" && raw.trim()) {
+      const s = raw.trim();
+      return { value: s.startsWith("data:") ? s : `data:image/png;base64,${s}` };
+    }
+  }
+  return {};
+}
+
+/** Sessão do WhatsApp na instância. Credencial errada ou ausente não é "desconectado". */
+export async function statusInstancia(): Promise<StatusInstancia> {
+  const url = baseUrl("status");
+  if (!url) {
+    return { configured: false, connected: false, smartphoneConnected: false, detail: "zapi_nao_configurado" };
+  }
+  try {
+    const r = await fetch(url, { headers: headers() });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const detalhe = body?.error ?? body?.message ?? `zapi_status_${r.status}`;
+      return { configured: true, connected: false, smartphoneConnected: false, detail: String(detalhe) };
+    }
+    const erro = typeof body?.error === "string" ? body.error : "";
+    const connected = body?.connected === true || body?.session === true || /already connected/i.test(erro);
+    return {
+      configured: true,
+      connected,
+      smartphoneConnected: body?.smartphoneConnected === true,
+      detail: erro || null,
+    };
+  } catch (e) {
+    return {
+      configured: true,
+      connected: false,
+      smartphoneConnected: false,
+      detail: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+export async function qrCodeInstancia(): Promise<
+  | { ok: true; kind: "qr"; value: string }
+  | { ok: true; kind: "already_connected" }
+  | { ok: true; kind: "challenge"; message: string }
+  | { ok: false; erro: string }
+> {
+  const status = await statusInstancia();
+  if (!status.configured) return { ok: false, erro: "zapi_nao_configurado" };
+  if (status.connected) return { ok: true, kind: "already_connected" };
+
+  const url = baseUrl("qr-code/image");
+  if (!url) return { ok: false, erro: "zapi_nao_configurado" };
+  try {
+    const r = await fetch(url, { headers: headers() });
+    const texto = await r.text();
+    let body: unknown = texto;
+    try {
+      body = JSON.parse(texto);
+    } catch {
+      body = texto;
+    }
+    if (!r.ok) {
+      const detalhe = typeof body === "object" && body && "message" in body
+        ? String((body as { message: unknown }).message)
+        : `zapi_status_${r.status}`;
+      return { ok: false, erro: detalhe };
+    }
+    const qr = normalizarQr(body);
+    if (qr.challenge) {
+      return {
+        ok: true,
+        kind: "challenge",
+        message: "O WhatsApp pediu uma verificação extra. Conclua no painel da Z-API ou use outro aparelho.",
+      };
+    }
+    if (!qr.value) return { ok: false, erro: "qr_vazio" };
+    return { ok: true, kind: "qr", value: qr.value };
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function desconectarInstancia(): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const url = baseUrl("disconnect");
+  if (!url) return { ok: false, erro: "zapi_nao_configurado" };
+  try {
+    const r = await fetch(url, { headers: headers() });
+    if (!r.ok) {
+      const body = await r.json().catch(() => ({}));
+      return { ok: false, erro: body?.error ?? body?.message ?? `zapi_status_${r.status}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /**
  * Apaga para todos uma mensagem enviada por nós. Sem janela de tempo (ao
  * contrário de editar) — a Z-API aceita apagar mensagens mais antigas.
