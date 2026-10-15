@@ -9,6 +9,7 @@ import type { OperacionalDashboardData } from "@/services/operacionalDashboardSe
 import { acoesPorTipo, acoesPorUsuario, movimentosEsteira } from "@/lib/operacional-analytics";
 import { compactCurrency } from "../dashboard-utils";
 import { BarList, CountChip, InlineEmpty, KpiCard, LinkMore, Panel } from "../ui/primitives";
+import { ResumoAutomaticoPanel } from "./ResumoAutomaticoPanel";
 import { cn } from "@/lib/utils";
 import { MonthPicker } from "@/components/ui/month-picker";
 import { currentMonthKey } from "@/lib/month-key";
@@ -25,6 +26,11 @@ const LIMIT = 10;
 interface Props {
   data: OperacionalDashboardData;
   navigate: NavigateFunction;
+  /**
+   * Mostra o card "Resumo automático por WhatsApp" (Lote 3B). Opt-in porque o
+   * card usa react-query + RPC restrita a admin/pmo — quem renderiza decide.
+   */
+  automacao?: boolean;
 }
 
 /**
@@ -32,7 +38,7 @@ interface Props {
  * lançadas, movimentos na esteira, teses novas, ações do time — e quem está
  * com saldo parado sem movimento.
  */
-export const ResumoSemanalTab = memo(function ResumoSemanalTab({ data, navigate }: Props) {
+export const ResumoSemanalTab = memo(function ResumoSemanalTab({ data, navigate, automacao = false }: Props) {
   const mesCorrente = currentMonthKey();
   const [monthKey, setMonthKey] = useState(mesCorrente);
   const semanas = useMemo(() => semanasDisponiveis(monthKey), [monthKey]);
@@ -210,6 +216,8 @@ export const ResumoSemanalTab = memo(function ResumoSemanalTab({ data, navigate 
       </div>
 
       <PulsoTable topClientes={m.topClientes} semMovimento={m.semMovimento} saldoParado={m.saldoParado} navigate={navigate} />
+
+      {automacao && <ResumoAutomaticoPanel />}
     </div>
   );
 });

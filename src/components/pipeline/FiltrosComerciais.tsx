@@ -1,4 +1,12 @@
+import { CalendarRange } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MonthPicker } from "@/components/ui/month-picker";
+import {
+  PERIODO_PIPELINE_OPCOES,
+  isTipoPeriodoPipeline,
+  trocarTipoPeriodo,
+  type PeriodoPipeline,
+} from "@/lib/pipeline-periodo";
 import { PRODUTOS_LEAD, PRODUTO_LEAD_COLORS, PRODUTO_LEAD_LABEL, PRODUTO_LEAD_PADRAO, isProdutoLead, type FiltroProduto } from "@/lib/produto-lead";
 import {
   closersDaEquipe,
@@ -113,5 +121,46 @@ export function ResponsaveisChip({
         </span>
       )}
     </span>
+  );
+}
+
+/**
+ * Período de criação do lead: Tudo / Este mês / Mês passado / 30d / 90d ou um
+ * mês escolhido no MonthPicker (aparece só quando "Escolher mês" está ativo).
+ */
+export function PeriodoSelect({
+  value,
+  onChange,
+  className,
+}: {
+  value: PeriodoPipeline;
+  onChange: (v: PeriodoPipeline) => void;
+  className?: string;
+}) {
+  return (
+    <div className={cn("inline-flex items-center gap-1.5", className)}>
+      <Select value={value.tipo} onValueChange={(v) => isTipoPeriodoPipeline(v) && onChange(trocarTipoPeriodo(value, v))}>
+        <SelectTrigger className="h-9 w-[160px] text-xs bg-white" aria-label="Filtrar por período de criação">
+          <CalendarRange className="h-3.5 w-3.5 mr-1.5 text-ink-35 shrink-0" />
+          <SelectValue placeholder="Período" />
+        </SelectTrigger>
+        <SelectContent>
+          {PERIODO_PIPELINE_OPCOES.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {value.tipo === "mes" && (
+        <MonthPicker
+          value={value.mes}
+          onChange={(mes) => onChange({ tipo: "mes", mes })}
+          clearable={false}
+          triggerClassName="h-9 bg-white"
+          aria-label="Mês de criação do lead"
+        />
+      )}
+    </div>
   );
 }

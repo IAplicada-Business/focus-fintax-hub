@@ -101,7 +101,7 @@ export default function Dashboard({ modo = "operacional" }: { modo?: DashboardMo
       return <ErrorCard title="Não foi possível carregar o dashboard" message={(opQ.error as Error)?.message} onRetry={() => opQ.refetch()} />;
     }
     if (activeTab === "executiva" && canExecutiva) return <ExecutivaView data={opQ.data} navigate={navigate} />;
-    if (activeTab === "pulso" && canPulso) return <ResumoSemanalTab data={opQ.data} navigate={navigate} />;
+    if (activeTab === "pulso" && canPulso) return <ResumoSemanalTab data={opQ.data} navigate={navigate} automacao={role === "admin" || role === "pmo"} />;
     return <OperationalView data={opQ.data} navigate={navigate} />;
   };
 

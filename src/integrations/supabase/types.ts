@@ -1893,6 +1893,45 @@ export type Database = {
         }
         Relationships: []
       }
+      metas_comerciais: {
+        Row: {
+          atualizado_em: string
+          contratos: number | null
+          criado_por: string | null
+          escopo: string
+          id: string
+          leads_novos: number | null
+          mes: string
+          reunioes_agendadas: number | null
+          reunioes_realizadas: number | null
+          user_id: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          contratos?: number | null
+          criado_por?: string | null
+          escopo: string
+          id?: string
+          leads_novos?: number | null
+          mes: string
+          reunioes_agendadas?: number | null
+          reunioes_realizadas?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          contratos?: number | null
+          criado_por?: string | null
+          escopo?: string
+          id?: string
+          leads_novos?: number | null
+          mes?: string
+          reunioes_agendadas?: number | null
+          reunioes_realizadas?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       motor_teses_config: {
         Row: {
           ativo: boolean | null
@@ -2076,6 +2115,7 @@ export type Database = {
           label: string
           ordem: number
           sla_dias: number | null
+          meta_conversao_pct: number | null
         }
         Insert: {
           ativo?: boolean
@@ -2084,6 +2124,7 @@ export type Database = {
           label: string
           ordem: number
           sla_dias?: number | null
+          meta_conversao_pct?: number | null
         }
         Update: {
           ativo?: boolean
@@ -2092,6 +2133,7 @@ export type Database = {
           label?: string
           ordem?: number
           sla_dias?: number | null
+          meta_conversao_pct?: number | null
         }
         Relationships: []
       }
@@ -2323,6 +2365,72 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
         ]
+      }
+      resumo_semanal_destinatarios: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          id: string
+          nome: string | null
+          whatsapp: string
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          id?: string
+          nome?: string | null
+          whatsapp: string
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          id?: string
+          nome?: string | null
+          whatsapp?: string
+        }
+        Relationships: []
+      }
+      resumo_semanal_envios: {
+        Row: {
+          dados: Json | null
+          destinatario: string
+          erro: string | null
+          executado_em: string
+          id: string
+          mensagem: string
+          periodo_fim: string
+          periodo_inicio: string
+          status: string
+          tipo: string
+          zapi_response: Json | null
+        }
+        Insert: {
+          dados?: Json | null
+          destinatario: string
+          erro?: string | null
+          executado_em?: string
+          id?: string
+          mensagem: string
+          periodo_fim: string
+          periodo_inicio: string
+          status: string
+          tipo: string
+          zapi_response?: Json | null
+        }
+        Update: {
+          dados?: Json | null
+          destinatario?: string
+          erro?: string | null
+          executado_em?: string
+          id?: string
+          mensagem?: string
+          periodo_fim?: string
+          periodo_inicio?: string
+          status?: string
+          tipo?: string
+          zapi_response?: Json | null
+        }
+        Relationships: []
       }
       teses_tributarias: {
         Row: {
@@ -2747,6 +2855,17 @@ export type Database = {
         Returns: boolean
       }
       mapa_envios_pendentes: { Args: { p_limite?: number }; Returns: Json }
+      metas_comerciais_realizado: {
+        Args: { p_mes: string }
+        Returns: {
+          contratos: number
+          full_name: string | null
+          leads_novos: number
+          reunioes_agendadas: number
+          reunioes_realizadas: number
+          user_id: string | null
+        }[]
+      }
       normalizar_whatsapp: { Args: { p_raw: string }; Returns: string }
       notificacao_compensacao_payload: {
         Args: { p_cliente_id: string; p_mes: string }
@@ -2754,6 +2873,10 @@ export type Database = {
       }
       relatorio_semanal_esteira: {
         Args: { p_referencia?: string }
+        Returns: Json
+      }
+      resumo_semanal_dados: {
+        Args: { p_tipo?: string; p_referencia?: string }
         Returns: Json
       }
     }

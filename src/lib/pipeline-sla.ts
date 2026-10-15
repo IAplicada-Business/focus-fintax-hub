@@ -42,6 +42,39 @@ export interface PipelineSlaConfigRow {
   sla_dias: number | null;
   ordem: number;
   ativo: boolean;
+  /** Meta de conversão (%) desta etapa para a seguinte; null/ausente = sem meta (Lote 3A). */
+  meta_conversao_pct?: number | null;
+}
+
+/** Mapa etapa → meta de conversão (%) a partir da config (só etapas com meta). */
+export function metasConversaoPorEtapa(config: Pick<PipelineSlaConfigRow, "etapa" | "meta_conversao_pct">[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const c of config) {
+    if (c.meta_conversao_pct != null && Number.isFinite(c.meta_conversao_pct)) out[c.etapa] = Number(c.meta_conversao_pct);
+  }
+  return out;
+}
+
+export type TomConversao = "green" | "amber" | "red" | "muted";
+
+/**
+ * Observado × meta de conversão: dentro da meta verde; até 10 pontos abaixo
+ * âmbar; mais que isso vermelho. Sem meta ou sem observado = neutro.
+ */
+export function tomConversao(observado: number | null, meta: number | null | undefined): TomConversao {
+  if (observado == null || meta == null) return "muted";
+  const gap = observado - meta;
+  if (gap >= 0) return "green";
+  if (gap >= -10) return "amber";
+  return "red";
+}
+
+/** Texto do desvio em pontos percentuais ("+5 pp", "−12 pp"); null sem meta. */
+export function labelGapConversao(observado: number | null, meta: number | null | undefined): string | null {
+  if (observado == null || meta == null) return null;
+  const gap = Math.round(observado - meta);
+  if (gap === 0) return "na meta";
+  return `${gap > 0 ? "+" : "−"}${Math.abs(gap)} pp`;
 }
 
 export function isEtapaFunil(value: string): value is EtapaFunil {
@@ -49,12 +82,13 @@ export function isEtapaFunil(value: string): value is EtapaFunil {
 }
 
 export function defaultPipelineSlaConfig(): PipelineSlaConfigRow[] {
-  return PIPELINE_SLA_STAGES.map((s, i) => ({
+  return PIPELINE_SLA_STAGES.map((s, i): PipelineSlaConfigRow => ({
     etapa: s.value,
     label: s.label,
     sla_dias: PIPELINE_SLA_DIAS_DEFAULT[s.value],
     ordem: i + 1,
     ativo: true,
+    meta_conversao_pct: null,
   }));
 }
 

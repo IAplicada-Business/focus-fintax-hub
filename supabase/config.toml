@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.notificar-equipe-comercial]
 verify_jwt = false
+
+[functions.resumo-semanal]
+verify_jwt = false
+
+[functions.enviar-brief-cliente]
+verify_jwt = false

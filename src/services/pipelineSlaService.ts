@@ -15,7 +15,7 @@ import { getLead } from "@/services/leadsService";
 export async function listPipelineSlaConfig(): Promise<PipelineSlaConfigRow[]> {
   const { data, error } = await supabase
     .from("pipeline_sla_config")
-    .select("etapa, label, sla_dias, ordem, ativo")
+    .select("etapa, label, sla_dias, ordem, ativo, meta_conversao_pct")
     .order("ordem", { ascending: true });
 
   if (error || !data?.length) {
@@ -27,8 +27,15 @@ export async function listPipelineSlaConfig(): Promise<PipelineSlaConfigRow[]> {
   return PIPELINE_SLA_STAGES.map((s, i) => {
     const row = byEtapa.get(s.value);
     return row
-      ? { etapa: s.value, label: row.label, sla_dias: row.sla_dias, ordem: row.ordem, ativo: row.ativo }
-      : { etapa: s.value, label: s.label, sla_dias: PIPELINE_SLA_DIAS_DEFAULT[s.value], ordem: i + 1, ativo: true };
+      ? {
+          etapa: s.value,
+          label: row.label,
+          sla_dias: row.sla_dias,
+          ordem: row.ordem,
+          ativo: row.ativo,
+          meta_conversao_pct: row.meta_conversao_pct == null ? null : Number(row.meta_conversao_pct),
+        }
+      : { etapa: s.value, label: s.label, sla_dias: PIPELINE_SLA_DIAS_DEFAULT[s.value], ordem: i + 1, ativo: true, meta_conversao_pct: null };
   }).sort((a, b) => a.ordem - b.ordem);
 }
 
@@ -36,6 +43,15 @@ export async function updatePipelineSlaMeta(etapa: EtapaFunil, slaDias: number |
   const { error } = await supabase
     .from("pipeline_sla_config")
     .update({ sla_dias: slaDias, atualizado_em: new Date().toISOString() })
+    .eq("etapa", etapa);
+  if (error) throw error;
+}
+
+/** Meta de conversão (%) da etapa para a seguinte; null limpa a meta. */
+export async function updatePipelineSlaMetaConversao(etapa: EtapaFunil, pct: number | null): Promise<void> {
+  const { error } = await supabase
+    .from("pipeline_sla_config")
+    .update({ meta_conversao_pct: pct, atualizado_em: new Date().toISOString() })
     .eq("etapa", etapa);
   if (error) throw error;
 }

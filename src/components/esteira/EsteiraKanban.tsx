@@ -24,6 +24,7 @@ import {
 import { urlTriagemDocumento, type EsteiraCliente } from "@/services/esteiraService";
 import { cn } from "@/lib/utils";
 import { EnviarComercialDialog } from "@/components/esteira/EnviarComercialDialog";
+import { EnviarBriefDialog } from "@/components/esteira/EnviarBriefDialog";
 
 export interface EsteiraKanbanStage {
   value: string;
@@ -59,6 +60,7 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
   const updateTriagem = useUpdateTriagemRealizada();
   const uploadTriagem = useUploadTriagemDocumento();
   const [envioComercial, setEnvioComercial] = useState<EsteiraCliente | null>(null);
+  const [briefCliente, setBriefCliente] = useState<EsteiraCliente | null>(null);
   const focusRef = useRef<HTMLDivElement | null>(null);
   const jaRolou = useRef(false);
 
@@ -119,6 +121,9 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
     setOptimisticMoves((prev) => ({ ...prev, [clienteId]: newStage }));
     try {
       await updateEstagio.mutateAsync({ clienteId, estagio: newStage });
+      // Contrato assinado = momento do brief de boas-vindas ao cliente
+      // (Lote 3C). Abre o diálogo já com os textos; quem move decide enviar.
+      if (newStage === "contrato_assinado") setBriefCliente(cliente);
     } finally {
       setOptimisticMoves((prev) => {
         const next = { ...prev };
@@ -231,6 +236,7 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
                           uploadTriagem.mutate({ clienteId: cliente.id, file })
                         }
                         onEnviarComercial={() => setEnvioComercial(cliente)}
+                        onEnviarBrief={() => setBriefCliente(cliente)}
                       />
                     ))}
                     {provided.placeholder}
@@ -246,6 +252,12 @@ export function EsteiraKanban({ clientes, onClienteClick, stages = ESTEIRA_STAGE
       <EnviarComercialDialog
         cliente={envioComercial}
         onOpenChange={(open) => !open && setEnvioComercial(null)}
+      />
+    )}
+    {briefCliente && (
+      <EnviarBriefDialog
+        cliente={briefCliente}
+        onOpenChange={(open) => !open && setBriefCliente(null)}
       />
     )}
     </>
@@ -267,6 +279,7 @@ function ClienteCard({
   onToggleTriagem,
   onUploadTriagem,
   onEnviarComercial,
+  onEnviarBrief,
 }: {
   cliente: EsteiraCliente;
   index: number;
@@ -275,10 +288,13 @@ function ClienteCard({
   onToggleTriagem: (realizada: boolean) => void;
   onUploadTriagem: (file: File) => void;
   onEnviarComercial: () => void;
+  onEnviarBrief: () => void;
 }) {
   const ramos = ramosDoCliente(cliente);
   const atrasado = sla.status === "estourado";
   const naTriagem = cliente.estagio_esteira === "triagem";
+  // Brief de boas-vindas faz sentido a partir do contrato assinado (Lote 3C).
+  const podeBrief = cliente.estagio_esteira === "contrato_assinado" || cliente.estagio_esteira === "em_compensacao";
   const triagemOk = !!cliente.triagem_realizada;
   const temDocumento = !!cliente.triagem_documento_path?.trim();
 
@@ -381,6 +397,24 @@ function ClienteCard({
               >
                 <Send className="h-3 w-3" />
                 Enviar p/ comercial
+              </button>
+            </div>
+          )}
+
+          {podeBrief && (
+            <div
+              className="mt-2 flex flex-wrap items-center gap-1.5"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={onEnviarBrief}
+                className="inline-flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-1.5 py-0.5 text-[10px] font-semibold text-gold-deep hover:bg-gold/20"
+                title="Enviar brief de boas-vindas ao cliente (WhatsApp e e-mail)"
+              >
+                <Send className="h-3 w-3" />
+                Enviar brief
               </button>
             </div>
           )}
