@@ -1,12 +1,23 @@
 // Resumo semanal automático por WhatsApp (Lote 3B).
 //
-// POST { tipo: "segunda" | "sexta" | "teste", destinatarios?: string[], referencia?: "YYYY-MM-DD", modelo?: "segunda" | "sexta" }
+// POST { tipo: "segunda" | "sexta" | "teste", referencia?: "YYYY-MM-DD", modelo?: "segunda" | "sexta" }
 //
 // Dois jeitos de autenticar:
 //   • cron (pg_cron → net.http_post): header `x-cron-token` igual ao secret
 //     RESUMO_SEMANAL_TOKEN (mesmo valor do segredo `resumo_semanal_token` no
 //     Vault — ver migration 20261016130000_resumo_semanal.sql);
-//   • UI ("Enviar teste para mim"): Bearer JWT de usuário admin/pmo.
+//   • UI ("Enviar teste para mim", Configurações → Resumo semanal): Bearer JWT
+//     de usuário admin. O teste vai SEMPRE para o profiles.whatsapp de quem
+//     clicou — a UI não manda número, então ninguém usa o botão pra disparar
+//     a mensagem pra terceiros.
+//
+// Destinatários (segunda/sexta): linhas ativas de resumo_semanal_destinatarios.
+// Linha com user_id usa nome e WhatsApp do profile NA HORA do envio (mudou o
+// número em Usuários, já vale); usuário inativo ou sem WhatsApp é pulado e
+// listado em `ignorados` na resposta. Linha antiga só com whatsapp continua
+// valendo (migration 20261016150000).
+//
+// O envio sai pelo mesmo número Z-API do Atendimento (enviarTexto + ZAPI_*).
 //
 // Fluxo: rpc resumo_semanal_dados → (sexta) busca snapshot da segunda em
 // resumo_semanal_envios → formata (mensagem.ts) → enviarTexto por destinatário
@@ -52,10 +63,11 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const service = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-  // --- autenticação: cron OU usuário admin/pmo
+  // --- autenticação: cron OU usuário admin
   let viaCron = false;
   let usuarioId: string | null = null;
   let nomeUsuario: string | null = null;
+  let whatsappUsuario: string | null = null;
 
   const cronToken = req.headers.get("x-cron-token");
   const tokenEsperado = Deno.env.get("RESUMO_SEMANAL_TOKEN") ?? "";
@@ -73,21 +85,19 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await anon.auth.getUser();
     if (userErr || !userData?.user) return json(401, { error: "Unauthorized" });
     usuarioId = userData.user.id;
-    const [{ data: admin }, { data: pmo }] = await Promise.all([
-      service.rpc("has_role", { _user_id: usuarioId, _role: "admin" }),
-      service.rpc("has_role", { _user_id: usuarioId, _role: "pmo" }),
-    ]);
-    if (!admin && !pmo) return json(403, { error: "Só admin ou PMO podem disparar o resumo" });
+    const { data: admin } = await service.rpc("has_role", { _user_id: usuarioId, _role: "admin" });
+    if (!admin) return json(403, { error: "Só administradores podem disparar o resumo" });
     const { data: perfil } = await service
       .from("profiles")
-      .select("full_name")
+      .select("full_name, whatsapp")
       .eq("user_id", usuarioId)
       .maybeSingle();
     nomeUsuario = (perfil?.full_name as string | null) ?? null;
+    whatsappUsuario = normalizarTelefoneBR(perfil?.whatsapp as string | null);
   }
 
   // --- corpo
-  let body: { tipo?: string; destinatarios?: string[]; referencia?: string; modelo?: string };
+  let body: { tipo?: string; referencia?: string; modelo?: string };
   try {
     body = await req.json();
   } catch {
@@ -105,23 +115,63 @@ Deno.serve(async (req) => {
 
   // --- destinatários
   let destinatarios: { nome: string | null; whatsapp: string }[] = [];
+  const ignorados: { user_id: string; nome: string | null; motivo: "sem_whatsapp" | "inativo" }[] = [];
   if (tipo === "teste") {
-    const telefones = (body.destinatarios ?? [])
-      .map((t) => normalizarTelefoneBR(t))
-      .filter((t): t is string => !!t);
-    if (telefones.length === 0) return json(400, { error: "Informe pelo menos um WhatsApp válido para o teste" });
-    destinatarios = [...new Set(telefones)].map((whatsapp) => ({ nome: nomeUsuario, whatsapp }));
+    if (!whatsappUsuario) {
+      return json(400, {
+        error: "Seu usuário não tem WhatsApp cadastrado. Cadastre em Usuários para receber o teste.",
+      });
+    }
+    destinatarios = [{ nome: nomeUsuario, whatsapp: whatsappUsuario }];
   } else {
     const { data: rows, error } = await service
       .from("resumo_semanal_destinatarios")
-      .select("nome, whatsapp")
+      .select("nome, whatsapp, user_id")
       .eq("ativo", true);
     if (error) return json(500, { error: error.message });
-    destinatarios = (rows ?? [])
-      .map((r) => ({ nome: r.nome as string | null, whatsapp: normalizarTelefoneBR(r.whatsapp as string) }))
-      .filter((r): r is { nome: string | null; whatsapp: string } => !!r.whatsapp);
+
+    // Um select só pros profiles de todos os usuários marcados.
+    const userIds = [...new Set((rows ?? []).map((r) => r.user_id as string | null).filter((id): id is string => !!id))];
+    const perfis = new Map<string, { full_name: string | null; whatsapp: string | null; is_active: boolean | null }>();
+    if (userIds.length > 0) {
+      const { data: profs, error: profErr } = await service
+        .from("profiles")
+        .select("user_id, full_name, whatsapp, is_active")
+        .in("user_id", userIds);
+      if (profErr) return json(500, { error: profErr.message });
+      for (const p of profs ?? []) {
+        perfis.set(p.user_id as string, { full_name: p.full_name, whatsapp: p.whatsapp, is_active: p.is_active });
+      }
+    }
+
+    const vistos = new Set<string>();
+    for (const r of rows ?? []) {
+      let nome = r.nome as string | null;
+      let whatsapp: string | null;
+      const userId = r.user_id as string | null;
+      if (userId) {
+        const perfil = perfis.get(userId);
+        nome = perfil?.full_name ?? nome;
+        if (!perfil || perfil.is_active === false) {
+          ignorados.push({ user_id: userId, nome, motivo: "inativo" });
+          continue;
+        }
+        whatsapp = normalizarTelefoneBR(perfil.whatsapp);
+        if (!whatsapp) {
+          ignorados.push({ user_id: userId, nome, motivo: "sem_whatsapp" });
+          continue;
+        }
+      } else {
+        whatsapp = normalizarTelefoneBR(r.whatsapp as string | null);
+        if (!whatsapp) continue;
+      }
+      // Mesmo número em duas linhas (usuário + cadastro antigo) recebe uma vez só.
+      if (vistos.has(whatsapp)) continue;
+      vistos.add(whatsapp);
+      destinatarios.push({ nome, whatsapp });
+    }
     if (destinatarios.length === 0) {
-      return json(200, { ok: true, tipo, enviados: 0, aviso: "Nenhum destinatário ativo cadastrado" });
+      return json(200, { ok: true, tipo, enviados: 0, falhas: 0, ignorados, aviso: "Nenhum destinatário ativo com WhatsApp" });
     }
   }
 
@@ -186,5 +236,6 @@ Deno.serve(async (req) => {
     falhas: resultados.length - enviados,
     comparou_com_segunda: !!segunda,
     resultados,
+    ignorados,
   });
 });

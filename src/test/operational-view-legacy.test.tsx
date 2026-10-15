@@ -98,7 +98,8 @@ describe("OperationalView com base legada", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: "Pulso semanal" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Filtros do pulso semanal")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Pulso semanal" })).not.toBeInTheDocument();
     expect(screen.getByText("Dados incompletos:")).toBeInTheDocument();
     expect(screen.getByText(/2 sem status de compensação/)).toBeInTheDocument();
     expect(screen.getByText(/2 sem tipo de recuperação/)).toBeInTheDocument();

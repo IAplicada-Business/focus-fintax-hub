@@ -115,6 +115,7 @@ export const MENU_OPERACIONAL: MenuItem[] = [
     children: [
       { title: "Motor de Cálculo", url: "/configuracoes/motor", screenKey: "motor_calculo" },
       { title: "Benchmarks e Teses", url: "/benchmarks", screenKey: "benchmarks" },
+      { title: "Resumo semanal (WhatsApp)", url: "/configuracoes/resumo-semanal", screenKey: "resumo_semanal" },
     ],
   },
   {

@@ -222,3 +222,23 @@ describe("Lote 3B · espelho Deno", () => {
     expect(corpo(deno)).toBe(corpo(lib));
   });
 });
+
+describe("Lote 3B · Edge Function (destinatários = usuários, teste só admin)", () => {
+  const fonte = readFileSync(resolve(__dirname, "../../supabase/functions/resumo-semanal/index.ts"), "utf8");
+
+  it("teste não aceita número vindo do corpo: vai para o WhatsApp do perfil de quem clicou", () => {
+    expect(fonte).not.toMatch(/body\.destinatarios/);
+    expect(fonte).toMatch(/destinatarios = \[\{ nome: nomeUsuario, whatsapp: whatsappUsuario \}\]/);
+  });
+
+  it("só admin dispara pela UI (pmo saiu)", () => {
+    expect(fonte).toMatch(/_role: "admin"/);
+    expect(fonte).not.toMatch(/_role: "pmo"/);
+  });
+
+  it("linha com user_id lê nome e WhatsApp de profiles e pula quem não tem número", () => {
+    expect(fonte).toMatch(/\.select\("nome, whatsapp, user_id"\)/);
+    expect(fonte).toMatch(/\.from\("profiles"\)\s*\.select\("user_id, full_name, whatsapp, is_active"\)/);
+    expect(fonte).toMatch(/motivo: "sem_whatsapp"/);
+  });
+});

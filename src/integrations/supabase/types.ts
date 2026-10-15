@@ -2256,6 +2256,7 @@ export type Database = {
           is_active: boolean
           updated_at: string
           user_id: string
+          whatsapp: string | null
         }
         Insert: {
           cargo?: string
@@ -2267,6 +2268,7 @@ export type Database = {
           is_active?: boolean
           updated_at?: string
           user_id: string
+          whatsapp?: string | null
         }
         Update: {
           cargo?: string
@@ -2278,6 +2280,7 @@ export type Database = {
           is_active?: boolean
           updated_at?: string
           user_id?: string
+          whatsapp?: string | null
         }
         Relationships: []
       }
@@ -2372,21 +2375,24 @@ export type Database = {
           criado_em: string
           id: string
           nome: string | null
-          whatsapp: string
+          user_id: string | null
+          whatsapp: string | null
         }
         Insert: {
           ativo?: boolean
           criado_em?: string
           id?: string
           nome?: string | null
-          whatsapp: string
+          user_id?: string | null
+          whatsapp?: string | null
         }
         Update: {
           ativo?: boolean
           criado_em?: string
           id?: string
           nome?: string | null
-          whatsapp?: string
+          user_id?: string | null
+          whatsapp?: string | null
         }
         Relationships: []
       }

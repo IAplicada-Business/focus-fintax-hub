@@ -9,13 +9,11 @@ import type { OperacionalDashboardData } from "@/services/operacionalDashboardSe
 import { acoesPorTipo, acoesPorUsuario, movimentosEsteira } from "@/lib/operacional-analytics";
 import { compactCurrency } from "../dashboard-utils";
 import { BarList, CountChip, InlineEmpty, KpiCard, LinkMore, Panel } from "../ui/primitives";
-import { ResumoAutomaticoPanel } from "./ResumoAutomaticoPanel";
 import { cn } from "@/lib/utils";
 import { MonthPicker } from "@/components/ui/month-picker";
 import { currentMonthKey } from "@/lib/month-key";
 import {
   dentroDaSemana,
-  mesPulsoLabel,
   semanaPadrao,
   semanasDisponiveis,
 } from "@/lib/pulso-semanal";
@@ -26,11 +24,6 @@ const LIMIT = 10;
 interface Props {
   data: OperacionalDashboardData;
   navigate: NavigateFunction;
-  /**
-   * Mostra o card "Resumo automático por WhatsApp" (Lote 3B). Opt-in porque o
-   * card usa react-query + RPC restrita a admin/pmo — quem renderiza decide.
-   */
-  automacao?: boolean;
 }
 
 /**
@@ -38,7 +31,7 @@ interface Props {
  * lançadas, movimentos na esteira, teses novas, ações do time — e quem está
  * com saldo parado sem movimento.
  */
-export const ResumoSemanalTab = memo(function ResumoSemanalTab({ data, navigate, automacao = false }: Props) {
+export const ResumoSemanalTab = memo(function ResumoSemanalTab({ data, navigate }: Props) {
   const mesCorrente = currentMonthKey();
   const [monthKey, setMonthKey] = useState(mesCorrente);
   const semanas = useMemo(() => semanasDisponiveis(monthKey), [monthKey]);
@@ -121,32 +114,28 @@ export const ResumoSemanalTab = memo(function ResumoSemanalTab({ data, navigate,
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="font-display text-lg font-bold text-navy">Pulso semanal</h2>
-          <p className="text-xs text-ink-35">{mesPulsoLabel(monthKey)} · filtre por mês e semana</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <MonthPicker
-            value={monthKey}
-            onChange={escolherMes}
-            clearable={false}
-            aria-label="Mês do pulso"
-            triggerClassName="h-9"
-          />
-          <Select value={semana.key} onValueChange={setSemanaKey}>
-            <SelectTrigger className="h-9 w-[190px]" aria-label="Semana do pulso">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {semanas.map((item) => (
-                <SelectItem key={item.key} value={item.key}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Mesma faixa de filtros das visões Operacional e Executiva: sem título
+          próprio (a aba já diz onde se está), filtros alinhados à esquerda. */}
+      <div className="flex flex-wrap items-center gap-2" aria-label="Filtros do pulso semanal">
+        <MonthPicker
+          value={monthKey}
+          onChange={escolherMes}
+          clearable={false}
+          aria-label="Mês do pulso"
+          triggerClassName="h-9"
+        />
+        <Select value={semana.key} onValueChange={setSemanaKey}>
+          <SelectTrigger className="h-9 w-[190px]" aria-label="Semana do pulso">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {semanas.map((item) => (
+              <SelectItem key={item.key} value={item.key}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <DataQualityAlert qualidade={data.qualidade} />
@@ -216,8 +205,6 @@ export const ResumoSemanalTab = memo(function ResumoSemanalTab({ data, navigate,
       </div>
 
       <PulsoTable topClientes={m.topClientes} semMovimento={m.semMovimento} saldoParado={m.saldoParado} navigate={navigate} />
-
-      {automacao && <ResumoAutomaticoPanel />}
     </div>
   );
 });
