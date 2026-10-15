@@ -12,6 +12,9 @@ export const PIPELINE_SLA_STAGES = [
   { value: "triagem", label: "Triagem" },
   { value: "contrato_emitido", label: "Contrato Emitido" },
   { value: "contrato_assinado", label: "Contrato Assinado" },
+  // Follow-up é etapa aberta (lead parado esperando retomada), então entra na
+  // régua de SLA; a meta é longa (30d) e editável como as demais.
+  { value: "follow_up", label: "Follow-up" },
 ] as const;
 
 export type EtapaFunil = (typeof PIPELINE_SLA_STAGES)[number]["value"];
@@ -24,6 +27,7 @@ export const PIPELINE_SLA_LABEL_CURTO: Record<EtapaFunil, string> = {
   triagem: "Triagem",
   contrato_emitido: "Contrato emitido",
   contrato_assinado: "Contrato assinado",
+  follow_up: "Follow-up",
 };
 
 /** Defaults (seed da tabela). Contrato Emitido = 3d bate com o banner de leads parados. */
@@ -34,6 +38,7 @@ export const PIPELINE_SLA_DIAS_DEFAULT: Record<EtapaFunil, number | null> = {
   triagem: 3,
   contrato_emitido: 3,
   contrato_assinado: 2,
+  follow_up: 30,
 };
 
 export interface PipelineSlaConfigRow {

@@ -5,6 +5,7 @@ import {
   getLeadExceptions,
   updateLeadStatus,
   analyzeLead,
+  enviarDiagnosticoWhatsapp,
   createLead,
   updateLead,
   deleteLeads,
@@ -15,6 +16,7 @@ import {
 import type { Database } from "@/integrations/supabase/types";
 import { toastError } from "@/lib/handle-error";
 import { toast } from "sonner";
+import { mensagemErroEnvio } from "@/lib/diagnostico-whatsapp";
 
 type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
 
@@ -58,9 +60,28 @@ export function useAnalyzeLead() {
     mutationFn: (leadId: string) => analyzeLead(leadId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["leads"] });
-      toast.success("Análise concluída");
+      toast.success("Diagnóstico gerado");
     },
-    onError: (err) => toastError(err, "Erro ao analisar lead"),
+    onError: (err) => toastError(err, "Erro ao gerar diagnóstico"),
+  });
+}
+
+/** Envia o link do diagnóstico pelo WhatsApp da empresa (fila do Atendimento). */
+export function useEnviarDiagnosticoWhatsapp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (leadId: string) => enviarDiagnosticoWhatsapp(leadId),
+    onSuccess: (r) => {
+      if (r.ok) {
+        qc.invalidateQueries({ queryKey: ["leads"] });
+        toast.success("Diagnóstico enviado no WhatsApp", {
+          description: "A mensagem está na conversa do lead em Atendimento.",
+        });
+      } else {
+        toast.error(mensagemErroEnvio(r.erro));
+      }
+    },
+    onError: (err) => toastError(err, "Erro ao enviar diagnóstico"),
   });
 }
 

@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_config: {
+        Row: {
+          atualizado_em: string
+          chave: string
+          descricao: string | null
+          sensivel: boolean
+          valor: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          chave: string
+          descricao?: string | null
+          sensivel?: boolean
+          valor?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          chave?: string
+          descricao?: string | null
+          sensivel?: boolean
+          valor?: string | null
+        }
+        Relationships: []
+      }
       atendimento_conversas: {
         Row: {
           assumido_em: string | null
@@ -1117,6 +1141,53 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_sugestao_produto_calculadora"
             referencedColumns: ["lead_id"]
+          },
+        ]
+      }
+      lead_tarefas: {
+        Row: {
+          concluida_em: string | null
+          criado_em: string | null
+          criado_por: string | null
+          descricao: string | null
+          id: string
+          lead_id: string
+          responsavel_id: string | null
+          tipo: string
+          titulo: string
+          vence_em: string
+        }
+        Insert: {
+          concluida_em?: string | null
+          criado_em?: string | null
+          criado_por?: string | null
+          descricao?: string | null
+          id?: string
+          lead_id: string
+          responsavel_id?: string | null
+          tipo?: string
+          titulo: string
+          vence_em: string
+        }
+        Update: {
+          concluida_em?: string | null
+          criado_em?: string | null
+          criado_por?: string | null
+          descricao?: string | null
+          id?: string
+          lead_id?: string
+          responsavel_id?: string | null
+          tipo?: string
+          titulo?: string
+          vence_em?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tarefas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2847,8 +2918,18 @@ export type Database = {
         Args: { p_cliente_ids: string[]; p_motivo?: string }
         Returns: number
       }
+      enviar_diagnostico_whatsapp: {
+        Args: { p_lead_id: string }
+        Returns: Json
+      }
+      faturamento_mensal_da_faixa: {
+        Args: { p_faixa: string }
+        Returns: number
+      }
+      gerar_diagnostico_lead: { Args: { p_lead_id: string }; Returns: Json }
       get_diagnostico_by_token: { Args: { _token: string }; Returns: Json }
       get_mapa_by_token: { Args: { _token: string }; Returns: Json }
+      get_whatsapp_comercial: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

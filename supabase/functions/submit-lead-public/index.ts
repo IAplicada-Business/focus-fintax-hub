@@ -53,6 +53,14 @@ function deriveFaixaFromNumber(n: number): string {
   return "acima_15m";
 }
 
+// O banco guarda o WhatsApp sem DDI (até 11 dígitos). Quem digita "+55 21 9..."
+// tinha o número cortado em "55219..." e a mensagem automática não chegava.
+function whatsappSemDdi(raw: string): string {
+  let d = String(raw || "").replace(/\D/g, "");
+  if (d.length >= 12 && d.startsWith("55")) d = d.slice(2);
+  return d.slice(0, 11);
+}
+
 function normalizeSegmento(s: string | undefined): string {
   if (!s) return "outros";
   const low = String(s).toLowerCase().trim().replace(/\s+/g, "_");
@@ -136,7 +144,7 @@ serve(async (req) => {
         nome: (nome || "").slice(0, 255),
         empresa: (empresa || "").slice(0, 255),
         cnpj: (cnpj || "").replace(/\D/g, "").slice(0, 14),
-        whatsapp: (whatsapp || "").replace(/\D/g, "").slice(0, 11),
+        whatsapp: whatsappSemDdi(whatsapp),
         email: (email || "").slice(0, 255),
         segmento: segmentoDb,
         regime_tributario: regimeDb,
@@ -171,6 +179,23 @@ serve(async (req) => {
       console.error("calcular_diagnostico RPC error:", rpcErr);
     }
 
+    // Manda o link do diagnóstico no WhatsApp da pessoa, pelo número da
+    // empresa (fila do Atendimento → Z-API). Nunca derruba o submit: o lead
+    // já está salvo e a LP precisa redirecionar para o diagnóstico.
+    let whatsappEnviado: unknown = null;
+    if (!rpcErr) {
+      try {
+        const { data: envio, error: envioErr } = await supabase.rpc("enviar_diagnostico_whatsapp", {
+          p_lead_id: lead.id,
+        });
+        whatsappEnviado = envioErr ? { ok: false, erro: envioErr.message } : envio;
+        if (envioErr) console.error("enviar_diagnostico_whatsapp error:", envioErr);
+      } catch (e) {
+        console.error("enviar_diagnostico_whatsapp exception:", e);
+        whatsappEnviado = { ok: false, erro: e instanceof Error ? e.message : String(e) };
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -178,6 +203,7 @@ serve(async (req) => {
         token: lead.token,
         origem,
         meta_lead_id: metaLeadId ?? null,        // echo p/ debug
+        whatsapp_enviado: whatsappEnviado,       // resultado do envio automático (debug)
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

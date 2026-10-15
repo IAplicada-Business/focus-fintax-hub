@@ -7,8 +7,11 @@
  * na RPC a partir de `lead_historico`):
  *   · reunião AGENDADA  = lead movido PARA a etapa `apresentacao`;
  *   · reunião REALIZADA = lead que SAIU de `apresentacao` para uma etapa
- *     posterior (triagem, contrato_emitido, contrato_assinado, ganho);
+ *     posterior (triagem, contrato_emitido, contrato_assinado, ganho) ou para
+ *     `follow_up` (a reunião aconteceu, o lead só não fechou na hora);
  *   · `apresentacao` → `perdido` = reunião não realizada (não conta);
+ *   · linhas de anotação (de_etapa = para_etapa, ex.: tarefas do card) não
+ *     contam como movimento;
  *   · leads novos = criados no mês; contratos = entrou em `contrato_emitido`.
  * Dono do número é `leads.sdr_id`; leads sem SDR aparecem numa linha própria.
  */

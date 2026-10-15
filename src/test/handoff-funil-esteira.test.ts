@@ -13,6 +13,8 @@ describe("handoff funil comercial → esteira operacional", () => {
     expect(funilEntraNaEsteira("contrato_assinado")).toBe(true);
     expect(funilEntraNaEsteira("ganho")).toBe(true);
     expect(funilEntraNaEsteira("perdido")).toBe(false);
+    // Follow-up é lead aberto que não fechou: nunca abre cliente na esteira.
+    expect(funilEntraNaEsteira("follow_up")).toBe(false);
   });
 
   it("mapeia o trecho conectado sem nomes divergentes", () => {

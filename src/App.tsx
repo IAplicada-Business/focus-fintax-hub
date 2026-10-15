@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, useParams } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -21,7 +21,6 @@ const Esteira = lazy(() => import("@/pages/Esteira"));
 const EsteiraOrganizar = lazy(() => import("@/pages/EsteiraOrganizar"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
 const LeadQueue = lazy(() => import("@/pages/LeadQueue"));
-const LeadReport = lazy(() => import("@/pages/LeadReport"));
 const Pipeline = lazy(() => import("@/pages/Pipeline"));
 const Atendimento = lazy(() => import("@/pages/Atendimento"));
 const Benchmarks = lazy(() => import("@/pages/Benchmarks"));
@@ -43,6 +42,16 @@ const MarketingAnuncios  = lazy(() => import("@/pages/marketing/Anuncios"));
 const MarketingFormularios = lazy(() => import("@/pages/marketing/Formularios"));
 const MarketingLeads     = lazy(() => import("@/pages/marketing/Leads"));
 const MarketingLogs      = lazy(() => import("@/pages/marketing/Logs"));
+
+
+/**
+ * O relatório em formato de e-mail saiu (out/2026): o lead tem uma tela só,
+ * o painel do Pipeline. Links antigos /leads/:id/relatorio abrem esse painel.
+ */
+function LeadRelatorioRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/pipeline?lead=${id ?? ""}`} replace />;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,7 +108,7 @@ const App = () => (
                         <Route path="/leads" element={<LeadQueue />} />
                         {/* Cadastro manual virou o modal da fila (mesmo do Pipeline); o link antigo abre o modal. */}
                         <Route path="/leads/novo" element={<Navigate to="/leads?novo=1" replace />} />
-                        <Route path="/leads/:id/relatorio" element={<LeadReport />} />
+                        <Route path="/leads/:id/relatorio" element={<LeadRelatorioRedirect />} />
                         <Route path="/clientes" element={<ClientesList />} />
                         <Route path="/clientes/:id" element={<ClienteDetail />} />
                         <Route path="/clientes/:id/mapa-creditos" element={<MapaCreditos />} />

@@ -5,7 +5,11 @@ import {
   type EstagioEsteira,
 } from "@/lib/esteira-constants";
 
-/** Etapas comerciais compartilhadas/sincronizadas com a operação. */
+/**
+ * Etapas comerciais compartilhadas/sincronizadas com a operação.
+ * `follow_up` fica de fora de propósito: é lead que ainda não fechou, então
+ * movê-lo para lá não pode abrir cliente na esteira.
+ */
 export const ETAPAS_FUNIL_HANDOFF = [
   "triagem",
   "contrato_emitido",

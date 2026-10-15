@@ -27,6 +27,9 @@ import { resumirSlaFunil } from "@/lib/pipeline-sla";
 import { agruparPorEtapa, etapasVazias, filtrarLeadsBusca } from "@/lib/pipeline-board";
 import { leadAtivo, resumoAtendimento } from "@/lib/comercial-analytics";
 import { cn } from "@/lib/utils";
+import { MinhasTarefasButton } from "@/components/pipeline/MinhasTarefasButton";
+import { useMinhasTarefasLembrete, useTarefasAbertas } from "@/hooks/data/useLeadTarefas";
+import { resumoTarefasPorLead } from "@/lib/lead-tarefas";
 
 export interface PipelineLead {
   id: string;
@@ -59,7 +62,7 @@ export interface PipelineLead {
 const VIEW_KEY = "pipeline.view";
 
 export default function Pipeline() {
-  const { userRole } = useAuth();
+  const { user, userRole } = useAuth();
   const queryClient = useQueryClient();
   const { data: leadsData, isLoading: loading } = useLeadsPipeline();
   const { data: exceptionLeadIds = new Set<string>() } = useLeadExceptions();
@@ -68,6 +71,12 @@ export default function Pipeline() {
   const conversas = useMemo(() => inboxQ.data ?? [], [inboxQ.data]);
   const leads = useMemo(() => (leadsData ?? []) as PipelineLead[], [leadsData]);
   const { data: equipe = [] } = useEquipeComercial();
+  // Tarefas de follow-up: uma leitura das abertas alimenta o badge dos cards e o lembrete.
+  const podeVerTarefas = userRole !== "gestor_tributario";
+  const { data: tarefasAbertas } = useTarefasAbertas(podeVerTarefas);
+  const tarefasPorLead = useMemo(() => resumoTarefasPorLead(tarefasAbertas ?? []), [tarefasAbertas]);
+  const { data: minhasTarefas = [] } = useMinhasTarefasLembrete(podeVerTarefas ? user?.id : null);
+  const empresaPorLead = useMemo(() => new Map(leads.map((l) => [l.id, l.empresa])), [leads]);
   const [filtroProduto, setFiltroProduto] = useFiltroProduto();
   const [filtroResponsavel, setFiltroResponsavel] = useState<FiltroResponsavel>("todos");
   // Período de criação do lead — fica salvo no navegador (focus.pipeline.periodo).
@@ -99,6 +108,16 @@ export default function Pipeline() {
   const etapaDestaque = searchParams.get("etapa");
   // `?lead=<id>` abre o painel do lead direto (ex.: vindo do SLA do funil).
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(() => searchParams.get("lead"));
+  // Aba do painel ao abrir pelo lembrete ("tarefas"); clique normal no card não força aba.
+  const [abaPainel, setAbaPainel] = useState<string | undefined>(undefined);
+  const abrirLead = useCallback((id: string) => {
+    setAbaPainel(undefined);
+    setSelectedLeadId(id);
+  }, []);
+  const abrirLeadNasTarefas = useCallback((id: string) => {
+    setAbaPainel("tarefas");
+    setSelectedLeadId(id);
+  }, []);
 
   useEffect(() => {
     const fromUrl = searchParams.get("lead");
@@ -220,6 +239,13 @@ export default function Pipeline() {
                 <ChevronsLeft className="h-3.5 w-3.5 mr-1" /> Recolher vazias
               </Button>
             ))}
+          {podeVerTarefas && (
+            <MinhasTarefasButton
+              tarefas={minhasTarefas}
+              empresaDoLead={(id) => empresaPorLead.get(id) || "Lead"}
+              onAbrirLead={abrirLeadNasTarefas}
+            />
+          )}
           {userRole !== "gestor_tributario" && (
             <>
               <Button variant="outline" onClick={() => setShowImport(true)} title="Importar leads de planilha (xlsx/csv)">
@@ -275,7 +301,7 @@ export default function Pipeline() {
       ) : view === "kanban" ? (
         <PipelineKanban
           leads={filteredLeads}
-          onLeadClick={setSelectedLeadId}
+          onLeadClick={abrirLead}
           onRefresh={fetchLeads}
           exceptionLeadIds={exceptionLeadIds}
           slaConfig={slaConfig}
@@ -284,14 +310,15 @@ export default function Pipeline() {
           colapsadas={colapsadas}
           onToggleColapso={toggleColapso}
           equipe={equipe}
+          tarefasPorLead={tarefasPorLead}
         />
       ) : (
-        <PipelineList leads={filteredLeads} onLeadClick={setSelectedLeadId} equipe={equipe} />
+        <PipelineList leads={filteredLeads} onLeadClick={abrirLead} equipe={equipe} />
       )}
 
       <LeadFormModal open={showForm} onClose={() => setShowForm(false)} onSaved={fetchLeads} />
       <ImportLeadsModal open={showImport} onOpenChange={setShowImport} onImported={fetchLeads} />
-      <LeadSidePanel lead={selectedLead} onClose={closeLeadPanel} onRefresh={fetchLeads} />
+      <LeadSidePanel lead={selectedLead} onClose={closeLeadPanel} onRefresh={fetchLeads} abaInicial={abaPainel} />
     </div>
   );
 }

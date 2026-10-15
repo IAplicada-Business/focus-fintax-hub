@@ -1,6 +1,11 @@
 /**
  * Funil comercial. As etapas compartilhadas sincronizam a esteira operacional
  * pelo `estagioEsteiraDoFunil`, sem criar dois fluxos desconectados.
+ *
+ * `follow_up` (out/2026) fica depois de Ganho e antes de Perdido só por ordem
+ * de coluna: é o lead que não fechou no contato mas não foi perdido. Continua
+ * aberto (conta como ativo), não vai pra esteira e é trabalhado por tarefas
+ * agendadas no card (lead_tarefas).
  */
 export const PIPELINE_STAGES = [
   { value: "novo", label: "Novo" },
@@ -10,6 +15,7 @@ export const PIPELINE_STAGES = [
   { value: "contrato_emitido", label: "Contrato Emitido" },
   { value: "contrato_assinado", label: "Contrato Assinado" },
   { value: "ganho", label: "Ganho" },
+  { value: "follow_up", label: "Follow-up" },
   { value: "perdido", label: "Perdido" },
 ] as const;
 
@@ -30,6 +36,7 @@ export const STAGE_COLORS: Record<string, string> = {
   contrato_emitido: "bg-emerald-100 text-emerald-800 border-emerald-200",
   contrato_assinado: "bg-teal-100 text-teal-800 border-teal-200",
   ganho: "bg-green-200 text-green-900 border-green-300",
+  follow_up: "bg-orange-50 text-orange-800 border-orange-200",
   perdido: "bg-red-100 text-red-800 border-red-200",
 };
 

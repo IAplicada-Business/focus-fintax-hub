@@ -66,7 +66,10 @@ export interface LeadFunil extends LeadFunilLike {
   score_lead: number | null;
 }
 
-/** Leads em andamento no funil (sem perdidos/ganhos). */
+/**
+ * Leads em andamento no funil (sem perdidos/ganhos). `follow_up` não entra no
+ * filtro de exclusão: é lead aberto e aparece na régua de SLA.
+ */
 export async function listLeadsFunil(): Promise<LeadFunil[]> {
   const { data, error } = await supabase
     .from("leads")

@@ -3,6 +3,8 @@ import logoAgf from "@/assets/logo-agf-fintax.svg";
 import logoAgfWhite from "@/assets/logo-agf-fintax-white.svg";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useWhatsappComercial } from "@/hooks/data/useWhatsappComercial";
+import { linkWhatsapp } from "@/lib/diagnostico-whatsapp";
 
 interface Tese {
   tese_nome: string;
@@ -258,6 +260,7 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
   const animMin = useAnimatedCounter(minTotal);
   const animMax = useAnimatedCounter(maxTotal);
   const [downloading, setDownloading] = useState(false);
+  const whatsappComercial = useWhatsappComercial();
 
   const handleDownloadPDF = useCallback(async () => {
     const element = document.querySelector('.dg-page') as HTMLElement;
@@ -323,10 +326,12 @@ function DiagnosticoContent({ lead, teses, minTotal, maxTotal, maxTese, multipli
     }
   }, [downloading, lead.empresa]);
 
-  const whatsappMsg = encodeURIComponent(
-    `Olá! Acabei de receber o diagnóstico tributário da AGF FinTax para ${lead.empresa}. O potencial estimado de recuperação é de ${formatValue(minTotal)} a ${formatValue(maxTotal)}. Gostaria de agendar a análise completa.`
+  // Número vem de app_config (o mesmo conectado na Z-API), não fixo no código:
+  // o placeholder antigo mandava o lead para um número que não existia.
+  const whatsappUrl = linkWhatsapp(
+    whatsappComercial,
+    `Olá! Acabei de receber o diagnóstico tributário da AGF FinTax para ${lead.empresa}. O potencial estimado de recuperação é de ${formatValue(minTotal)} a ${formatValue(maxTotal)}. Gostaria de agendar a análise completa.`,
   );
-  const whatsappUrl = `https://wa.me/5521999999999?text=${whatsappMsg}`;
   const segLabel = SEGMENTO_LABELS[lead.segmento] || lead.segmento;
   const heroImg = NICHE_IMAGES[lead.segmento] || NICHE_IMAGES.outros;
   const reportDate = relatorio?.criado_em ? new Date(relatorio.criado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });

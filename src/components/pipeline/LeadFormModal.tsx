@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { analyzeLead } from "@/services/leadsService";
 import { useAuth } from "@/hooks/useAuth";
 import { useUpdateLead } from "@/hooks/data/useLeads";
 import { useEquipeComercial } from "@/hooks/data/useEquipeComercial";
@@ -176,10 +177,14 @@ export function LeadFormModal({ open, onClose, onSaved, lead, defaults }: Props)
     toast.success("Lead cadastrado! Gerando diagnóstico...");
 
     try {
-      await supabase.functions.invoke("analyze-lead", { body: { lead_id: created.id } });
+      // analyzeLead lança com a mensagem do motivo (sem faturamento/regime,
+      // Simples Nacional); invoke direto não lança em 4xx e o toast mentia.
+      await analyzeLead(created.id);
       toast.success("Diagnóstico gerado!");
-    } catch {
-      toast.error("Erro ao gerar diagnóstico");
+    } catch (err) {
+      toast.error("Lead salvo, mas o diagnóstico não foi gerado", {
+        description: err instanceof Error ? err.message : undefined,
+      });
     }
 
     setSaving(false);
