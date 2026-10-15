@@ -83,7 +83,9 @@ describe("OperationalView com base legada", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/2 clientes no recorte · período: Acumulado · tese: todas · 0 ativos fora/)).toBeInTheDocument();
+    // O resumo em texto do recorte saiu (os cards já mostram os números); fica o filtro de cliente.
+    expect(screen.getByRole("button", { name: /^Cliente$/ })).toBeInTheDocument();
+    expect(screen.queryByText(/clientes no recorte/)).not.toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Saldo a compensar: 1500" })).toBeInTheDocument();
     expect(screen.queryByText(/Dados incompletos:/)).not.toBeInTheDocument();
     expect(screen.getByText("Onde os clientes estão")).toBeInTheDocument();

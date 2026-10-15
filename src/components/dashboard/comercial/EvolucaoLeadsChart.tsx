@@ -69,12 +69,16 @@ export function EvolucaoLeadsChart({ serie, projecao, ritmoNovos, ritmoContratos
         </div>
       }
       flush
+      // Acompanha a altura do card de Projeção ao lado: o gráfico cresce
+      // em vez de deixar vão no rodapé.
+      className="h-full"
+      bodyClassName="flex flex-col"
     >
       {!temDados ? (
         <EmptyState icon={<TrendingUp size={20} className="text-ink-35" />} title="Ainda sem leads no período" subtitle="A evolução aparece conforme os leads entram." />
       ) : (
         <>
-          <div className="px-3 pt-4 h-[260px]">
+          <div className="px-3 pt-4 pb-3 flex-1 min-h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={dados} margin={{ top: 12, right: 12, left: 0, bottom: 0 }} barCategoryGap="30%">
                 <defs>
