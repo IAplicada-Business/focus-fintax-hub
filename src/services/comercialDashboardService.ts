@@ -20,6 +20,9 @@ export interface LeadDashboard {
   regime_tributario: string | null;
   score_lead: number | null;
   origem: string | null;
+  produto: string | null;
+  sdr_id: string | null;
+  closer_id: string | null;
   /** Potencial máximo do diagnóstico (0 sem relatório). */
   potencial: number;
 }
@@ -43,7 +46,7 @@ export async function fetchComercialDashboard(): Promise<ComercialDashboardData>
   const [leadsRes, relsRes, histRes, motorRes, diagRes, conversas, slaConfig] = await Promise.all([
     supabase
       .from("leads")
-      .select("id, empresa, nome, whatsapp, status_funil, status_funil_atualizado_em, criado_em, segmento, regime_tributario, score_lead, origem")
+      .select("id, empresa, nome, whatsapp, status_funil, status_funil_atualizado_em, criado_em, segmento, regime_tributario, score_lead, origem, produto, sdr_id, closer_id")
       .limit(5000),
     supabase.from("relatorios_leads").select("lead_id, estimativa_total_maxima").limit(10000),
     supabase.from("lead_historico").select("lead_id, de_etapa, para_etapa, criado_em").gte("criado_em", desdeHistorico).limit(10000),
@@ -72,6 +75,9 @@ export async function fetchComercialDashboard(): Promise<ComercialDashboardData>
     regime_tributario: l.regime_tributario ?? null,
     score_lead: l.score_lead ?? null,
     origem: l.origem ?? null,
+    produto: l.produto ?? null,
+    sdr_id: l.sdr_id ?? null,
+    closer_id: l.closer_id ?? null,
     potencial: potencial.get(l.id) ?? 0,
   }));
 
