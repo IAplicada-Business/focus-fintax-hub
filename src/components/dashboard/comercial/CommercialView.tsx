@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Clock, FileSignature, Sparkles, Target, UserPlus, Users } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useComercialDashboard } from "@/hooks/data/useComercialDashboard";
+import { useEquipeComercial } from "@/hooks/data/useEquipeComercial";
 import { useUpdatePipelineSlaMeta, useUpdatePipelineSlaMetaConversao } from "@/hooks/data/usePipelineSla";
 import {
   clientesConvertidosNoFunil,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/comercial-analytics";
 import { metasConversaoPorEtapa, resumirSlaFunil, serieGraficoSla, type EtapaFunil, type FiltroFilaSla } from "@/lib/pipeline-sla";
 import { mesChave } from "@/lib/metas-comerciais";
+import { aplicarFiltrosComercial, FILTROS_COMERCIAL_PADRAO, type FiltrosDashboardComercial } from "@/lib/filtros-dashboard-comercial";
 import { agregarMixRegime } from "@/lib/regime-mix";
 import { agruparPorSegmento } from "@/lib/segmento-lead";
 import { getScoreLabel } from "@/lib/pipeline-constants";
@@ -32,6 +34,7 @@ import { PerfilLeads } from "./PerfilLeads";
 import { SlaFunilChart } from "./sla-funil/SlaFunilChart";
 import { SlaFunilTabela } from "./sla-funil/SlaFunilTabela";
 import { MetasSdrPanel } from "./MetasSdrPanel";
+import { FiltrosVisaoComercial } from "./FiltrosVisaoComercial";
 
 const MS_DIA = 86_400_000;
 
@@ -51,6 +54,8 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
   // gestor_comercial edita metas (SLA, conversão e SDR) desde a migração 20261016120000.
   const podeEditarMeta = userRole === "admin" || userRole === "pmo" || userRole === "gestor_comercial";
   const { data, isLoading, isError, error, refetch } = useComercialDashboard();
+  const { data: equipe = [] } = useEquipeComercial();
+  const [filtros, setFiltros] = useState<FiltrosDashboardComercial>(FILTROS_COMERCIAL_PADRAO);
   const salvarMeta = useUpdatePipelineSlaMeta();
   const salvarMetaConversao = useUpdatePipelineSlaMetaConversao();
   const [mesMetas, setMesMetas] = useState(() => mesChave());
@@ -61,7 +66,11 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
   const m = useMemo(() => {
     if (!data) return null;
     const agora = Date.now();
-    const { leads, historico, conversas, slaConfig, motor } = data;
+    const { conversas, slaConfig, motor } = data;
+    // Todos os cards abaixo leem o recorte; o histórico acompanha os mesmos leads.
+    const leads = aplicarFiltrosComercial(data.leads, filtros, agora);
+    const idsRecorte = new Set(leads.map((l) => l.id));
+    const historico = leads.length === data.leads.length ? data.historico : data.historico.filter((h) => idsRecorte.has(h.lead_id));
     const ativos = leads.filter(leadAtivo);
     const clientesConvertidos = clientesConvertidosNoFunil(leads);
     const emAndamento = ativos.filter((l) => etapaUnificada(l.status_funil) !== "ganho");
@@ -138,8 +147,9 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
       motor,
       conversas,
       leads,
+      totalLeads: data.leads.length,
     };
-  }, [data]);
+  }, [data, filtros]);
 
   if (isLoading) return <LoadingGrid />;
   if (isError || !m) {
@@ -182,6 +192,8 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
 
   return (
     <div className="space-y-4">
+      <FiltrosVisaoComercial value={filtros} onChange={setFiltros} equipe={equipe} total={m.totalLeads} noRecorte={m.leads.length} />
+
       {/* 1. Números do dia */}
       <div className="animate-slide-up delay-1 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4" role="region" aria-label="KPIs comerciais">
         <KpiCard label="Leads em andamento" raw={m.emAndamento} sub="no funil, sem perdidos" icon={<Users />} onClick={() => navigate("/pipeline")} size="md" />
