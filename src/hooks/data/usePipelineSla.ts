@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toastError } from "@/lib/handle-error";
 import type { EtapaFunil } from "@/lib/pipeline-sla";
-import { listLeadsFunil, listPipelineSlaConfig, moverLeadFunil, updatePipelineSlaMeta } from "@/services/pipelineSlaService";
+import {
+  listLeadsFunil,
+  listPipelineSlaConfig,
+  moverLeadFunil,
+  updatePipelineSlaMeta,
+  updatePipelineSlaMetaConversao,
+} from "@/services/pipelineSlaService";
 
 export function usePipelineSlaConfig() {
   return useQuery({
@@ -26,8 +32,23 @@ export function useUpdatePipelineSlaMeta() {
       updatePipelineSlaMeta(etapa, slaDias),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pipeline", "sla-config"] });
+      // O Dashboard comercial carrega a config junto com o resto (fetchComercialDashboard).
+      qc.invalidateQueries({ queryKey: ["dashboard", "comercial"] });
     },
     onError: (err) => toastError(err, "Erro ao salvar a meta da etapa"),
+  });
+}
+
+/** Mesmo mecanismo da meta em dias, pra meta de conversão (%) da etapa. */
+export function useUpdatePipelineSlaMetaConversao() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ etapa, pct }: { etapa: EtapaFunil; pct: number | null }) => updatePipelineSlaMetaConversao(etapa, pct),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pipeline", "sla-config"] });
+      qc.invalidateQueries({ queryKey: ["dashboard", "comercial"] });
+    },
+    onError: (err) => toastError(err, "Erro ao salvar a meta de conversão da etapa"),
   });
 }
 

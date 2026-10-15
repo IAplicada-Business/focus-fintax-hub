@@ -56,13 +56,27 @@ interface Props {
   salvandoMeta: boolean;
   onSelecionarEtapa: (etapa: EtapaFunil) => void;
   onSalvarMeta: (etapa: EtapaFunil, raw: string, atual: number | null) => void;
+  /** Meta de conversão (%) etapa → seguinte, por etapa (Lote 3A). */
+  metasConversao?: Record<string, number>;
+  onSalvarMetaConversao?: (etapa: EtapaFunil, raw: string, atual: number | null) => void;
 }
 
 /**
  * Barras (tempo médio e lead mais parado, em dias) + linha da meta por etapa.
- * Abaixo, a régua de metas — editável inline por admin/PMO — que também filtra a tabela.
+ * Abaixo, a régua de metas — dias de SLA e % de conversão pra etapa seguinte,
+ * editáveis inline por admin/PMO/gestor comercial — que também filtra a tabela.
  */
-export function SlaFunilChart({ serie, etapas, etapaAtiva, podeEditarMeta, salvandoMeta, onSelecionarEtapa, onSalvarMeta }: Props) {
+export function SlaFunilChart({
+  serie,
+  etapas,
+  etapaAtiva,
+  podeEditarMeta,
+  salvandoMeta,
+  onSelecionarEtapa,
+  onSalvarMeta,
+  metasConversao = {},
+  onSalvarMetaConversao,
+}: Props) {
   const temLeads = serie.some((p) => p.leads > 0);
   const etapasAcima = serie.filter((p) => p.acimaDaMeta).length;
 
@@ -191,6 +205,36 @@ export function SlaFunilChart({ serie, etapas, etapaAtiva, podeEditarMeta, salva
                     />
                   ) : (
                     <span className="font-mono-dm tabular-nums text-navy">{e.sla != null ? `${e.sla}d` : "sem meta"}</span>
+                  )}
+                </span>
+              </label>
+              {/* Meta de conversão pra etapa seguinte (planilha Growth Machine); observado × meta aparece no funil. */}
+              <label className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-ink-35">
+                <span>conv. →</span>
+                <span className="flex items-center gap-1">
+                  {podeEditarMeta && onSalvarMetaConversao ? (
+                    <>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={1}
+                        defaultValue={metasConversao[e.etapa] ?? ""}
+                        placeholder="—"
+                        disabled={salvandoMeta}
+                        onBlur={(ev) => onSalvarMetaConversao(e.etapa, ev.target.value, metasConversao[e.etapa] ?? null)}
+                        onKeyDown={(ev) => {
+                          if (ev.key === "Enter") (ev.target as HTMLInputElement).blur();
+                        }}
+                        className="h-6 w-14 rounded border border-[rgba(8,17,29,0.15)] bg-white px-1.5 text-right font-mono-dm text-[11px] tabular-nums text-navy focus:outline-none focus:ring-1 focus:ring-navy/40 disabled:opacity-60"
+                        aria-label={`Meta de conversão (%) de ${e.label} para a etapa seguinte`}
+                      />
+                      <span>%</span>
+                    </>
+                  ) : (
+                    <span className="font-mono-dm tabular-nums text-navy">
+                      {metasConversao[e.etapa] != null ? `${metasConversao[e.etapa]}%` : "sem meta"}
+                    </span>
                   )}
                 </span>
               </label>

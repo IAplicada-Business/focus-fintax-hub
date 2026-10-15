@@ -14,12 +14,13 @@ import { PipelineList } from "@/components/pipeline/PipelineList";
 import { LeadFormModal } from "@/components/pipeline/LeadFormModal";
 import { LeadSidePanel } from "@/components/pipeline/LeadSidePanel";
 import { ImportLeadsModal } from "@/components/pipeline/ImportLeadsModal";
-import { ProdutoFiltroChips, ResponsavelSelect } from "@/components/pipeline/FiltrosComerciais";
+import { PeriodoSelect, ProdutoFiltroChips, ResponsavelSelect } from "@/components/pipeline/FiltrosComerciais";
 import { useLeadsPipeline, useLeadExceptions } from "@/hooks/data/useLeads";
 import { useEquipeComercial } from "@/hooks/data/useEquipeComercial";
 import { useFiltroProduto } from "@/hooks/useFiltroProduto";
 import { filtrarPorProduto } from "@/lib/produto-lead";
 import { filtrarPorResponsavel, type FiltroResponsavel } from "@/lib/equipe-comercial";
+import { filtrarPorPeriodo, lerPeriodoPipeline, periodoLabel, salvarPeriodoPipeline, type PeriodoPipeline } from "@/lib/pipeline-periodo";
 import { usePipelineSlaConfig } from "@/hooks/data/usePipelineSla";
 import { useAtendimentoInbox } from "@/hooks/data/useAtendimentoInbox";
 import { resumirSlaFunil } from "@/lib/pipeline-sla";
@@ -69,6 +70,12 @@ export default function Pipeline() {
   const { data: equipe = [] } = useEquipeComercial();
   const [filtroProduto, setFiltroProduto] = useFiltroProduto();
   const [filtroResponsavel, setFiltroResponsavel] = useState<FiltroResponsavel>("todos");
+  // Período de criação do lead — fica salvo no navegador (focus.pipeline.periodo).
+  const [periodo, setPeriodo] = useState<PeriodoPipeline>(() => lerPeriodoPipeline(typeof window !== "undefined" ? window.localStorage : null));
+  const trocarPeriodo = (p: PeriodoPipeline) => {
+    setPeriodo(p);
+    salvarPeriodoPipeline(typeof window !== "undefined" ? window.localStorage : null, p);
+  };
 
   const [view, setView] = useState<"kanban" | "list">(() => {
     try {
@@ -137,9 +144,10 @@ export default function Pipeline() {
   }, [etapaDestaque]);
 
   const filteredLeads = useMemo(
-    () => filtrarPorResponsavel(filtrarPorProduto(filtrarLeadsBusca(leads, busca), filtroProduto), filtroResponsavel),
-    [leads, busca, filtroProduto, filtroResponsavel],
+    () => filtrarPorPeriodo(filtrarPorResponsavel(filtrarPorProduto(filtrarLeadsBusca(leads, busca), filtroProduto), filtroResponsavel), periodo),
+    [leads, busca, filtroProduto, filtroResponsavel, periodo],
   );
+  const comFiltro = filtroProduto !== "todos" || filtroResponsavel !== "todos" || periodo.tipo !== "tudo";
 
   const fetchLeads = () => queryClient.invalidateQueries({ queryKey: ["leads"] });
 
@@ -225,12 +233,16 @@ export default function Pipeline() {
         </div>
       </div>
 
-      {/* Produto e responsável — o filtro de produto fica salvo no navegador. */}
+      {/* Produto, responsável e período — produto e período ficam salvos no navegador. */}
       <div className="flex flex-wrap items-center gap-2">
         <ProdutoFiltroChips value={filtroProduto} onChange={setFiltroProduto} />
         <ResponsavelSelect value={filtroResponsavel} onChange={setFiltroResponsavel} equipe={equipe} />
-        {(filtroProduto !== "todos" || filtroResponsavel !== "todos") && (
-          <span className="text-xs text-ink-35 tabular-nums">{filteredLeads.length} de {leads.length} leads</span>
+        <PeriodoSelect value={periodo} onChange={trocarPeriodo} />
+        {comFiltro && (
+          <span className="text-xs text-ink-35 tabular-nums">
+            {filteredLeads.length} de {leads.length} leads
+            {periodo.tipo !== "tudo" && <> · período: {periodoLabel(periodo)}</>}
+          </span>
         )}
       </div>
 

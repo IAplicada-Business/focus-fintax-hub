@@ -3,19 +3,31 @@ import { ArrowDown } from "lucide-react";
 import { compactCurrency, type FunnelRow } from "../dashboard-utils";
 import { Panel, LinkMore } from "../ui/primitives";
 import { taxasConversaoFunil } from "@/lib/comercial-analytics";
+import { labelGapConversao, tomConversao, type TomConversao } from "@/lib/pipeline-sla";
 import { cn } from "@/lib/utils";
+
+const TOM_CONVERSAO_TEXT: Record<TomConversao, string> = {
+  green: "text-dash-green",
+  amber: "text-dash-amber",
+  red: "text-dash-red",
+  muted: "text-ink-35",
+};
 
 interface Props {
   funnelData: FunnelRow[];
   navigate: NavigateFunction;
+  /** Meta de conversão (%) por etapa (pipeline_sla_config.meta_conversao_pct); etapa ausente = sem meta. */
+  metasConversao?: Record<string, number>;
 }
 
 /**
  * Funil-fotografia com a conversão entre etapas ("quem chegou aqui e já
- * passou adiante"). Clique na etapa filtra o pipeline.
+ * passou adiante") comparada à meta da etapa, quando definida — a cor do
+ * percentual é o desvio contra a meta. Clique na etapa filtra o pipeline.
  */
-export function FunilConversao({ funnelData, navigate }: Props) {
+export function FunilConversao({ funnelData, navigate, metasConversao = {} }: Props) {
   const linhas = taxasConversaoFunil(funnelData);
+  const temMeta = Object.keys(metasConversao).length > 0;
   const max = Math.max(...funnelData.map((f) => f.count), 1);
   const total = funnelData.filter((f) => f.stage !== "ganho").reduce((s, f) => s + f.count, 0);
   const potencial = funnelData.reduce((s, f) => s + f.potencial, 0);
@@ -51,11 +63,25 @@ export function FunilConversao({ funnelData, navigate }: Props) {
                   </div>
                 </div>
                 <span className={cn("w-10 text-right font-display text-lg font-extrabold tabular-nums leading-none", isContrato ? "text-gold-deep" : isCliente ? "text-dash-green" : "text-navy")}>{f.count}</span>
-                <span className="w-[74px] shrink-0 text-right">
+                <span className="w-[96px] shrink-0 text-right">
                   {taxaProxima != null ? (
-                    <span className={cn("inline-flex items-center gap-0.5 text-[10px] font-bold font-mono-dm tabular-nums", taxaProxima >= 50 ? "text-dash-green" : taxaProxima >= 25 ? "text-dash-amber" : "text-ink-35")}>
-                      <ArrowDown className="w-3 h-3" /> {taxaProxima}%
-                    </span>
+                    (() => {
+                      const meta = metasConversao[f.stage];
+                      const tom = meta != null ? tomConversao(taxaProxima, meta) : taxaProxima >= 50 ? "green" : taxaProxima >= 25 ? "amber" : "muted";
+                      const gap = labelGapConversao(taxaProxima, meta);
+                      return (
+                        <span className="inline-flex flex-col items-end leading-tight" title={meta != null ? `Meta ${meta}% · observado ${taxaProxima}%` : undefined}>
+                          <span className={cn("inline-flex items-center gap-0.5 text-[10px] font-bold font-mono-dm tabular-nums", TOM_CONVERSAO_TEXT[tom])}>
+                            <ArrowDown className="w-3 h-3" /> {taxaProxima}%
+                          </span>
+                          {meta != null && (
+                            <span className={cn("text-[9px] font-mono-dm tabular-nums", TOM_CONVERSAO_TEXT[tom])}>
+                              meta {meta}% · {gap}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })()
                   ) : (
                     <span className="text-[10px] text-ink-35">{i === linhas.length - 1 ? "destino" : ""}</span>
                   )}
@@ -67,6 +93,9 @@ export function FunilConversao({ funnelData, navigate }: Props) {
       </ul>
       <p className="px-5 py-2.5 text-[10px] text-ink-35 border-t border-ink-06">
         A seta indica quantos dos leads que chegaram à etapa já avançaram para a seguinte ou além.
+        {temMeta
+          ? " Verde = na meta de conversão; âmbar = até 10 pp abaixo; vermelho = mais que isso."
+          : " Defina metas de conversão por etapa na régua do SLA para comparar."}
       </p>
     </Panel>
   );

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Clock, FileSignature, Sparkles, Target, UserPlus, Users } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useComercialDashboard } from "@/hooks/data/useComercialDashboard";
-import { useUpdatePipelineSlaMeta } from "@/hooks/data/usePipelineSla";
+import { useUpdatePipelineSlaMeta, useUpdatePipelineSlaMetaConversao } from "@/hooks/data/usePipelineSla";
 import {
   clientesConvertidosNoFunil,
   etapaUnificada,
@@ -18,7 +18,8 @@ import {
   serieSemanalLeads,
   tempoMedioAteEtapa,
 } from "@/lib/comercial-analytics";
-import { resumirSlaFunil, serieGraficoSla, type EtapaFunil, type FiltroFilaSla } from "@/lib/pipeline-sla";
+import { metasConversaoPorEtapa, resumirSlaFunil, serieGraficoSla, type EtapaFunil, type FiltroFilaSla } from "@/lib/pipeline-sla";
+import { mesChave } from "@/lib/metas-comerciais";
 import { agregarMixRegime } from "@/lib/regime-mix";
 import { agruparPorSegmento } from "@/lib/segmento-lead";
 import { getScoreLabel } from "@/lib/pipeline-constants";
@@ -32,6 +33,7 @@ import { OrigemLeads } from "./OrigemLeads";
 import { PerfilLeads } from "./PerfilLeads";
 import { SlaFunilChart } from "./sla-funil/SlaFunilChart";
 import { SlaFunilTabela } from "./sla-funil/SlaFunilTabela";
+import { MetasSdrPanel } from "./MetasSdrPanel";
 
 const MS_DIA = 86_400_000;
 
@@ -43,13 +45,17 @@ interface Props {
  * Visão Comercial em uma página só. Antes eram três abas que repetiam KPIs
  * (Visão geral, SLA do funil, Ciclo & SLA); agora a leitura é de cima para
  * baixo: números → evolução e projeção → funil e atendimento → SLA e origem →
- * perfil da carteira → fila de quem destravar.
+ * perfil da carteira → fila de quem destravar. Metas do mês por SDR (Lote 3A)
+ * ficam logo abaixo dos KPIs, porque é o que a gestora comercial abre primeiro.
  */
 export const CommercialView = memo(function CommercialView({ navigate }: Props) {
   const { userRole } = useAuth();
-  const podeEditarMeta = userRole === "admin" || userRole === "pmo";
+  // gestor_comercial edita metas (SLA, conversão e SDR) desde a migração 20261016120000.
+  const podeEditarMeta = userRole === "admin" || userRole === "pmo" || userRole === "gestor_comercial";
   const { data, isLoading, isError, error, refetch } = useComercialDashboard();
   const salvarMeta = useUpdatePipelineSlaMeta();
+  const salvarMetaConversao = useUpdatePipelineSlaMetaConversao();
+  const [mesMetas, setMesMetas] = useState(() => mesChave());
   const [filtroSla, setFiltroSla] = useState<FiltroFilaSla>("atrasados");
   const [filaAberta, setFilaAberta] = useState(false);
   const filaRef = useRef<HTMLDivElement>(null);
@@ -95,6 +101,7 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
 
     const sla = resumirSlaFunil(leads, slaConfig, agora);
     const serieSla = serieGraficoSla(sla);
+    const metasConversao = metasConversaoPorEtapa(slaConfig);
     const potencialTravado = sla.atrasados.reduce((s, l) => s + Number(l.lead.potencial ?? 0), 0);
     const parados = leadsParados(emAndamento, "contrato_emitido", 3, agora);
 
@@ -125,6 +132,7 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
       funnelData,
       sla,
       serieSla,
+      metasConversao,
       potencialTravado,
       atendimento,
       origens,
@@ -150,6 +158,18 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
     try {
       await salvarMeta.mutateAsync({ etapa, slaDias: novo });
       toast.success("Meta atualizada.");
+    } catch {
+      /* toastError já disparou */
+    }
+  };
+  const onSalvarMetaConversao = async (etapa: EtapaFunil, raw: string, atual: number | null) => {
+    const trimmed = raw.trim();
+    const novo = trimmed === "" ? null : Math.min(100, Math.max(0, Math.round(Number(trimmed.replace(",", ".")))));
+    if (novo !== null && !Number.isFinite(novo)) return;
+    if (novo === atual) return;
+    try {
+      await salvarMetaConversao.mutateAsync({ etapa, pct: novo });
+      toast.success("Meta de conversão atualizada.");
     } catch {
       /* toastError já disparou */
     }
@@ -192,7 +212,12 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
         />
       </div>
 
-      {/* 2. Evolução + projeção */}
+      {/* 2. Metas do mês por SDR (agendadas × realizadas) */}
+      <div className="animate-slide-up delay-2">
+        <MetasSdrPanel mes={mesMetas} onMes={setMesMetas} podeEditar={podeEditarMeta} />
+      </div>
+
+      {/* 3. Evolução + projeção */}
       <div className="animate-slide-up delay-2 grid grid-cols-1 xl:grid-cols-12 gap-4">
         <div className="xl:col-span-8 min-w-0">
           <EvolucaoLeadsChart serie={m.serie} projecao={m.projecao} ritmoNovos={m.ritmoNovos} ritmoContratos={m.ritmoContratos} />
@@ -209,17 +234,17 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
         </div>
       </div>
 
-      {/* 3. Funil + atendimento */}
+      {/* 4. Funil + atendimento */}
       <div className="animate-slide-up delay-3 grid grid-cols-1 xl:grid-cols-12 gap-4">
         <div className="xl:col-span-7 min-w-0">
-          <FunilConversao funnelData={m.funnelData} navigate={navigate} />
+          <FunilConversao funnelData={m.funnelData} navigate={navigate} metasConversao={m.metasConversao} />
         </div>
         <div className="xl:col-span-5 min-w-0">
           <AtendimentoPulse resumo={m.atendimento} conversas={m.conversas} leads={m.leads} />
         </div>
       </div>
 
-      {/* 4. SLA + origem */}
+      {/* 5. SLA + origem */}
       <div className="animate-slide-up delay-4 grid grid-cols-1 xl:grid-cols-12 gap-4">
         <div className="xl:col-span-8 min-w-0">
           <SlaFunilChart
@@ -227,9 +252,11 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
             etapas={m.sla.etapas}
             etapaAtiva={etapaAtiva}
             podeEditarMeta={podeEditarMeta}
-            salvandoMeta={salvarMeta.isPending}
+            salvandoMeta={salvarMeta.isPending || salvarMetaConversao.isPending}
             onSelecionarEtapa={onSelecionarEtapa}
             onSalvarMeta={(etapa, raw, atual) => void onSalvarMeta(etapa, raw, atual)}
+            metasConversao={m.metasConversao}
+            onSalvarMetaConversao={(etapa, raw, atual) => void onSalvarMetaConversao(etapa, raw, atual)}
           />
         </div>
         <div className="xl:col-span-4 min-w-0">
@@ -237,12 +264,12 @@ export const CommercialView = memo(function CommercialView({ navigate }: Props) 
         </div>
       </div>
 
-      {/* 5. Perfil */}
+      {/* 6. Perfil */}
       <div className="animate-slide-up delay-5">
         <PerfilLeads regimeMix={m.regimeMix} segmentoData={m.segmentoData} scoreDistribution={m.scoreDistribution} motor={m.motor} />
       </div>
 
-      {/* 6. Fila de quem destravar (recolhível) */}
+      {/* 7. Fila de quem destravar (recolhível) */}
       <div ref={filaRef} className="animate-slide-up delay-5 scroll-mt-24">
         <button
           type="button"
