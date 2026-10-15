@@ -3,10 +3,14 @@ import { normalizeTeseCatalogCodigo, TESES_OFICIAIS } from "@/lib/clientes-const
 import { listarTiposTese } from "@/lib/tese-filter";
 import {
   STATUS_COMPENSACAO_VALUES,
+  STATUS_FILTRO_EMPRESA,
   STATUS_FILTRO_VALUES,
   buildRamoFlagsPorCliente,
+  buildTeseFlagsPorCliente,
+  contarPorFiltroStatus,
   countByStatus,
   makeStatusFilterPredicate,
+  modoFiltroStatus,
   type StatusCompensacao,
 } from "@/lib/gerencial-filters";
 import { RAMO_GERENCIAL_FILTROS } from "@/lib/esteira-acompanhamento";
@@ -74,28 +78,49 @@ describe("item 1 · status compensação", () => {
     ]);
   });
 
-  it("Recuperação Judicial / Ressarcimento concluído filtram pelo status da empresa, não pela tese", () => {
-    // Caso AGF 09/10: empresa Total Compensados com via judicial em andamento
-    // aparecia no filtro "Recuperação Judicial".
+  it("Reporto / Recuperação Judicial recortam pela tese cadastrada; Ressarcimento concluído pelo status da empresa", () => {
+    // AGF 15/10: a empresa Total Compensados que também tem via judicial
+    // entra em "Recuperação Judicial" (o card mostra só a tese judicial) e
+    // continua em "Total Compensados" (só as teses administrativas). Antes
+    // as duas opções olhavam o status da empresa e os valores não batiam.
     const status = new Map<string, StatusCompensacao>([
       ["comp-com-judicial", "compensando"],
       ["jud", "recuperacao_judicial"],
       ["res-ok", "ressarcimento_concluido"],
       ["comp", "compensando"],
+      ["comp-com-reporto", "compensando"],
     ]);
-    const ids = ["comp-com-judicial", "jud", "res-ok", "comp"];
+    const teseFlags = buildTeseFlagsPorCliente([
+      { cliente_id: "comp-com-judicial", tese: "PIS_COFINS_JUD", categoria: "recuperacao_judicial" },
+      { cliente_id: "comp-com-judicial", tese: "INSUMOS", categoria: "compensacao" },
+      { cliente_id: "comp-com-reporto", tese: "REPORTO", categoria: "reporto" },
+      { cliente_id: "res-ok", tese: "INSUMOS", categoria: "compensacao", tipo_recuperacao: "ressarcimento" },
+      { cliente_id: "comp", tese: "INSUMOS", categoria: "compensacao" },
+    ]);
+    const ids = ["comp-com-judicial", "jud", "res-ok", "comp", "comp-com-reporto"];
     const filtra = (sel: StatusCompensacao[]) =>
-      ids.filter(makeStatusFilterPredicate(new Set(sel), status));
+      ids.filter(makeStatusFilterPredicate(new Set(sel), status, teseFlags));
 
-    expect(filtra(["recuperacao_judicial"])).toEqual(["jud"]);
+    expect(filtra(["recuperacao_judicial"])).toEqual(["comp-com-judicial", "jud"]);
+    expect(filtra(["reporto"])).toEqual(["comp-com-reporto"]);
     expect(filtra(["ressarcimento_concluido"])).toEqual(["res-ok"]);
-    expect(filtra(["compensando"])).toEqual(["comp-com-judicial", "comp"]);
-    expect(filtra(["compensando", "recuperacao_judicial"])).toEqual(["comp-com-judicial", "jud", "comp"]);
+    expect(filtra(["compensando"])).toEqual(["comp-com-judicial", "comp", "comp-com-reporto"]);
+    expect(filtra(["compensando", "recuperacao_judicial"])).toEqual(["comp-com-judicial", "jud", "comp", "comp-com-reporto"]);
     expect(filtra([...STATUS_FILTRO_VALUES])).toEqual(ids);
-    expect(filtra([...STATUS_COMPENSACAO_VALUES])).toEqual(["comp-com-judicial", "comp"]);
+    expect(filtra([...STATUS_FILTRO_EMPRESA])).toEqual(["comp-com-judicial", "res-ok", "comp", "comp-com-reporto"]);
 
-    const counts = countByStatus(ids, status);
-    expect(counts).toMatchObject({ compensando: 2, recuperacao_judicial: 1, ressarcimento_concluido: 1 });
+    const counts = contarPorFiltroStatus(ids, status, teseFlags);
+    expect(counts).toMatchObject({ compensando: 3, reporto: 1, recuperacao_judicial: 2, ressarcimento_concluido: 1 });
+  });
+
+  it("só opção por tese marcada troca o recorte dos cards para essa tese", () => {
+    expect(modoFiltroStatus(new Set(["reporto"]))).toMatchObject({ soTese: true, codigosTese: ["REPORTO"] });
+    expect(modoFiltroStatus(new Set(["reporto", "recuperacao_judicial"]))).toMatchObject({
+      soTese: true,
+      codigosTese: ["REPORTO", "PIS_COFINS_JUD"],
+    });
+    expect(modoFiltroStatus(new Set(["compensando", "reporto"]))).toMatchObject({ soTese: false, empresa: ["compensando"] });
+    expect(modoFiltroStatus(new Set(STATUS_FILTRO_VALUES))).toMatchObject({ tudo: true, soTese: false });
   });
 });
 
@@ -165,7 +190,7 @@ describe("item 1 · status escolhido no cadastro", () => {
     expect(status.get("jud")).toBe("recuperacao_judicial");
     expect(filtra(["recuperacao_judicial"])).toEqual(["jud"]);
     expect(filtra(["ressarcimento_concluido"])).toEqual(["res"]);
-    expect(filtra([...STATUS_COMPENSACAO_VALUES])).toEqual(["comp"]);
+    expect(filtra(["compensando", "encerrado"])).toEqual(["comp"]);
     expect(filtra([...STATUS_FILTRO_VALUES])).toEqual(ids);
 
     const counts = countByStatus(ids, status);

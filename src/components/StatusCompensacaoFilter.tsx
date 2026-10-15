@@ -8,8 +8,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Filter } from "lucide-react";
 import {
   STATUS_COMPENSACAO_VALUES,
+  STATUS_FILTRO_EMPRESA,
+  STATUS_FILTRO_TESE,
   STATUS_FILTRO_VALUES,
   buildRamoFlagsPorCliente,
+  buildTeseFlagsPorCliente,
   countByRamo,
   countByStatus,
   makeRamoFilterPredicate,
@@ -82,7 +85,12 @@ export function useStatusCompensacao() {
     [data],
   );
 
-  return { statusMap, ramosMap, loading: isPending && !data };
+  const teseFlags = useMemo(
+    () => buildTeseFlagsPorCliente((data ?? []).flatMap((row) => row.processos ?? [])),
+    [data],
+  );
+
+  return { statusMap, ramosMap, teseFlags, loading: isPending && !data };
 }
 
 // -----------------------------------------------------------------------------
@@ -143,27 +151,41 @@ export function StatusCompensacaoFilter({ selectedStatuses, onChange, counts, cl
               </button>
             </div>
           </div>
-          {STATUS_FILTRO_VALUES.map((s) => {
-            const active = selectedStatuses.has(s);
-            const n = counts?.[s];
-            return (
-              <label
-                key={s}
-                className="flex items-center gap-2 text-xs cursor-pointer hover:bg-muted rounded px-1.5 py-1"
-              >
-                <Checkbox checked={active} onCheckedChange={() => toggle(s)} />
-                <Badge
-                  variant="outline"
-                  className={`${STATUS_COMPENSACAO_COLORS[s]} text-[10px]`}
-                >
-                  {STATUS_COMPENSACAO_LABELS[s]}
-                </Badge>
-                {typeof n === "number" && (
-                  <span className="ml-auto text-[11px] text-muted-foreground">{n}</span>
-                )}
-              </label>
-            );
-          })}
+          {/* Duas naturezas: status geral da empresa × tese cadastrada. Por
+              tese traz toda empresa que tem a tese e mostra só esse valor. */}
+          {(
+            [
+              { titulo: "Status da empresa", opcoes: STATUS_FILTRO_EMPRESA },
+              { titulo: "Por tese cadastrada", opcoes: STATUS_FILTRO_TESE },
+            ] as const
+          ).map((grupo) => (
+            <div key={grupo.titulo} className="space-y-1">
+              <p className="px-1.5 pt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                {grupo.titulo}
+              </p>
+              {grupo.opcoes.map((s) => {
+                const active = selectedStatuses.has(s);
+                const n = counts?.[s];
+                return (
+                  <label
+                    key={s}
+                    className="flex items-center gap-2 text-xs cursor-pointer hover:bg-muted rounded px-1.5 py-1"
+                  >
+                    <Checkbox checked={active} onCheckedChange={() => toggle(s)} />
+                    <Badge
+                      variant="outline"
+                      className={`${STATUS_COMPENSACAO_COLORS[s]} text-[10px]`}
+                    >
+                      {STATUS_COMPENSACAO_LABELS[s]}
+                    </Badge>
+                    {typeof n === "number" && (
+                      <span className="ml-auto text-[11px] text-muted-foreground">{n}</span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </PopoverContent>
     </Popover>

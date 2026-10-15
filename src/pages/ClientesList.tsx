@@ -23,7 +23,6 @@ import {
   StatusCompensacaoFilter,
   useStatusCompensacao,
   makeStatusFilterPredicate,
-  countByStatus,
   STATUS_FILTRO_VALUES,
   STATUS_COMPENSACAO_LABELS,
   STATUS_COMPENSACAO_COLORS,
@@ -53,6 +52,7 @@ import {
 } from "@/lib/tese-filter";
 import { isReportoProcesso } from "@/lib/clientes-constants";
 import { resumirFinanceiroPorCliente } from "@/lib/operacional-analytics";
+import { buildTeseFlagsPorCliente, contarPorFiltroStatus, modoFiltroStatus } from "@/lib/gerencial-filters";
 
 export default function ClientesList() {
   const navigate = useNavigate();
@@ -88,6 +88,23 @@ export default function ClientesList() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 25;
 
+  // Reporto / judicial no filtro de status recortam pela tese cadastrada, e
+  // sozinhos trocam os valores da lista pelos dessa tese (AGF 15/10).
+  const teseFlags = useMemo(
+    () => buildTeseFlagsPorCliente(processos, creditos, teses),
+    [processos, creditos, teses],
+  );
+  const modoStatus = modoFiltroStatus(filterStatusCompensacao);
+  const tipoTeseEfetivo = useMemo(
+    () =>
+      modoStatus.soTese
+        ? filterTipoTese.length > 0
+          ? filterTipoTese.filter((c) => modoStatus.codigosTese.includes(c))
+          : modoStatus.codigosTese
+        : filterTipoTese,
+    [modoStatus.soTese, modoStatus.codigosTese, filterTipoTese],
+  );
+
   const allStats = useMemo(() => {
     const processosByCliente = new Map<string, typeof processos>();
     for (const p of processos) {
@@ -102,7 +119,7 @@ export default function ClientesList() {
         creditos,
         teses,
         processos,
-        filterTipoTese,
+        tipoTeseEfetivo,
       ).map((total) => [total.cliente_id, total]),
     );
     const now = Date.now();
@@ -111,7 +128,7 @@ export default function ClientesList() {
       const assinados = cp.filter(
         (p) =>
           p.status_contrato === "assinado" &&
-          codigoNoFiltroTese(codigoTipoTeseProcesso(p), filterTipoTese),
+          codigoNoFiltroTese(codigoTipoTeseProcesso(p), tipoTeseEfetivo),
       );
       const total = totais.get(c.id);
       const totalCredito = total?.credito_apurado ?? 0;
@@ -128,7 +145,7 @@ export default function ClientesList() {
         hasAlertAguardando,
       };
     });
-  }, [clientes, processos, compensacoes, creditos, teses, filterTipoTese]);
+  }, [clientes, processos, compensacoes, creditos, teses, tipoTeseEfetivo]);
 
   const filtered = useMemo(() => {
     let next = allStats;
@@ -137,7 +154,7 @@ export default function ClientesList() {
       next = next.filter((c) => c.empresa?.toLowerCase().includes(q) || c.cnpj?.includes(q));
     }
     if (filterSegmento !== "all") next = next.filter((c) => c.segmento === filterSegmento);
-    const statusCompPredicate = makeStatusFilterPredicate(filterStatusCompensacao, statusCompMap);
+    const statusCompPredicate = makeStatusFilterPredicate(filterStatusCompensacao, statusCompMap, teseFlags);
     const idsTipoTese = filtrarIdsPorTipoTese(
       next.map((cliente) => cliente.id),
       filterTipoTese,
@@ -146,7 +163,7 @@ export default function ClientesList() {
       teses,
     );
     return next.filter((c) => statusCompPredicate(c.id) && idsTipoTese.has(c.id));
-  }, [allStats, search, filterSegmento, filterStatusCompensacao, filterTipoTese, statusCompMap, processos, creditos, teses]);
+  }, [allStats, search, filterSegmento, filterStatusCompensacao, filterTipoTese, statusCompMap, teseFlags, processos, creditos, teses]);
 
   const totalClientes = filtered.length;
   const totalCompensando = filtered.filter((c) => c.totalCompensado > 0).length;
@@ -154,8 +171,8 @@ export default function ClientesList() {
   const globalCompensado = filtered.reduce((s, c) => s + c.totalCompensado, 0);
 
   const statusCompCounts = useMemo(
-    () => countByStatus(allStats.map((c) => c.id), statusCompMap),
-    [allStats, statusCompMap]
+    () => contarPorFiltroStatus(allStats.map((c) => c.id), statusCompMap, teseFlags),
+    [allStats, statusCompMap, teseFlags]
   );
   const tiposTese = useMemo(
     () => listarTiposTese(processos, creditos, teses),

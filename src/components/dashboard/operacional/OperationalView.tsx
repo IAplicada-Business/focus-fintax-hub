@@ -21,6 +21,7 @@ import {
   serieMensal,
 } from "@/lib/operacional-analytics";
 import {
+  modoFiltroStatus,
   normalizarStatusCompensacao,
   type StatusCompensacao,
 } from "@/lib/gerencial-filters";
@@ -88,28 +89,41 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
     });
     const idsRecorte = recorte.recortePara(ramoFiltro, statusFiltro);
     const { ramoCounts, statusCounts } = recorte.contagens(ramoFiltro, statusFiltro);
-    const processosRecorte = data.processos.filter((row) => idsRecorte.has(row.cliente_id));
+    // Só "por tese" marcado (Reporto / judicial): os números viram os dessa
+    // tese em toda empresa que a tem. Com status de empresa junto, os cards
+    // financeiros seguem só o lado de empresa; a esteira usa a união.
+    const modoStatus = modoFiltroStatus(statusFiltro);
+    const tipoTeseEfetivo = modoStatus.soTese
+      ? teseFiltroAtivo(tipoTeseFiltro)
+        ? tipoTeseFiltro.filter((c) => modoStatus.codigosTese.includes(c))
+        : modoStatus.codigosTese
+      : tipoTeseFiltro;
+    const idsFinanceiro =
+      modoStatus.tudo || modoStatus.soTese
+        ? idsRecorte
+        : recorte.recortePara(ramoFiltro, new Set<StatusCompensacao>(modoStatus.empresa));
+    const processosRecorte = data.processos.filter((row) => idsFinanceiro.has(row.cliente_id));
     const compsDoRecorte = compensacoesCanonicas(
-      data.compsRaw.filter((row) => idsRecorte.has(row.cliente_id)),
+      data.compsRaw.filter((row) => idsFinanceiro.has(row.cliente_id)),
       data.teses,
       processosRecorte,
-      tipoTeseFiltro,
+      tipoTeseEfetivo,
     );
     const comps = filterCompsByDashboardPeriod(compsDoRecorte, periodo);
     // Saldo é estoque: desconta tudo que foi compensado até o fim do período.
     const periodoOptionsBase = dashboardPeriodOptions(data.compsRaw);
     const totaisCalculados = resumirFinanceiroPorCliente(
-      idsRecorte,
+      idsFinanceiro,
       data.compsRaw,
       data.creditos,
       data.teses,
       data.processos,
-      tipoTeseFiltro,
+      tipoTeseEfetivo,
       { mesFim: periodo.mode === "accumulated" ? null : dashboardPeriodEndMonth(periodo, periodoOptionsBase) },
     );
     const totaisBase = new Map(data.totais.map((total) => [total.cliente_id, total]));
     const totaisRecorte = totaisCalculados.map((total) =>
-      !teseFiltroAtivo(tipoTeseFiltro) && total.sem_base_financeira
+      !teseFiltroAtivo(tipoTeseEfetivo) && total.sem_base_financeira
         ? { ...total, ...(totaisBase.get(total.cliente_id) ?? {}) }
         : total,
     );
@@ -190,6 +204,7 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
       periodoOptions,
       periodoLabel: dashboardPeriodLabel(periodo),
       compensadoPeriodo: compensadoLancado,
+      soTese: modoStatus.soTese,
     };
   }, [data, periodo, ramoFiltro, statusFiltro, tipoTeseFiltro]);
 
@@ -232,7 +247,7 @@ export const OperationalView = memo(function OperationalView({ data, navigate }:
         <KpiCard label="Clientes ativos" raw={m.ativos} sub={`${m.compensando} compensando no recorte`} icon={<Building2 />} onClick={() => navigate("/clientes")} size="md" />
         <KpiCard label="Compensado no período" raw={m.compensadoPeriodo} format={compactCurrency} sub={periodo.mode === "month" ? `mês anterior ${compactCurrency(m.cmpComp.anterior)}` : m.periodoLabel} trend={periodo.mode === "month" ? m.cmpComp.variacaoPct ?? undefined : undefined} trendSuffix="%" tom="green" icon={<TrendingUp />} size="md" />
         <KpiCard label="Honorários no período" raw={m.honorarios} format={compactCurrency} sub={`taxa média ${(m.taxaHon * 100).toFixed(1)}% · ${m.periodoLabel}`} trend={periodo.mode === "month" ? m.cmpHon.variacaoPct ?? undefined : undefined} trendSuffix="%" tom="gold" icon={<Coins />} size="md" />
-        <KpiCard label="Saldo a compensar" raw={m.saldo} format={compactCurrency} sub={m.prazoSaldoMeses != null ? `${m.recorte} clientes · ≈ ${m.prazoSaldoMeses.toFixed(1)} meses` : `${m.recorte} clientes · sem ritmo médio ainda`} tom="navy" icon={<Layers />} size="md" />
+        <KpiCard label={m.soTese ? "Saldo em aberto (por tese)" : "Saldo a compensar"} raw={m.saldo} format={compactCurrency} sub={m.soTese ? `${m.recorte} clientes · só a tese do filtro, fora do saldo padrão` : m.prazoSaldoMeses != null ? `${m.recorte} clientes · ≈ ${m.prazoSaldoMeses.toFixed(1)} meses` : `${m.recorte} clientes · sem ritmo médio ainda`} tom="navy" icon={<Layers />} size="md" />
         <KpiCard
           label={m.esteiraLegadaConcentrada ? "Qualidade da esteira" : "Atrasados na esteira"}
           {...(m.esteiraLegadaConcentrada ? { value: "Revisar" } : { raw: m.atrasadosEsteira })}

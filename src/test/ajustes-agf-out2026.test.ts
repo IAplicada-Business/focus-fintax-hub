@@ -39,6 +39,50 @@ describe("AGF 09/10 · empresa com 3 teses e um só status", () => {
     const [soReporto] = resumirFinanceiroPorCliente(["a"], COMPS, CREDITOS, TESES, PROCESSOS, ["REPORTO"]);
     expect(soReporto.possiveis_recebimentos).toBe(7_000);
   });
+
+  it("recorte só por tese (AGF 15/10): levantado, utilizado e saldo da própria tese, com os lançamentos dela", () => {
+    const comps = [
+      ...COMPS,
+      { cliente_id: "a", mes_referencia: "2026-08-01", valor_compensado: 1_500, processo_tese_id: "p-rep", tributo_enum: "PIS" },
+      { cliente_id: "a", mes_referencia: "2026-09-01", valor_compensado: 1_000, processo_tese_id: "p-jud", tributo_enum: "COFINS" },
+    ];
+    const [reporto] = resumirFinanceiroPorCliente(["a"], comps, CREDITOS, TESES, PROCESSOS, ["REPORTO"]);
+    expect(reporto).toMatchObject({ credito_apurado: 7_000, total_compensado: 1_500, saldo_restante: 5_500 });
+    const [judicial] = resumirFinanceiroPorCliente(["a"], comps, CREDITOS, TESES, PROCESSOS, ["PIS_COFINS_JUD"]);
+    expect(judicial).toMatchObject({ credito_apurado: 4_000, total_compensado: 1_000, saldo_restante: 3_000 });
+    // Os lançamentos de Reporto / judicial continuam fora do Total Compensado padrão.
+    const [padrao] = resumirFinanceiroPorCliente(["a"], comps, CREDITOS, TESES, PROCESSOS);
+    expect(padrao).toMatchObject({ credito_apurado: 1_000, total_compensado: 300 });
+  });
+});
+
+describe("AGF 15/10 · população do recorte por tese no painel", () => {
+  it("Reporto marcado sozinho traz toda empresa com Reporto, mesmo Total Compensados, sem recorte de período", async () => {
+    const { makeRecorteGerencial } = await import("@/lib/recorte-gerencial");
+    const processos = [
+      { id: "p1", cliente_id: "comp", tese: "INSUMOS", categoria: "compensacao", criado_em: "2026-01-01", status_contrato: "assinado" },
+      { id: "p2", cliente_id: "comp-rep", tese: "INSUMOS", categoria: "compensacao", criado_em: "2026-01-01", status_contrato: "assinado" },
+      { id: "p3", cliente_id: "comp-rep", tese: "REPORTO", categoria: "reporto", criado_em: "2026-01-01", status_contrato: "assinado" },
+      { id: "p4", cliente_id: "so-rep", tese: "REPORTO", categoria: "reporto", criado_em: "2026-01-01", status_contrato: "assinado" },
+    ];
+    const recorte = makeRecorteGerencial({
+      clienteIds: ["comp", "comp-rep", "so-rep"],
+      statusMap: new Map([["comp", "compensando"], ["comp-rep", "compensando"], ["so-rep", "reporto"]]),
+      ramosMap: new Map(),
+      tipoTese: [],
+      periodo: { mode: "month", month: "2026-09" },
+      processos,
+      creditos: [],
+      teses: [],
+      comps: [{ cliente_id: "comp", mes_referencia: "2026-09-01", valor_compensado: 100, processo_tese_id: "p1" }],
+    });
+    expect([...recorte.recortePara("todas", new Set(["reporto"]))].sort()).toEqual(["comp-rep", "so-rep"]);
+    // Total Compensados segue o período: só quem movimentou em set/2026.
+    expect([...recorte.recortePara("todas", new Set(["compensando"]))]).toEqual(["comp"]);
+    // Junto: união dos dois lados.
+    expect([...recorte.recortePara("todas", new Set(["compensando", "reporto"]))].sort()).toEqual(["comp", "comp-rep", "so-rep"]);
+    expect(recorte.contagens("todas", new Set(["reporto"])).statusCounts).toMatchObject({ reporto: 2, compensando: 1 });
+  });
 });
 
 describe("AGF 14/10 · rodapé do Mapa com todas as teses", () => {

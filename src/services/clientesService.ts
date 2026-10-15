@@ -209,7 +209,7 @@ export async function listStatusCompensacaoRows() {
       .select("cliente_id, status_principal, tem_compensacao_mes_corrente, tem_tese_ativa, todos_encerrados, tem_reporto"),
     supabase
       .from("processos_teses")
-      .select("cliente_id, tipo_recuperacao, status_contrato, status_processo"),
+      .select("cliente_id, tipo_recuperacao, status_contrato, status_processo, tese, nome_exibicao, categoria"),
   ]);
   if (statusRes.error) throw statusRes.error;
   if (processosRes.error) throw processosRes.error;

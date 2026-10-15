@@ -23,6 +23,7 @@ import {
   isReportoProcesso,
   mergeCreditosComProcessosFallback,
   normalizeTeseCatalogCodigo,
+  processoTeseCatalogCodigo,
   splitCreditosCalculo,
   sumCompensadoCanonical,
   teseMatchContext,
@@ -118,13 +119,19 @@ export function calcularSaldosCliente<C extends SaldoCompRow>(input: SaldosClien
       ? { ...c, processos_teses: { tese: p.tese, nome_exibicao: p.nome_exibicao, categoria: p.categoria } }
       : c;
   });
-  const comps = compsCompletas.filter((c) => !isReportoCompensacao(c, reportoOpts));
-  const compsNoPeriodo = comps.filter((c) => {
+  const noPeriodo = (c: C) => {
     const mes = mesDe(c.mes_referencia);
     if (input.mesInicio && mes < input.mesInicio) return false;
     if (input.mesFim && mes > input.mesFim) return false;
     return true;
-  });
+  };
+  const comps = compsCompletas.filter((c) => !isReportoCompensacao(c, reportoOpts));
+  const compsNoPeriodo = comps.filter(noPeriodo);
+  // Lançamentos de Reporto / via judicial ficam fora do card, mas contam
+  // como "utilizado" quando a própria tese é inspecionada (filtro por tese).
+  const compsForaDoCalculoNoPeriodo = compsCompletas
+    .filter((c) => isReportoCompensacao(c, reportoOpts))
+    .filter(noPeriodo);
 
   const split = splitCreditosCalculo(creditos, reportoTeseIds);
   const processoIdsByTese = buildProcessoIdsByTese(input.processos);
@@ -165,8 +172,27 @@ export function calcularSaldosCliente<C extends SaldoCompRow>(input: SaldosClien
    */
   const saldoDaTese = (codigo: string): SaldoTese => {
     const code = String(codigo || "").toUpperCase();
+    // Sem o matcher canônico (ele nega REPORTO e descarta lançamento fora do
+    // cálculo): aqui o lançamento de Reporto / judicial é o "utilizado" da
+    // própria tese, casado por processo, tese do processo ou tese de origem.
+    const teseIdDaTese = teseIdByCodigo.get(code);
+    const utilizadoForaDoCalculo = compsForaDoCalculoNoPeriodo
+      .filter(
+        (c) =>
+          (c.processo_tese_id && processoIdsByTese.get(code)?.has(c.processo_tese_id)) ||
+          (c.processos_teses && processoTeseCatalogCodigo(c.processos_teses) === code) ||
+          (c.tese_origem_id && teseIdDaTese && c.tese_origem_id === teseIdDaTese),
+      )
+      .reduce((s, c) => s + Number(c.valor_compensado || 0), 0);
     const doCard = porTese.find((row) => row.codigo === code);
-    if (doCard) return doCard;
+    if (doCard) {
+      if (utilizadoForaDoCalculo <= 0) return doCard;
+      return {
+        ...doCard,
+        compensado: doCard.compensado + utilizadoForaDoCalculo,
+        saldo: doCard.saldo - utilizadoForaDoCalculo,
+      };
+    }
     const teseId = teseIdByCodigo.get(code) ?? "";
     const credito = creditos.find((c) => c.tese_id === teseId);
     const processosDaTese = input.processos.filter((p) =>
@@ -175,10 +201,9 @@ export function calcularSaldosCliente<C extends SaldoCompRow>(input: SaldosClien
     const apurado = credito
       ? Number(credito.valor_apurado_inicial || 0)
       : processosDaTese.reduce((s, p) => Math.max(s, Number(p.valor_credito || 0)), 0);
-    const compensado = compsDaTese(code).reduce(
-      (s, c) => s + Number(c.valor_compensado || 0),
-      0,
-    );
+    const compensado =
+      compsDaTese(code).reduce((s, c) => s + Number(c.valor_compensado || 0), 0) +
+      utilizadoForaDoCalculo;
     return {
       teseId,
       codigo: code,
