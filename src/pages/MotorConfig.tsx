@@ -24,6 +24,14 @@ import {
   isTipoRecuperacao,
   type TipoRecuperacao,
 } from "@/lib/tipo-recuperacao";
+import {
+  TRATAMENTOS_FINANCEIROS,
+  TRATAMENTO_FINANCEIRO_PADRAO,
+  isTratamentoFinanceiro,
+  tratamentoFinanceiroInfo,
+  tratamentoPadraoDaTese,
+  type TratamentoFinanceiro,
+} from "@/lib/tratamento-financeiro";
 
 interface TeseConfig {
   id: string;
@@ -38,6 +46,7 @@ interface TeseConfig {
   ativo: boolean;
   ordem_exibicao: number;
   tipo_recuperacao_padrao: TipoRecuperacao;
+  tratamento_financeiro_padrao: TratamentoFinanceiro;
   atualizado_em: string;
   atualizado_por: string | null;
 }
@@ -108,6 +117,7 @@ const emptyTese: Omit<TeseConfig, "id" | "atualizado_em" | "atualizado_por"> = {
   ativo: true,
   ordem_exibicao: 0,
   tipo_recuperacao_padrao: "compensacao",
+  tratamento_financeiro_padrao: TRATAMENTO_FINANCEIRO_PADRAO,
 };
 
 function formatCurrency(v: number): string {
@@ -165,6 +175,12 @@ export default function MotorConfig() {
       regimes_elegiveis: Array.isArray(d.regimes_elegiveis) ? d.regimes_elegiveis : [],
       segmentos_elegiveis: Array.isArray(d.segmentos_elegiveis) ? d.segmentos_elegiveis : [],
       tributos: Array.isArray(d.tributos) ? d.tributos : [],
+      tratamento_financeiro_padrao: tratamentoPadraoDaTese({
+        tratamento_financeiro_padrao: d.tratamento_financeiro_padrao,
+        tese: d.tese,
+        nome_exibicao: d.nome_exibicao,
+        tipo_recuperacao: d.tipo_recuperacao_padrao,
+      }),
     })));
     setLoading(false);
   };
@@ -261,6 +277,7 @@ export default function MotorConfig() {
       tipo_recuperacao_padrao: isTipoRecuperacao(t.tipo_recuperacao_padrao)
         ? t.tipo_recuperacao_padrao
         : "compensacao",
+      tratamento_financeiro_padrao: t.tratamento_financeiro_padrao,
     });
     setEditOpen(true);
   };
@@ -282,6 +299,7 @@ export default function MotorConfig() {
       ativo: editData.ativo,
       ordem_exibicao: editData.ordem_exibicao,
       tipo_recuperacao_padrao: editData.tipo_recuperacao_padrao,
+      tratamento_financeiro_padrao: editData.tratamento_financeiro_padrao,
       atualizado_em: new Date().toISOString(),
       atualizado_por: userId,
     };
@@ -409,6 +427,7 @@ export default function MotorConfig() {
                   <TableHead>Segmentos</TableHead>
                   <TableHead>Tributos</TableHead>
                   <TableHead>Esteira</TableHead>
+                  <TableHead>Saldo</TableHead>
                   <TableHead className="text-right w-[80px]">% Mín</TableHead>
                   <TableHead className="text-right w-[80px]">% Máx</TableHead>
                   <TableHead className="text-center w-[60px]">Ativo</TableHead>
@@ -587,6 +606,27 @@ export default function MotorConfig() {
                 pode sobrescrever por cliente.
               </p>
             </div>
+            <div>
+              <Label>Tratamento financeiro padrão</Label>
+              <Select
+                value={editData.tratamento_financeiro_padrao}
+                onValueChange={(v) => {
+                  if (isTratamentoFinanceiro(v)) setEditData({ ...editData, tratamento_financeiro_padrao: v });
+                }}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TRATAMENTOS_FINANCEIROS.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Define se a tese entra no saldo a compensar, no Mapa e no Total Compensado,
+                ou fica fora (Reporto / em julgamento). Vale como padrão para processos novos;
+                nos existentes, ajuste em cada cliente.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
@@ -702,6 +742,16 @@ function TeseRow({
           }`}
         >
           {TIPO_RECUPERACAO_LABEL[t.tipo_recuperacao_padrao]}
+        </span>
+      </TableCell>
+      <TableCell>
+        {/* Entra no saldo a compensar ou fica fora (Reporto / judicial). */}
+        <span
+          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap ${
+            tratamentoFinanceiroInfo(t.tratamento_financeiro_padrao).badge
+          }`}
+        >
+          {tratamentoFinanceiroInfo(t.tratamento_financeiro_padrao).curto}
         </span>
       </TableCell>
       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>

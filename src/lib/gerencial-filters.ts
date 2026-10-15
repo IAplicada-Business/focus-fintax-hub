@@ -1,5 +1,11 @@
 import type { TipoRecuperacao } from "@/lib/tipo-recuperacao";
 import {
+  isProcessoJudicialForaCalculo,
+  isReportoProcesso,
+  normalizeTeseCatalogCodigo,
+  processoTeseCatalogCodigo,
+} from "@/lib/clientes-constants";
+import {
   RAMO_GERENCIAL_FILTROS,
   pertenceAoRamoGerencial,
   type ClienteRamoFlags,
@@ -32,6 +38,119 @@ export const STATUS_FILTRO_VALUES = [
   ...STATUS_FILTRO_EXTRAS,
 ] as const;
 
+/**
+ * O seletor tem duas naturezas (AGF 15/10/2026). "Status da empresa" recorta
+ * pelo status geral do cadastro e mostra só as teses administrativas.
+ * "Por tese" (Reporto, Recuperação Judicial) recorta por tese cadastrada —
+ * toda empresa que tem a tese, qualquer que seja o status dela — e mostra só
+ * os valores dessa tese. Antes as duas eram status da empresa, e a mesma
+ * empresa mudava de valor conforme a opção marcada.
+ */
+export const STATUS_FILTRO_EMPRESA = [
+  "compensando",
+  "encerrado",
+  "ressarcimento_concluido",
+] as const;
+
+export const STATUS_FILTRO_TESE = ["reporto", "recuperacao_judicial"] as const;
+
+export type StatusFiltroTese = (typeof STATUS_FILTRO_TESE)[number];
+
+/** Código oficial da tese que cada opção "por tese" representa. */
+export const TESE_DO_STATUS_FILTRO: Record<StatusFiltroTese, string> = {
+  reporto: "REPORTO",
+  recuperacao_judicial: "PIS_COFINS_JUD",
+};
+
+export function isStatusFiltroTese(
+  value: string | null | undefined,
+): value is StatusFiltroTese {
+  return STATUS_FILTRO_TESE.some((item) => item === value);
+}
+
+export interface ClienteTeseFlags {
+  tem_reporto?: boolean;
+  tem_judicial?: boolean;
+}
+
+export interface ProcessoTeseFlagsRow {
+  cliente_id: string;
+  tese?: string | null;
+  nome_exibicao?: string | null;
+  categoria?: string | null;
+  tipo_recuperacao?: TipoRecuperacao | string | null;
+  status_processo?: string | null;
+}
+
+export interface CreditoTeseFlagsRow {
+  cliente_id: string;
+  tese_id: string;
+}
+
+/**
+ * Quais empresas têm Reporto / via judicial cadastrados. Lê processo e crédito
+ * apurado: o Reporto legado às vezes só existe como crédito. Processo
+ * desistido não conta.
+ */
+export function buildTeseFlagsPorCliente(
+  processos: ProcessoTeseFlagsRow[],
+  creditos: CreditoTeseFlagsRow[] = [],
+  teses: Array<{ id: string; codigo?: string | null }> = [],
+): Map<string, ClienteTeseFlags> {
+  const out = new Map<string, ClienteTeseFlags>();
+  const marcar = (clienteId: string, flag: keyof ClienteTeseFlags) => {
+    const atual = out.get(clienteId) ?? {};
+    atual[flag] = true;
+    out.set(clienteId, atual);
+  };
+  for (const p of processos) {
+    if (p.status_processo === "desistiu") continue;
+    if (isReportoProcesso(p)) marcar(p.cliente_id, "tem_reporto");
+    else if (
+      isProcessoJudicialForaCalculo(p) ||
+      p.tipo_recuperacao === "recuperacao_judicial" ||
+      processoTeseCatalogCodigo(p) === TESE_DO_STATUS_FILTRO.recuperacao_judicial
+    ) {
+      marcar(p.cliente_id, "tem_judicial");
+    }
+  }
+  const codigoPorTeseId = new Map(
+    teses.map((t) => [t.id, String(normalizeTeseCatalogCodigo(t.codigo) ?? "").toUpperCase()]),
+  );
+  for (const c of creditos) {
+    const codigo = codigoPorTeseId.get(c.tese_id);
+    if (codigo === TESE_DO_STATUS_FILTRO.reporto) marcar(c.cliente_id, "tem_reporto");
+    else if (codigo === TESE_DO_STATUS_FILTRO.recuperacao_judicial) marcar(c.cliente_id, "tem_judicial");
+  }
+  return out;
+}
+
+export function pertenceAoStatusTese(
+  status: StatusFiltroTese,
+  flags?: ClienteTeseFlags,
+  statusCliente?: StatusCompensacao,
+): boolean {
+  // Status gravado no cadastro continua valendo como fallback (empresa só
+  // com Reporto, ou marcada como Recuperação Judicial sem processo).
+  if (statusCliente === status) return true;
+  return status === "reporto" ? !!flags?.tem_reporto : !!flags?.tem_judicial;
+}
+
+/** Separa a seleção do filtro nas duas naturezas. Vazio = tudo marcado. */
+export function modoFiltroStatus(selected: Set<StatusCompensacao>) {
+  const tudo = selected.size === 0 || STATUS_FILTRO_VALUES.every((s) => selected.has(s));
+  const empresa = STATUS_FILTRO_EMPRESA.filter((s) => selected.has(s));
+  const teses = STATUS_FILTRO_TESE.filter((s) => selected.has(s));
+  return {
+    tudo,
+    empresa,
+    teses,
+    /** Só opções "por tese" marcadas: os cards passam a mostrar essas teses. */
+    soTese: !tudo && empresa.length === 0 && teses.length > 0,
+    codigosTese: teses.map((s) => TESE_DO_STATUS_FILTRO[s]),
+  };
+}
+
 /** Aliases legados internos (`prevista`, `sem_operacao`) não aparecem em seletores. */
 export type StatusCompensacao =
   | StatusCompensacaoPadrao
@@ -56,6 +175,9 @@ export interface ProcessoTipoRecuperacaoRow {
   tipo_recuperacao?: TipoRecuperacao | string | null;
   status_contrato?: string | null;
   status_processo?: string | null;
+  tese?: string | null;
+  nome_exibicao?: string | null;
+  categoria?: string | null;
 }
 
 export function isStatusFiltroExtra(
@@ -107,11 +229,10 @@ export function buildRamoFlagsPorCliente(
 }
 
 /**
- * Cliente entra numa opção extra do filtro de status? Só pelo status geral
- * do cadastro. Ter uma tese no ramo judicial/ressarcimento NÃO basta: a
- * empresa "Total Compensados" com via judicial em andamento continua em
- * Total Compensados (reclamação AGF 09/10). O ramo da tese tem filtro
- * próprio: "Tipo de recuperação".
+ * Ressarcimento concluído é status geral do cadastro: ter uma tese no ramo
+ * de ressarcimento NÃO basta (o ramo tem filtro próprio, "Tipo de
+ * recuperação"). Reporto e Recuperação Judicial são "por tese" — ver
+ * `pertenceAoStatusTese`.
  */
 export function pertenceAoStatusExtra(
   status: StatusFiltroExtra,
@@ -123,28 +244,53 @@ export function pertenceAoStatusExtra(
 const isStatusExtra = (status: StatusCompensacao | undefined): status is StatusFiltroExtra =>
   STATUS_FILTRO_EXTRAS.includes(status as StatusFiltroExtra);
 
+/**
+ * Predicado do filtro de status. A parte "status da empresa" e a parte "por
+ * tese" somam (união): com Total Compensados + Reporto marcados, a empresa
+ * que compensa e a que só tem Reporto aparecem; a que compensa E tem Reporto
+ * aparece uma vez. Sem `teseFlags` (chamada legada) só o status gravado no
+ * cadastro decide a parte "por tese".
+ */
 export function makeStatusFilterPredicate(
   selected: Set<StatusCompensacao>,
   statusMap: Map<string, StatusCompensacao>,
+  teseFlags: Map<string, ClienteTeseFlags> = new Map(),
 ) {
-  const semFiltro = selected.size === 0 || STATUS_FILTRO_VALUES.every((s) => selected.has(s));
-  // Com os 3 principais marcados, quem não tem status extra passa inteiro
-  // (inclui legado sem classificação), como antes das opções novas.
-  const todosPrincipais = STATUS_COMPENSACAO_VALUES.every((s) => selected.has(s));
-  const algumPrincipal = STATUS_COMPENSACAO_VALUES.some((s) => selected.has(s));
-  const extras = STATUS_FILTRO_EXTRAS.filter((s) => selected.has(s));
+  const modo = modoFiltroStatus(selected);
+  const algumEmpresa = modo.empresa.length > 0;
+  // Com Total Compensados e Encerrado marcados, o legado sem classificação
+  // (`prevista` / `sem_operacao`) passa inteiro, como antes das opções novas.
+  const legadoPassa = selected.has("compensando") && selected.has("encerrado");
   return (clienteId: string | null | undefined) => {
-    if (semFiltro) return true;
-    if (!clienteId) return algumPrincipal;
+    if (modo.tudo) return true;
+    if (!clienteId) return algumEmpresa;
     const status = statusMap.get(clienteId);
-    if (extras.some((s) => pertenceAoStatusExtra(s, status))) return true;
-    // Status extra marcado no cadastro só aparece quando a opção dele está marcada.
-    if (isStatusExtra(status)) return false;
-    if (todosPrincipais) return true;
-    // Sem linha de status: fail-open só para os status principais.
-    if (!status) return algumPrincipal;
-    return selected.has(status);
+    if (modo.teses.some((s) => pertenceAoStatusTese(s, teseFlags.get(clienteId), status))) {
+      return true;
+    }
+    // Empresa cujo status geral é "só Reporto" / "Recuperação Judicial" só
+    // entra pelo lado "por tese", nunca como status de empresa.
+    if (isStatusFiltroTese(status)) return false;
+    if (status && selected.has(status)) return true;
+    if (!algumEmpresa) return false;
+    // Sem linha de status: fail-open só para os status de empresa.
+    if (!status) return true;
+    return legadoPassa && (status === "prevista" || status === "sem_operacao");
   };
+}
+
+/** Quantas empresas cada opção do seletor traria sozinha (badge = lista). */
+export function contarPorFiltroStatus(
+  ids: string[],
+  statusMap: Map<string, StatusCompensacao>,
+  teseFlags: Map<string, ClienteTeseFlags> = new Map(),
+): Partial<Record<StatusCompensacao, number>> {
+  return Object.fromEntries(
+    STATUS_FILTRO_VALUES.map((status) => [
+      status,
+      ids.filter(makeStatusFilterPredicate(new Set([status]), statusMap, teseFlags)).length,
+    ]),
+  );
 }
 
 export function makeRamoFilterPredicate(
@@ -168,8 +314,9 @@ export function filtrarIdsRecorteGerencial(
   ramo: RamoGerencialFiltro,
   statusMap: Map<string, StatusCompensacao>,
   ramosMap: Map<string, ClienteRamoFlags>,
+  teseFlags: Map<string, ClienteTeseFlags> = new Map(),
 ): Set<string> {
-  const porStatus = makeStatusFilterPredicate(selectedStatuses, statusMap);
+  const porStatus = makeStatusFilterPredicate(selectedStatuses, statusMap, teseFlags);
   const porRamo = makeRamoFilterPredicate(ramo, ramosMap);
   return new Set(ids.filter((id) => porStatus(id) && porRamo(id)));
 }
@@ -224,5 +371,7 @@ export function recorteSemMovimentoMensal(
 ): boolean {
   if (ramo === "ressarcimento" || ramo === "recuperacao_judicial") return true;
   if (selectedStatuses.size === 0) return false;
-  return !STATUS_COMPENSACAO_VALUES.some((s) => selectedStatuses.has(s));
+  // Reporto / judicial não têm compensação mensal: só o status de empresa
+  // "Total Compensados" ou "Encerrado" segue o período.
+  return !["compensando", "encerrado"].some((s) => selectedStatuses.has(s as StatusCompensacao));
 }

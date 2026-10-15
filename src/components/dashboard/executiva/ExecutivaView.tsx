@@ -24,7 +24,7 @@ import {
   honorarioDe,
   resumirFinanceiroPorCliente,
 } from "@/lib/operacional-analytics";
-import { STATUS_FILTRO_EXTRAS, normalizarStatusCompensacao } from "@/lib/gerencial-filters";
+import { STATUS_FILTRO_EXTRAS, modoFiltroStatus, normalizarStatusCompensacao } from "@/lib/gerencial-filters";
 import { makeRecorteGerencial } from "@/lib/recorte-gerencial";
 import { ramosDoCliente } from "@/lib/esteira-acompanhamento";
 import { TIPO_RECUPERACAO_LABEL } from "@/lib/tipo-recuperacao";
@@ -114,9 +114,22 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
     });
     const ids = recorte.recortePara(ramoFiltro, statusFiltro);
     const { ramoCounts, statusCounts } = recorte.contagens(ramoFiltro, statusFiltro);
+    // Só opções "por tese" marcadas (ex.: Reporto): os cards passam a mostrar
+    // essa tese em toda empresa que a tem, qualquer que seja o status dela.
+    // Com status de empresa junto, os cards principais seguem só esse lado.
+    const modoStatus = modoFiltroStatus(statusFiltro);
+    const tipoTeseEfetivo = modoStatus.soTese
+      ? teseFiltroAtivo(tipoTeseFiltro)
+        ? tipoTeseFiltro.filter((c) => modoStatus.codigosTese.includes(c))
+        : modoStatus.codigosTese
+      : tipoTeseFiltro;
+    const idsCardsPrincipais =
+      modoStatus.tudo || modoStatus.soTese
+        ? ids
+        : recorte.recortePara(ramoFiltro, new Set<StatusCompensacao>(modoStatus.empresa));
     const clientes = data.clientes.filter((cliente) => ids.has(cliente.id));
     const compsRawPeriodo = filterCompsByDashboardPeriod(
-      data.compsRaw.filter((row) => ids.has(row.cliente_id)),
+      data.compsRaw.filter((row) => idsCardsPrincipais.has(row.cliente_id)),
       periodo,
     );
     // Apurado, compensado e saldo são estoque: subtraem tudo que foi compensado
@@ -128,32 +141,33 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       data.creditos,
       data.teses,
       data.processos,
-      tipoTeseFiltro,
+      tipoTeseEfetivo,
       { mesFim: periodo.mode === "accumulated" ? null : dashboardPeriodEndMonth(periodo, periodoOptionsBase) },
     );
     const totaisBase = new Map(data.totais.map((total) => [total.cliente_id, total]));
     const totais = totaisCalculados.map((total) =>
-      !teseFiltroAtivo(tipoTeseFiltro) && total.sem_base_financeira
+      !teseFiltroAtivo(tipoTeseEfetivo) && total.sem_base_financeira
         ? { ...total, ...(totaisBase.get(total.cliente_id) ?? {}) }
         : total,
     );
-    const processosDoCliente = data.processos.filter((row) => ids.has(row.cliente_id));
+    const totaisPrincipais = totais.filter((total) => idsCardsPrincipais.has(total.cliente_id));
+    const processosDoCliente = data.processos.filter((row) => idsCardsPrincipais.has(row.cliente_id));
     const processos = filterProcessosByDashboardPeriod(
-      filtrarProcessosPorTipoTese(processosDoCliente, tipoTeseFiltro),
+      filtrarProcessosPorTipoTese(processosDoCliente, tipoTeseEfetivo),
       periodo,
     );
     const creditos = filtrarCreditosPorTipoTese(
-      data.creditos.filter((row) => ids.has(row.cliente_id)),
+      data.creditos.filter((row) => idsCardsPrincipais.has(row.cliente_id)),
       data.teses,
-      tipoTeseFiltro,
+      tipoTeseEfetivo,
     );
     const comps = compensacoesCanonicas(
       compsRawPeriodo,
       data.teses,
       processosDoCliente,
-      tipoTeseFiltro,
+      tipoTeseEfetivo,
     );
-    const compsReporto = teseFiltroAtivo(tipoTeseFiltro)
+    const compsReporto = teseFiltroAtivo(tipoTeseEfetivo)
       ? []
       : compensacoesCanonicas(
           compsRawPeriodo,
@@ -163,9 +177,9 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
         );
     const statusRows = data.statusRows.filter((row) => ids.has(row.cliente_id));
     const { teses } = data;
-    const apurado = totais.reduce((s, t) => s + t.credito_apurado, 0);
-    const compensado = totais.reduce((s, t) => s + t.total_compensado, 0);
-    const saldo = totais.reduce((s, t) => s + t.saldo_restante, 0);
+    const apurado = totaisPrincipais.reduce((s, t) => s + t.credito_apurado, 0);
+    const compensado = totaisPrincipais.reduce((s, t) => s + t.total_compensado, 0);
+    const saldo = totaisPrincipais.reduce((s, t) => s + t.saldo_restante, 0);
     const honorarios = comps.reduce((s, c) => s + honorarioDe(c), 0);
     const pctUtilizado = apurado > 0 ? (compensado / apurado) * 100 : 0;
 
@@ -211,7 +225,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       .filter((r) => r.compensado > 0)
       .sort((a, b) => b.compensado - a.compensado);
 
-    const saldoPorCliente = new Map(totais.map((t) => [t.cliente_id, t]));
+    const saldoPorCliente = new Map(totaisPrincipais.map((t) => [t.cliente_id, t]));
     const semTese = clientes
       .filter((c) => !c.tese_ativa_id)
       .map((c) => ({
@@ -235,7 +249,7 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       .sort((a, b) => a.empresa.localeCompare(b.empresa, "pt-BR"));
 
     const nome = new Map(clientes.map((c) => [c.id, c.empresa]));
-    const top = [...totais]
+    const top = [...totaisPrincipais]
       .filter((t) => t.credito_apurado > 0)
       .sort((a, b) => b.credito_apurado - a.credito_apurado)
       .slice(0, 10)
@@ -252,6 +266,13 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
       recuperacaoJudicial,
       clientesRecebimentos,
       clientesJudicial,
+      mostrarReporto: modoStatus.tudo || modoStatus.teses.includes("reporto"),
+      mostrarJudicial: modoStatus.tudo || modoStatus.teses.includes("recuperacao_judicial"),
+      /** Rótulo dos cards principais quando o recorte é só por tese. */
+      recorteTeseLabel: modoStatus.soTese
+        ? modoStatus.teses.map((s) => STATUS_COMPENSACAO_LABELS[s]).join(" + ")
+        : null,
+      clientesPrincipais: idsCardsPrincipais.size,
       apurado,
       compensado,
       saldo,
@@ -315,17 +336,24 @@ export const ExecutivaView = memo(function ExecutivaView({ data, navigate }: Pro
         </span>
       </div>
       <div className="animate-slide-up delay-1 grid grid-cols-2 xl:grid-cols-4 gap-4" role="region" aria-label="KPIs da carteira">
-        <KpiCard label="Crédito apurado" raw={m.apurado} format={compactCurrency} sub={`${m.clientes} clientes ativos · ${m.porTese.filter((t) => t.apurado > 0).length} teses com crédito`} icon={<Layers />} />
-        <KpiCard label="Total compensado" raw={m.compensado} format={compactCurrency} sub={`${m.pctUtilizado.toFixed(1)}% do apurado utilizado`} tom="green" icon={<TrendingUp />} />
+        <KpiCard label={m.recorteTeseLabel ? "Valor levantado" : "Crédito apurado"} raw={m.apurado} format={compactCurrency} sub={m.recorteTeseLabel ? `${m.clientesPrincipais} empresa${m.clientesPrincipais === 1 ? "" : "s"} com ${m.recorteTeseLabel} · qualquer status` : `${m.clientesPrincipais} clientes ativos · ${m.porTese.filter((t) => t.apurado > 0).length} teses com crédito`} icon={<Layers />} />
+        <KpiCard label={m.recorteTeseLabel ? "Utilizado / recebido" : "Total compensado"} raw={m.compensado} format={compactCurrency} sub={`${m.pctUtilizado.toFixed(1)}% do ${m.recorteTeseLabel ? "levantado" : "apurado"} utilizado`} tom="green" icon={<TrendingUp />} />
         <KpiCard label="Honorários acumulados" raw={m.honorarios} format={compactCurrency} sub={`economia líquida dos clientes ${compactCurrency(m.compensado - m.honorarios)}`} tom="gold" icon={<Coins />} />
-        <KpiCard label="Saldo remanescente" raw={m.saldo} format={compactCurrency} sub="a compensar em contratos abertos" tom={m.saldo > 0 ? "navy" : "muted"} icon={<PieChart />} />
+        <KpiCard label={m.recorteTeseLabel ? "Saldo em aberto" : "Saldo remanescente"} raw={m.saldo} format={compactCurrency} sub={m.recorteTeseLabel ? `só ${m.recorteTeseLabel}; fora do saldo a compensar` : "a compensar em contratos abertos"} tom={m.saldo > 0 ? "navy" : "muted"} icon={<PieChart />} />
       </div>
-      {/* Fora do saldo a compensar, mas somados de toda empresa do recorte —
-          o status geral (ex.: Total Compensados) não esconde essas teses. */}
-      <div className="animate-slide-up delay-1 grid grid-cols-1 sm:grid-cols-2 gap-4" role="region" aria-label="Teses fora do saldo">
-        <KpiCard size="md" label="Possíveis recebimentos (Reporto)" raw={m.possiveisRecebimentos} format={compactCurrency} sub={`${m.clientesRecebimentos} empresa${m.clientesRecebimentos === 1 ? "" : "s"} · somado qualquer que seja o status da empresa`} tom="muted" icon={<Coins />} />
-        <KpiCard size="md" label="Recuperação judicial (em julgamento)" raw={m.recuperacaoJudicial} format={compactCurrency} sub={`${m.clientesJudicial} empresa${m.clientesJudicial === 1 ? "" : "s"} · via judicial fora do saldo a compensar`} tom="muted" icon={<Layers />} />
-      </div>
+      {/* Fora do saldo a compensar. Aparecem só quando a opção "por tese"
+          correspondente está marcada (ou sem filtro): com só "Total
+          Compensados" marcado, Reporto e judicial saem da tela inteira. */}
+      {(m.mostrarReporto || m.mostrarJudicial) && !m.recorteTeseLabel && (
+        <div className="animate-slide-up delay-1 grid grid-cols-1 sm:grid-cols-2 gap-4" role="region" aria-label="Teses fora do saldo">
+          {m.mostrarReporto && (
+            <KpiCard size="md" label="Possíveis recebimentos (Reporto)" raw={m.possiveisRecebimentos} format={compactCurrency} sub={`${m.clientesRecebimentos} empresa${m.clientesRecebimentos === 1 ? "" : "s"} com Reporto cadastrado · qualquer status`} tom="muted" icon={<Coins />} />
+          )}
+          {m.mostrarJudicial && (
+            <KpiCard size="md" label="Recuperação judicial (em julgamento)" raw={m.recuperacaoJudicial} format={compactCurrency} sub={`${m.clientesJudicial} empresa${m.clientesJudicial === 1 ? "" : "s"} com via judicial · fora do saldo a compensar`} tom="muted" icon={<Layers />} />
+          )}
+        </div>
+      )}
 
       {recorteAtivo && (
         <Panel

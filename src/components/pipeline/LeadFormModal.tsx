@@ -8,11 +8,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUpdateLead } from "@/hooks/data/useLeads";
+import { useEquipeComercial } from "@/hooks/data/useEquipeComercial";
 import { toast } from "sonner";
 import { Send } from "lucide-react";
 import { FATURAMENTO_FAIXAS, REGIMES, SEGMENTOS } from "@/lib/lead-constants";
 import { ORIGENS } from "@/lib/pipeline-constants";
+import { PRODUTOS_LEAD, PRODUTO_LEAD_PADRAO, isProdutoLead } from "@/lib/produto-lead";
+import { closersDaEquipe, sdrsDaEquipe } from "@/lib/equipe-comercial";
 import { z } from "zod";
+
+/** Valor do select quando o lead fica sem SDR/closer (Radix não aceita ""). */
+const SEM_RESPONSAVEL = "__nenhum";
 
 const EMPTY_FORM = {
   nome: "",
@@ -25,6 +31,9 @@ const EMPTY_FORM = {
   segmento: "",
   origem: "manual",
   observacoes: "",
+  produto: PRODUTO_LEAD_PADRAO as string,
+  sdr_id: SEM_RESPONSAVEL,
+  closer_id: SEM_RESPONSAVEL,
 };
 
 const schema = z.object({
@@ -38,7 +47,12 @@ const schema = z.object({
   segmento: z.string().min(1, "Selecione segmento"),
   origem: z.string().min(1, "Selecione origem"),
   observacoes: z.string().optional(),
+  produto: z.string().refine(isProdutoLead, "Selecione o produto"),
+  sdr_id: z.string(),
+  closer_id: z.string(),
 });
+
+const responsavelOuNull = (v: string) => (v === SEM_RESPONSAVEL ? null : v);
 
 export type LeadFormFields = {
   id: string;
@@ -52,6 +66,9 @@ export type LeadFormFields = {
   segmento: string;
   origem: string;
   observacoes: string | null;
+  produto?: string | null;
+  sdr_id?: string | null;
+  closer_id?: string | null;
 };
 
 interface Props {
@@ -66,6 +83,7 @@ interface Props {
 export function LeadFormModal({ open, onClose, onSaved, lead, defaults }: Props) {
   const { user } = useAuth();
   const updateLeadMutation = useUpdateLead();
+  const { data: equipe = [] } = useEquipeComercial(open);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const isEdit = Boolean(lead);
@@ -84,6 +102,9 @@ export function LeadFormModal({ open, onClose, onSaved, lead, defaults }: Props)
         segmento: lead.segmento ?? "",
         origem: lead.origem || "manual",
         observacoes: lead.observacoes ?? "",
+        produto: isProdutoLead(lead.produto) ? lead.produto : PRODUTO_LEAD_PADRAO,
+        sdr_id: lead.sdr_id ?? SEM_RESPONSAVEL,
+        closer_id: lead.closer_id ?? SEM_RESPONSAVEL,
       });
     } else {
       setForm({ ...EMPTY_FORM, ...defaults });
@@ -113,6 +134,9 @@ export function LeadFormModal({ open, onClose, onSaved, lead, defaults }: Props)
             segmento: parsed.data.segmento,
             faturamento_faixa: parsed.data.faturamento_faixa,
             observacoes: parsed.data.observacoes || "",
+            produto: parsed.data.produto,
+            sdr_id: responsavelOuNull(parsed.data.sdr_id),
+            closer_id: responsavelOuNull(parsed.data.closer_id),
           },
         });
         onSaved();
@@ -135,6 +159,9 @@ export function LeadFormModal({ open, onClose, onSaved, lead, defaults }: Props)
       segmento: parsed.data.segmento,
       origem: parsed.data.origem,
       observacoes: parsed.data.observacoes || "",
+      produto: parsed.data.produto,
+      sdr_id: responsavelOuNull(parsed.data.sdr_id),
+      closer_id: responsavelOuNull(parsed.data.closer_id),
       status: "novo",
       status_funil: "novo",
       created_by: user?.id,
@@ -217,6 +244,34 @@ export function LeadFormModal({ open, onClose, onSaved, lead, defaults }: Props)
               <Select value={form.origem} onValueChange={(v) => set("origem", v)} disabled={isEdit}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>{ORIGENS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1 col-span-2">
+              <Label className="text-xs">Produto *</Label>
+              <Select value={form.produto} onValueChange={(v) => set("produto", v)}>
+                <SelectTrigger aria-label="Produto"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>{PRODUTOS_LEAD.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            {/* Quem cuida do lead. Lista pode ficar solta (sem SDR) de propósito. */}
+            <div className="space-y-1">
+              <Label className="text-xs">SDR</Label>
+              <Select value={form.sdr_id} onValueChange={(v) => set("sdr_id", v)}>
+                <SelectTrigger aria-label="SDR"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SEM_RESPONSAVEL}>Solto (sem SDR)</SelectItem>
+                  {sdrsDaEquipe(equipe).map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.full_name || "Sem nome"}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Closer</Label>
+              <Select value={form.closer_id} onValueChange={(v) => set("closer_id", v)}>
+                <SelectTrigger aria-label="Closer"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SEM_RESPONSAVEL}>Sem closer</SelectItem>
+                  {closersDaEquipe(equipe).map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.full_name || "Sem nome"}</SelectItem>)}
+                </SelectContent>
               </Select>
             </div>
           </div>

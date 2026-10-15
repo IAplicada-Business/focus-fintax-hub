@@ -189,10 +189,12 @@ describe("reconciliação financeira da Visão Operacional", () => {
 
     expect([...idsReporto]).toEqual(["a"]);
     expect(dashboard).toEqual(carteira);
+    // O lançamento do processo de Reporto (50) fica fora do Total Compensado
+    // padrão, mas é o "recebido" quando a própria tese é inspecionada (AGF 15/10).
     expect(dashboard[0]).toMatchObject({
       credito_apurado: 5_000,
-      total_compensado: 0,
-      saldo_restante: 5_000,
+      total_compensado: 50,
+      saldo_restante: 4_950,
     });
     // Filtro de tese = sempre as 6 teses oficiais, na ordem padronizada.
     expect(listarTiposTese(PROCESSOS, creditos, TESES).map((option) => option.value))

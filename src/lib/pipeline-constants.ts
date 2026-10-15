@@ -74,7 +74,8 @@ export function getScoreLabel(score: number | null): string {
 
 export const ORIGENS = [
   { value: "manual", label: "Manual" },
-  { value: "referencia", label: "Referência" },
+  { value: "referencia", label: "Indicação" },
+  { value: "parceria", label: "Parceria" },
   { value: "prospeccao_ativa", label: "Prospecção Ativa" },
   { value: "meta_ads", label: "Meta Ads" },
   { value: "formulario_lp", label: "Formulário LP" },

@@ -8,7 +8,9 @@ import {
   createLead,
   updateLead,
   deleteLeads,
+  atribuirLeads,
   type LeadUpdatePayload,
+  type AtribuicaoLeads,
 } from "@/services/leadsService";
 import type { Database } from "@/integrations/supabase/types";
 import { toastError } from "@/lib/handle-error";
@@ -98,5 +100,18 @@ export function useDeleteLeads() {
       toast.success(ids.length === 1 ? "Lead excluído" : `${ids.length} leads excluídos`);
     },
     onError: (err) => toastError(err, "Erro ao excluir lead"),
+  });
+}
+
+export function useAtribuirLeads() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, atribuicao }: { ids: string[]; atribuicao: AtribuicaoLeads }) => atribuirLeads(ids, atribuicao),
+    onSuccess: (_, { ids }) => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(ids.length === 1 ? "Lead atribuído" : `${ids.length} leads atribuídos`);
+    },
+    onError: (err) => toastError(err, "Erro ao atribuir leads"),
   });
 }
