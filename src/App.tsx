@@ -33,7 +33,6 @@ const Diagnostico = lazy(() => import("@/pages/Diagnostico"));
 const MapaPublico = lazy(() => import("@/pages/MapaPublico"));
 const MotorConfig = lazy(() => import("@/pages/MotorConfig"));
 const EsteiraSlaConfig = lazy(() => import("@/pages/EsteiraSlaConfig"));
-const BotConfig = lazy(() => import("@/pages/BotConfig"));
 const ResumoSemanalConfig = lazy(() => import("@/pages/ResumoSemanalConfig"));
 const Intimacoes = lazy(() => import("@/pages/Intimacoes"));
 const OAuthConsent = lazy(() => import("@/pages/OAuthConsent"));
@@ -117,7 +116,7 @@ const App = () => (
                         <Route path="/benchmarks" element={<Benchmarks />} />
                         <Route path="/configuracoes/motor" element={<MotorConfig />} />
                         <Route path="/configuracoes/esteira-sla" element={<EsteiraSlaConfig />} />
-                        <Route path="/configuracoes/bot" element={<BotConfig />} />
+                        <Route path="/configuracoes/bot" element={<Navigate to="/atendimento" replace />} />
                         <Route path="/configuracoes/resumo-semanal" element={<ResumoSemanalConfig />} />
                         <Route path="/usuarios" element={<UserManagement />} />
                         <Route path="*" element={<NotFound />} />
