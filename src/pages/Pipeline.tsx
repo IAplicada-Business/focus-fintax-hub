@@ -233,17 +233,20 @@ export default function Pipeline() {
         </div>
       </div>
 
-      {/* Produto, responsável e período — produto e período ficam salvos no navegador. */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Abas de empresa à esquerda, sozinhas; filtros do funil à direita para
+          não disputar espaço com elas. Produto e período ficam salvos no navegador. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <ProdutoFiltroChips value={filtroProduto} onChange={setFiltroProduto} />
-        <ResponsavelSelect value={filtroResponsavel} onChange={setFiltroResponsavel} equipe={equipe} />
-        <PeriodoSelect value={periodo} onChange={trocarPeriodo} />
-        {comFiltro && (
-          <span className="text-xs text-ink-35 tabular-nums">
-            {filteredLeads.length} de {leads.length} leads
-            {periodo.tipo !== "tudo" && <> · período: {periodoLabel(periodo)}</>}
-          </span>
-        )}
+        <div className="flex flex-wrap items-center justify-end gap-2 ml-auto">
+          {comFiltro && (
+            <span className="text-xs text-ink-35 tabular-nums">
+              {filteredLeads.length} de {leads.length} leads
+              {periodo.tipo !== "tudo" && <> · período: {periodoLabel(periodo)}</>}
+            </span>
+          )}
+          <ResponsavelSelect value={filtroResponsavel} onChange={setFiltroResponsavel} equipe={equipe} />
+          <PeriodoSelect value={periodo} onChange={trocarPeriodo} />
+        </div>
       </div>
 
       {/* Números */}
