@@ -12,6 +12,7 @@ import { ORIGEM_LEAD_LABEL } from "@/lib/comercial-analytics";
 import type { MembroEquipeComercial } from "@/lib/equipe-comercial";
 import type { PipelineLead } from "@/pages/Pipeline";
 import { ProdutoBadge, ResponsaveisChip } from "./FiltrosComerciais";
+import { useConversasNaoLidas } from "@/hooks/data/useConversasNaoLidas";
 
 interface Props {
   leads: PipelineLead[];
@@ -22,6 +23,7 @@ interface Props {
 const PAGE_SIZE = 25;
 
 export function PipelineList({ leads, onLeadClick, equipe = [] }: Props) {
+  const naoLidas = useConversasNaoLidas();
   const [search, setSearch] = useState("");
   const [segFilter, setSegFilter] = useState("all");
   const [regimeFilter, setRegimeFilter] = useState("all");
@@ -156,8 +158,18 @@ export function PipelineList({ leads, onLeadClick, equipe = [] }: Props) {
               const stageColor = STAGE_COLORS[lead.status_funil] || "";
 
               return (
-                <TableRow key={lead.id} className={`cursor-pointer hover:bg-[rgba(8,17,29,0.025)] ${idx % 2 === 0 ? "bg-[rgba(8,17,29,0.012)]" : ""}`} onClick={() => onLeadClick(lead.id)}>
-                  <TableCell className="font-medium">{lead.empresa}</TableCell>
+                <TableRow key={lead.id} className={`cursor-pointer hover:bg-[rgba(8,17,29,0.025)] ${naoLidas.temNova(lead.whatsapp) ? "bg-dash-green/[0.06] shadow-[inset_3px_0_0_var(--dash-green)]" : idx % 2 === 0 ? "bg-[rgba(8,17,29,0.012)]" : ""}`} onClick={() => onLeadClick(lead.id)}>
+                  <TableCell className="font-medium">
+                    <span className="inline-flex items-center gap-2">
+                      {lead.empresa}
+                      {naoLidas.temNova(lead.whatsapp) && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-dash-green px-1.5 py-0.5 text-[10px] font-bold text-white">
+                          <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                          Respondeu
+                        </span>
+                      )}
+                    </span>
+                  </TableCell>
                   <TableCell><ProdutoBadge produto={lead.produto} /></TableCell>
                   <TableCell>
                     <ResponsaveisChip sdrId={lead.sdr_id} closerId={lead.closer_id} equipe={equipe} compacto={false} />

@@ -23,6 +23,7 @@ import type { SlaInfo } from "@/lib/esteira-acompanhamento";
 import type { InboxConversa } from "@/services/atendimentoService";
 import type { PipelineLead } from "@/pages/Pipeline";
 import { useAuth } from "@/hooks/useAuth";
+import { useConversasNaoLidas } from "@/hooks/data/useConversasNaoLidas";
 import { ConvertClientModal } from "./ConvertClientModal";
 import { ProdutoBadge, ResponsaveisChip } from "./FiltrosComerciais";
 import type { MembroEquipeComercial } from "@/lib/equipe-comercial";
@@ -70,6 +71,7 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
 
   const slaPorEtapa = useMemo(() => new Map(slaConfig.map((c) => [c.etapa as string, c.sla_dias])), [slaConfig]);
   const indiceConversas = useMemo(() => indexarConversas(conversas), [conversas]);
+  const naoLidas = useConversasNaoLidas();
 
   const effectiveLeads = useMemo(() => {
     if (Object.keys(optimisticMoves).length === 0) return leads;
@@ -232,6 +234,7 @@ export function PipelineKanban({ leads, onLeadClick, onRefresh, exceptionLeadIds
                             ultimaMensagem={conversa?.ultima_texto ?? null}
                             equipe={equipe}
                             tarefa={tarefasPorLead?.get(lead.id)}
+                            novaMensagem={naoLidas.temNova(lead.whatsapp)}
                           />
                         );
                       })}
@@ -282,6 +285,8 @@ interface CardProps {
   ultimaMensagem: string | null;
   equipe: MembroEquipeComercial[];
   tarefa?: ResumoTarefasLead;
+  /** Lead mandou mensagem que este usuário ainda não viu no atendimento. */
+  novaMensagem?: boolean;
 }
 
 const TAREFA_BADGE: Record<ResumoTarefasLead["status"], string> = {
@@ -290,7 +295,7 @@ const TAREFA_BADGE: Record<ResumoTarefasLead["status"], string> = {
   proxima: "bg-ink-06 text-ink-60 border-transparent",
 };
 
-function LeadCard({ lead, index, onClick, onConversa, isException, userRole, isDragDisabled, sla, estadoConversa: estado, ultimaMensagem, equipe, tarefa }: CardProps) {
+function LeadCard({ lead, index, onClick, onConversa, isException, userRole, isDragDisabled, sla, estadoConversa: estado, ultimaMensagem, equipe, tarefa, novaMensagem = false }: CardProps) {
   const scoreLabel = getScoreLabel(lead.score_lead);
   const scoreConf = SCORE_CONFIG[scoreLabel];
   const potMin = lead.relatorios_leads?.[0]?.estimativa_total_minima || 0;
@@ -308,16 +313,27 @@ function LeadCard({ lead, index, onClick, onConversa, isException, userRole, isD
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           role="listitem"
-          aria-label={`${lead.empresa} — Score ${scoreLabel}, ${sla.dias} dias na etapa`}
+          aria-label={`${lead.empresa} — Score ${scoreLabel}, ${sla.dias} dias na etapa${novaMensagem ? ", respondeu no WhatsApp" : ""}`}
           aria-roledescription="card arrastável"
           onClick={onClick}
           className={cn(
             "group relative bg-white rounded-xl border p-3 cursor-pointer transition-all hover:shadow-soft-hover hover:-translate-y-px",
-            sla.status === "estourado" ? "border-dash-red/30" : sla.status === "atencao" ? "border-dash-amber/30" : "border-ink-06",
+            novaMensagem
+              ? "border-dash-green/60 ring-2 ring-dash-green/25 bg-dash-green/[0.04]"
+              : sla.status === "estourado" ? "border-dash-red/30" : sla.status === "atencao" ? "border-dash-amber/30" : "border-ink-06",
             snapshot.isDragging && "shadow-lg rotate-1 border-gold",
             isDragDisabled && "cursor-default",
           )}
         >
+          {novaMensagem && (
+            <span className="absolute -top-1.5 right-3 inline-flex items-center gap-1 rounded-full bg-dash-green px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+              </span>
+              Respondeu
+            </span>
+          )}
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-bold text-navy leading-tight truncate">{lead.empresa}</p>
@@ -368,13 +384,13 @@ function LeadCard({ lead, index, onClick, onConversa, isException, userRole, isD
               }}
               onMouseDown={(e) => e.stopPropagation()}
               disabled={!lead.whatsapp}
-              className={cn("inline-flex items-center gap-1 text-[10px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-default", conv.cls)}
+              className={cn("inline-flex items-center gap-1 text-[10px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-default", novaMensagem ? "text-dash-green" : conv.cls)}
               title={lead.whatsapp ? conv.title : "Lead sem WhatsApp"}
             >
               {conv.icon === "bot" ? <Bot className="h-3.5 w-3.5" /> : <MessageCircle className="h-3.5 w-3.5" />}
-              {estado === "robo" ? "Robô" : estado === "aguardando_nos" ? "Responder" : estado === "aguardando_lead" ? "Enviado" : "WhatsApp"}
+              {novaMensagem ? "Nova mensagem" : estado === "robo" ? "Robô" : estado === "aguardando_nos" ? "Responder" : estado === "aguardando_lead" ? "Enviado" : "WhatsApp"}
             </button>
-            {ultimaMensagem && <span className="flex-1 min-w-0 text-[10px] text-ink-35 truncate italic">“{ultimaMensagem}”</span>}
+            {ultimaMensagem && <span className={cn("flex-1 min-w-0 text-[10px] truncate italic", novaMensagem ? "text-navy font-medium" : "text-ink-35")}>“{ultimaMensagem}”</span>}
           </div>
         </div>
       )}
