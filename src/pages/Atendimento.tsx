@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useAtendimentoInbox } from "@/hooks/data/useAtendimentoInbox";
+import { useConversasNaoLidas } from "@/hooks/data/useConversasNaoLidas";
+import { marcarConversaLida } from "@/lib/atendimento-leitura";
 import { useLeadsPipeline } from "@/hooks/data/useLeads";
 import { phonesMatch, phoneDigits } from "@/lib/phone-match";
 import AtendimentoTab from "@/components/pipeline/AtendimentoTab";
@@ -17,7 +19,7 @@ import type { PipelineLead } from "@/pages/Pipeline";
 import type { InboxConversa } from "@/services/atendimentoService";
 
 type FiltroClasse = "todas" | "bot" | "humano";
-type FiltroStatus = "todos" | "aguardando" | "respondido";
+type FiltroStatus = "todos" | "novas" | "aguardando" | "respondido";
 const SEM_RESPONSAVEL = "__sem_responsavel__";
 
 /** Status da conversa a partir do que já temos: quem mandou a última mensagem. */
@@ -94,6 +96,7 @@ export default function Atendimento() {
   const [criarLeadAberto, setCriarLeadAberto] = useState(false);
 
   const inboxQ = useAtendimentoInbox();
+  const naoLidas = useConversasNaoLidas();
   const leadsQ = useLeadsPipeline();
   const conversasReais = inboxQ.data ?? [];
   const leadsReais = (leadsQ.data ?? []) as PipelineLead[];
@@ -125,7 +128,9 @@ export default function Atendimento() {
     return conversas.filter((c) => {
       if (filtro === "bot" && !c.bot_ativo) return false;
       if (filtro === "humano" && c.bot_ativo) return false;
-      if (filtroStatus !== "todos" && statusConversa(c) !== filtroStatus) return false;
+      if (filtroStatus === "novas") {
+        if (!naoLidas.temNova(c.telefone)) return false;
+      } else if (filtroStatus !== "todos" && statusConversa(c) !== filtroStatus) return false;
       if (filtroResponsavel === SEM_RESPONSAVEL && c.assumido_por) return false;
       if (filtroResponsavel !== "todos" && filtroResponsavel !== SEM_RESPONSAVEL && c.assumido_por !== filtroResponsavel) {
         return false;
@@ -143,9 +148,21 @@ export default function Atendimento() {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [conversas, filtro, filtroStatus, filtroResponsavel, busca, leads]);
+  }, [conversas, filtro, filtroStatus, filtroResponsavel, busca, leads, naoLidas]);
 
   const selecionada = conversas.find((c) => c.telefone === selectedTel) ?? null;
+
+  // Conversa aberta (e aba visível) = lida, inclusive mensagens que chegarem com ela aberta.
+  const ultimaSelecionada = selecionada?.ultima_em ?? null;
+  useEffect(() => {
+    if (!selectedTel || usarDemo) return;
+    const marcar = () => {
+      if (document.visibilityState === "visible") marcarConversaLida(selectedTel, ultimaSelecionada);
+    };
+    marcar();
+    document.addEventListener("visibilitychange", marcar);
+    return () => document.removeEventListener("visibilitychange", marcar);
+  }, [selectedTel, ultimaSelecionada, usarDemo]);
   const leadsSel = selectedTel ? leadsDoTelefone(leads, selectedTel) : [];
   const leadAtivo = leadsSel[0] ?? null;
   const leadDefaults = useMemo(
@@ -222,6 +239,7 @@ export default function Atendimento() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos os status</SelectItem>
+                <SelectItem value="novas">Novas mensagens{naoLidas.total > 0 ? ` (${naoLidas.total})` : ""}</SelectItem>
                 <SelectItem value="aguardando">Aguardando resposta</SelectItem>
                 <SelectItem value="respondido">Respondido</SelectItem>
               </SelectContent>
@@ -260,6 +278,7 @@ export default function Atendimento() {
               const titulo = vinculos[0]?.empresa || vinculos[0]?.nome || c.telefone;
               const sub = vinculos[0]?.nome && vinculos[0]?.empresa ? vinculos[0].nome : c.telefone;
               const ativo = c.telefone === selectedTel;
+              const nova = !ativo && naoLidas.temNova(c.telefone);
               return (
                 <button
                   key={c.telefone}
@@ -268,9 +287,12 @@ export default function Atendimento() {
                   className={cn(
                     "w-full text-left px-3 py-2.5 border-b flex gap-3 hover:bg-muted/60 transition-colors",
                     ativo && "bg-primary/8 border-l-2 border-l-primary",
+                    nova && "bg-dash-green/[0.05] border-l-2 border-l-dash-green",
                   )}
+                  aria-label={nova ? `${titulo} — nova mensagem` : undefined}
                 >
-                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                  <div className="relative h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    {nova && <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-dash-green ring-2 ring-card" aria-hidden />}
                     {c.bot_ativo ? (
                       <Bot className="h-4 w-4 text-primary" />
                     ) : (
@@ -279,8 +301,8 @@ export default function Atendimento() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold truncate">{titulo}</p>
-                      <span className="text-[10px] text-muted-foreground shrink-0">{horaLista(c.ultima_em)}</span>
+                      <p className={cn("text-sm truncate", nova ? "font-bold text-foreground" : "font-semibold")}>{titulo}</p>
+                      <span className={cn("text-[10px] shrink-0", nova ? "text-dash-green font-bold" : "text-muted-foreground")}>{horaLista(c.ultima_em)}</span>
                     </div>
                     <p className="text-[11px] text-muted-foreground truncate">{sub}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
@@ -295,7 +317,7 @@ export default function Atendimento() {
                       >
                         {c.bot_ativo ? "Robô" : "Humano"}
                       </Badge>
-                      <p className="text-[11px] text-muted-foreground truncate flex-1">
+                      <p className={cn("text-[11px] truncate flex-1", nova ? "text-foreground font-medium" : "text-muted-foreground")}>
                         {c.ultima_texto || "Sem mensagens"}
                       </p>
                     </div>

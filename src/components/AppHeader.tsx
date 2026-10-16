@@ -3,13 +3,31 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useConversasNaoLidas } from "@/hooks/data/useConversasNaoLidas";
+import { useEnvironment } from "@/hooks/useEnvironment";
+import { pathToAmbiente } from "@/lib/environments";
 import { cn } from "@/lib/utils";
 
 export function AppHeader() {
   const { profile, userRole } = useAuth();
   const navigate = useNavigate();
-  const { notifications, loading: notifLoading } = useNotifications();
+  const { notifications: notifGerais, loading: notifLoading } = useNotifications();
+  const { pathname } = useLocation();
+  const { ambiente } = useEnvironment();
+  const { naoLidas } = useConversasNaoLidas();
+  // Mensagens novas do WhatsApp entram no topo do sino, só no ambiente comercial.
+  const noComercial = (pathToAmbiente(pathname) ?? ambiente) === "comercial";
+  const notifConversas = noComercial
+    ? naoLidas.slice(0, 10).map((c) => ({
+        id: `conversa-${c.telefone}`,
+        type: "mensagem" as const,
+        title: `Nova mensagem · ${c.telefone}`,
+        subtitle: c.ultima_texto || "Mensagem recebida no WhatsApp",
+        href: `/atendimento?tel=${encodeURIComponent(c.telefone)}`,
+      }))
+    : [];
+  const notifications = [...notifConversas, ...notifGerais];
 
   const ROLE_LABELS: Record<string, string> = {
     admin: "Administrador",
@@ -26,8 +44,8 @@ export function AppHeader() {
           <PopoverTrigger asChild>
             <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
               <Bell className="h-5 w-5" />
-              {!notifLoading && notifications.length > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-dash-red" />
+              {(notifConversas.length > 0 || (!notifLoading && notifications.length > 0)) && (
+                <span className={cn("absolute top-1.5 right-1.5 h-2 w-2 rounded-full", notifConversas.length > 0 ? "bg-dash-green" : "bg-dash-red")} />
               )}
             </Button>
           </PopoverTrigger>
@@ -35,7 +53,7 @@ export function AppHeader() {
             <div className="px-4 py-3 border-b border-card-border/70">
               <p className="text-sm font-semibold text-foreground tracking-[-0.005em]">Notificações</p>
             </div>
-            {notifLoading ? (
+            {notifLoading && notifConversas.length === 0 ? (
               <div className="p-4 space-y-3">
                 {[1, 2].map((i) => (
                   <div key={i} className="animate-pulse flex gap-3">
@@ -60,7 +78,7 @@ export function AppHeader() {
                     <span
                       className={cn(
                         "mt-1.5 h-2 w-2 rounded-full flex-shrink-0",
-                        n.type === "warning" ? "bg-amber-500" : "bg-blue-500"
+                        n.type === "mensagem" ? "bg-dash-green" : n.type === "warning" ? "bg-amber-500" : "bg-blue-500"
                       )}
                     />
                     <div>

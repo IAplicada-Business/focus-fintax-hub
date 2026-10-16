@@ -3,6 +3,7 @@ import { LogOut, Lock, ChevronDown, Menu, Briefcase, LayoutDashboard, type Lucid
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEnvironment } from "@/hooks/useEnvironment";
+import { useConversasNaoLidas } from "@/hooks/data/useConversasNaoLidas";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AMBIENTE_LABEL, menuDoAmbiente, pathToAmbiente, type Ambiente, type MenuItem } from "@/lib/environments";
 import logoWhite from "@/assets/logo-agf-fintax-white.svg";
@@ -124,6 +125,7 @@ function isItemActive(item: MenuItem, pathname: string): boolean {
 
 function SidebarNav({ visibleItems, canAccess, isReadOnly, expanded, onNavigate }: SidebarNavProps) {
   const location = useLocation();
+  const { total: novasAtendimento } = useConversasNaoLidas();
   // Estado de abertura por item (key = title); auto-abre se rota bate
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
 
@@ -150,10 +152,19 @@ function SidebarNav({ visibleItems, canAccess, isReadOnly, expanded, onNavigate 
             : "hover:bg-white/[0.06]"
         );
 
+        const novas = item.screenKey === "atendimento" ? novasAtendimento : 0;
         const titleSpan = (
           <span className={cn("text-sm transition-opacity duration-200 flex-1 text-left flex items-center gap-1.5", expanded ? "opacity-100" : "opacity-0")}>
             {item.title}
             {readOnly && <Lock className="h-3 w-3 opacity-60" />}
+            {novas > 0 && (
+              <span
+                className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-dash-green text-white text-[10px] font-bold leading-[18px] text-center tabular-nums"
+                aria-label={`${novas} conversa${novas > 1 ? "s" : ""} com mensagem nova`}
+              >
+                {novas > 99 ? "99+" : novas}
+              </span>
+            )}
           </span>
         );
 
@@ -200,7 +211,10 @@ function SidebarNav({ visibleItems, canAccess, isReadOnly, expanded, onNavigate 
           return (
             <div key={item.title}>
               <NavLink to={item.url} onClick={onNavigate} className={rowClass}>
-                <item.icon className="h-5 w-5 shrink-0" />
+                <span className="relative shrink-0">
+                  <item.icon className="h-5 w-5" />
+                  {novas > 0 && !expanded && <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-dash-green ring-2 ring-sidebar" aria-hidden />}
+                </span>
                 {titleSpan}
                 {chevron}
               </NavLink>
@@ -213,7 +227,10 @@ function SidebarNav({ visibleItems, canAccess, isReadOnly, expanded, onNavigate 
         return (
           <div key={item.title}>
             <button type="button" onClick={() => setOpenMap((prev) => ({ ...prev, [item.title]: !explicitOpen }))} className={rowClass}>
-              <item.icon className="h-5 w-5 shrink-0" />
+              <span className="relative shrink-0">
+                  <item.icon className="h-5 w-5" />
+                  {novas > 0 && !expanded && <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-dash-green ring-2 ring-sidebar" aria-hidden />}
+                </span>
               {titleSpan}
               {expanded && (
                 <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", showChildren ? "rotate-180" : "")} />

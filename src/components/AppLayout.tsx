@@ -1,6 +1,7 @@
 import { useLocation } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppHeader } from "@/components/AppHeader";
+import { NotificacoesAtendimento } from "@/components/atendimento/NotificacoesAtendimento";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
@@ -18,11 +19,17 @@ export function AppLayout({ children }: AppLayoutProps) {
   const isMobile = useIsMobile();
 
   if (isAmbientePicker) {
-    return <div className="min-h-screen w-full">{children}</div>;
+    return (
+      <div className="min-h-screen w-full">
+        <NotificacoesAtendimento />
+        {children}
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen flex w-full bg-sidebar">
+      <NotificacoesAtendimento />
       <AppSidebar />
       <div
         className={cn(
